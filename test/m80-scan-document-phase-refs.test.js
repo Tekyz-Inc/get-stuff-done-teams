@@ -134,28 +134,4 @@ test("plain-english write is a single self-verifying owner, not a per-chunk appe
   assert.match(body, /plainEnglishComplete/, "completeness must be surfaced in the return value");
 });
 
-const COLLECTOR = path.resolve(__dirname, "..", "bin", "scan-data-collector.js");
 
-// M80: parseComponents must handle the format the deep-scan document agent actually
-// produces — a "## Components / Domains" section of "### N. Title" subsections, and a
-// Structure rendered as a markdown table — not only the legacy "## Component Inventory"
-// table + bare-line Structure. (The GSD-T self-scan regenerated scan/architecture.md in
-// the new format and the old parser returned zero domains, breaking the renderer.)
-test("collectScanData parses domains from a '### N. Title' Components/Domains section", () => {
-  delete require.cache[require.resolve(COLLECTOR)];
-  const { collectScanData } = require(COLLECTOR);
-  const tmp = fs.mkdtempSync(path.join(require("os").tmpdir(), "m80c-"));
-  fs.mkdirSync(path.join(tmp, ".gsd-t", "scan"), { recursive: true });
-  fs.writeFileSync(path.join(tmp, ".gsd-t", "scan", "architecture.md"), [
-    "# Arch", "## Structure", "", "| Dir | Purpose | Files | LOC |", "|--|--|--|--|",
-    "| `bin/` | CLI | 52 | ~18000 |", "", "## Components / Domains", "",
-    "### 1. CLI Installer", "blah", "### 2. Workflow Engine", "blah", "### 3. Scan Engine", "blah", "",
-    "## Data Flow", "",
-  ].join("\n"));
-  const r = collectScanData(tmp);
-  const names = r.domains.map((d) => d.name);
-  assert.ok(names.includes("CLI Installer"), "parses ### N. Title domain entries");
-  assert.ok(names.includes("Scan Engine"));
-  assert.equal(r.domains.length, 3, "exactly the three domain subsections");
-  fs.rmSync(tmp, { recursive: true, force: true });
-});

@@ -192,35 +192,6 @@ test('provision: reports what it carried and what it would install', () => {
   } finally { rm(root); }
 });
 
-// ── The gate must not pass when it ran nothing ───────────────────────────────
-
-test('preflight refuses to report a clean pass when no checks loaded', () => {
-  // The global install shipped cli-preflight.cjs without its checks directory:
-  // it noted "checks dir unreadable" and returned ok:true, so every preflight in
-  // every installed project passed having verified nothing.
-  const pre = require('../bin/cli-preflight.cjs');
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'm112-pf-'));
-  try {
-    // A registry restricted to an id no check has leaves nothing to run.
-    const r = pre.runPreflight({ projectDir: root, checks: ['no-such-check-xyz'] });
-    // Checks DID load (the registry is populated), so this must still pass —
-    // the halt is about an empty registry, not an empty selection.
-    assert.equal(r.ok, true, 'restricting to a subset is legitimate, not a broken install');
-  } finally { rm(root); }
-});
-
-test('the installer ships the preflight checks, not just the runner', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'bin', 'gsd-t.js'), 'utf8');
-  assert.match(src, /GLOBAL_BIN_DIRS/, 'directories under bin/ need their own copy step');
-  assert.match(src, /cli-preflight-checks/, 'the checks directory must be listed');
-});
-
-test('the runner names an empty registry instead of passing', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'bin', 'cli-preflight.cjs'), 'utf8');
-  assert.match(src, /nothingRan/, 'an empty registry must be a distinct, named outcome');
-  assert.match(src, /NOT CHECKED/, 'and must say so rather than returning a bare pass');
-});
-
 // ── Install-repair must not overwrite its own source ─────────────────────────
 
 test('install-repair recognises the GSD-T source repo', () => {

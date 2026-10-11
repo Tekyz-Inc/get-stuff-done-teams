@@ -59,19 +59,11 @@ test("deriveProjectRoot: JSONL branch is 2-up from graph-index/ (depth preserved
 
 // ─── T5: No raw literals in bin/ outside resolver + spike allow-list ──────────
 
-// Files where raw `graph.db` is EXPECTED (allow-list)
+// Files where raw `graph.db` is EXPECTED (allow-list). v6 cut the M94 bench
+// spikes (k1-sqlite-stream, store-bakeoff), so only the resolver remains.
 const ALLOWLIST = new Set([
   "gsd-t-graph-store-resolver.cjs", // THE resolver + legacy-path migration constant
-  "gsd-t-graph-k1-sqlite-stream.cjs", // spike-local-store: throwaway bench dir
-  "gsd-t-graph-store-bakeoff.cjs",   // spike-local-store: throwaway bench dir
 ]);
-
-// The spike files MUST carry the marker comment for their allow-listing to be valid
-const SPIKE_FILES_REQUIRING_MARKER = [
-  "gsd-t-graph-k1-sqlite-stream.cjs",
-  "gsd-t-graph-store-bakeoff.cjs",
-];
-const SPIKE_MARKER = "spike-local-store:";
 
 test("no raw .gsd-t/graph.db or bare graph.db literals in bin/ outside resolver + spike allow-list", () => {
   const binDir = path.join(ROOT, "bin");
@@ -105,15 +97,3 @@ test("no raw .gsd-t/graph.db or bare graph.db literals in bin/ outside resolver 
     `Raw graph.db literals found outside allow-list:\n${violations.join("\n")}`);
 });
 
-test("spike-local allow-listed files carry the required spike-local-store: marker", () => {
-  const binDir = path.join(ROOT, "bin");
-  const missing = [];
-  for (const file of SPIKE_FILES_REQUIRING_MARKER) {
-    const content = fs.readFileSync(path.join(binDir, file), "utf8");
-    if (!content.includes(SPIKE_MARKER)) {
-      missing.push(file);
-    }
-  }
-  assert.strictEqual(missing.length, 0,
-    `Spike-local files missing '${SPIKE_MARKER}' marker — allow-list is not valid without it:\n${missing.join("\n")}`);
-});

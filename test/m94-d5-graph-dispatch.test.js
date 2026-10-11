@@ -218,45 +218,6 @@ test("gsd-t graph body routes through the router to the D5 CLI — NOT 'Unknown 
   );
 });
 
-// ─── (d) task-DAG path preserved ─────────────────────────────────────────────
-
-test("gsd-t graph --output json still emits the M44 task DAG (not collateral-damaged)", () => {
-  // The task-DAG verb reads the REAL repo's .gsd-t/domains/ (not the graph index),
-  // so it must run from PROJECT_ROOT — the empty fixture has no tasks. (Only the
-  // graph-QUERY verbs use the fixture, to avoid the real 56 MB index.)
-  const r = runGsdT(["graph", "--output", "json"], { cwd: PROJECT_ROOT });
-  assert.strictEqual(r.status, 0, `gsd-t graph --output json failed with status ${r.status}, stderr: ${r.stderr && r.stderr.slice(0, 200)}`);
-
-  let dag;
-  try {
-    dag = JSON.parse(r.stdout);
-  } catch {
-    assert.fail(`gsd-t graph --output json output is not valid JSON: ${(r.stdout || "").slice(0, 200)}`);
-  }
-
-  // The M44 task DAG has a 'nodes' array (tasks) and 'edges' array (dependencies)
-  assert.ok(
-    Array.isArray(dag.nodes),
-    `Task DAG JSON should have a 'nodes' array, got keys: ${Object.keys(dag || {}).join(", ")}`
-  );
-  // Assert the task-DAG SHAPE (not-collateral-damaged into entity-graph output),
-  // NOT a non-empty node count. A completed milestone legitimately has ZERO live
-  // domains (they're archived at complete-milestone), so `nodes: []` is a valid
-  // state — the invariant is that the DAG path still emits task-DAG-shaped JSON.
-  assert.ok(
-    Array.isArray(dag.nodes) && Array.isArray(dag.edges),
-    `Task DAG JSON should have 'nodes' + 'edges' arrays (task-DAG shape, not entity graph), got keys: ${Object.keys(dag || {}).join(", ")}`
-  );
-  // If any live domains exist, their nodes must look like tasks (id/domain fields).
-  if (dag.nodes.length > 0) {
-    const firstNode = dag.nodes[0];
-    assert.ok(
-      firstNode && (firstNode.id || firstNode.domain),
-      `Task DAG nodes should have 'id' or 'domain' fields (GSD-T task format), got: ${JSON.stringify(firstNode)}`
-    );
-  }
-});
-
 // ─── (e) gsd-t graph index does not throw or hit dead engine ─────────────────
 
 test("gsd-t graph index does not throw and does not hit the dead M20–M21 engine", () => {

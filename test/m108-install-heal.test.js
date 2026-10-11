@@ -42,14 +42,14 @@ function check(dir, extra = []) {
 }
 
 test("a missing tool is found", () => {
-  const dir = fakeProject(["cli-preflight.cjs"]);
+  const dir = fakeProject(["gsd-t-slice-budget.cjs"]);
   const r = check(dir, ["--check"]);
   assert.strictEqual(r.ok, false);
   assert.ok(r.missing.length > 0, "a project with one tool must be reported as incomplete");
 });
 
 test("a missing tool is restored, and the work can continue", () => {
-  const dir = fakeProject(["cli-preflight.cjs"]);
+  const dir = fakeProject(["gsd-t-slice-budget.cjs"]);
   const before = check(dir, ["--check"]);
   const r = check(dir);
   assert.ok(r.repaired.length > 0, "the missing tools must actually be copied in");
@@ -59,7 +59,7 @@ test("a missing tool is restored, and the work can continue", () => {
 });
 
 test("a complete install reports clean and changes nothing", () => {
-  const dir = fakeProject(["cli-preflight.cjs"]);
+  const dir = fakeProject(["gsd-t-slice-budget.cjs"]);
   check(dir); // repair once
   const r = check(dir);
   assert.strictEqual(r.ok, true);
@@ -67,9 +67,9 @@ test("a complete install reports clean and changes nothing", () => {
 });
 
 test("a stale tool — present but different — is refreshed", () => {
-  const dir = fakeProject(["cli-preflight.cjs"]);
+  const dir = fakeProject(["gsd-t-slice-budget.cjs"]);
   check(dir);
-  const victim = path.join(dir, "bin", "cli-preflight.cjs");
+  const victim = path.join(dir, "bin", "gsd-t-slice-budget.cjs");
   fs.writeFileSync(victim, "// an old version\n");
   const stale = check(dir, ["--check"]);
   assert.ok(stale.stale.length > 0, "a file that differs from the package must be spotted");
@@ -84,7 +84,7 @@ test("a folder that is not a GSD-T project is left entirely alone", () => {
 });
 
 test("every repair is written to the shared log", () => {
-  const dir = fakeProject(["cli-preflight.cjs"]);
+  const dir = fakeProject(["gsd-t-slice-budget.cjs"]);
   const before = lib.readLog().entries.length;
   check(dir);
   const after = lib.readLog().entries.length;
@@ -106,13 +106,13 @@ test("a tool missing in several projects is named as an installer problem", () =
 
 test("the expected tool list is read from the installer, never hardcoded", () => {
   const tools = lib.expectedTools(PKG);
-  assert.ok(tools.length > 30, "the list should hold every tool a project needs");
-  assert.ok(tools.includes("gsd-t-verify-gate.cjs"));
+  assert.deepStrictEqual(tools, require(path.join(PKG, "bin", "gsd-t.js")).PROJECT_BIN_TOOLS, "the list should hold every tool a project needs");
+  assert.ok(tools.includes("gsd-t-graph-query-cli.cjs"));
   assert.ok(tools.includes("gsd-t-install-check.cjs"), "the checker must ship with every project");
 });
 
 test("HOOK: a healthy project says nothing", () => {
-  const dir = fakeProject(["cli-preflight.cjs"]);
+  const dir = fakeProject(["gsd-t-slice-budget.cjs"]);
   check(dir); // make it complete
   const r = spawnSync(process.execPath, [HEAL], {
     encoding: "utf8",
@@ -122,7 +122,7 @@ test("HOOK: a healthy project says nothing", () => {
 });
 
 test("HOOK: a broken project is repaired and says so", () => {
-  const dir = fakeProject(["cli-preflight.cjs"]);
+  const dir = fakeProject(["gsd-t-slice-budget.cjs"]);
   const r = spawnSync(process.execPath, [HEAL], {
     encoding: "utf8",
     input: JSON.stringify({ hook_event_name: "SessionStart", cwd: dir }),

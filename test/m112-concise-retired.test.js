@@ -40,8 +40,14 @@ test('the rewriter files are gone from the package', () => {
 
 test('the rewriter no longer propagates to projects or globally', () => {
   const src = fs.readFileSync(INSTALLER, 'utf8');
-  assert.ok(!/"gsd-t-concise-rewrite\.cjs"/.test(src),
-    'a tool that no longer exists must not be listed for copying');
+  // v6: the name now appears ONCE more — in RETIRED_V6, the list of files to
+  // REMOVE. It must not be in either list of files to COPY.
+  for (const list of ['PROJECT_BIN_TOOLS', 'GLOBAL_BIN_TOOLS']) {
+    const i = src.indexOf(`const ${list} = [`);
+    const body = src.slice(i, src.indexOf('\n];', i));
+    assert.ok(!/"gsd-t-concise-rewrite\.cjs"/.test(body),
+      `a tool that no longer exists must not be listed for copying (${list})`);
+  }
 });
 
 test('installing REMOVES the hook from a machine that still has it', () => {
@@ -77,7 +83,7 @@ test('the removal is named, never silent', () => {
     const out = execFileSync('node', [INSTALLER, 'install'], {
       env: { ...process.env, HOME: home }, encoding: 'utf8', stdio: 'pipe',
     });
-    assert.match(out, /Concise-rewrite hook removed/i);
+    assert.match(out, /Removed 1 retired hook\(s\) from settings\.json/i);
   } finally { rm(home); }
 });
 
@@ -97,7 +103,9 @@ test('installing never re-adds it', () => {
 
 test('the marker survives, because removal needs it', () => {
   // Deleting the name would leave the hook running wherever it is installed.
+  // v6: the marker lives in the ONE retired list, and install runs its removal.
+  const { RETIRED_V6 } = require(INSTALLER);
+  assert.ok(RETIRED_V6.hookMarkers.includes('gsd-t-concise-hook'), 'the marker is how a stale hook is found');
   const src = fs.readFileSync(INSTALLER, 'utf8');
-  assert.match(src, /CONCISE_HOOK_MARKER/, 'the marker is how a stale hook is found');
-  assert.match(src, /removeConciseHook/, 'and removal must be wired into install');
+  assert.match(src, /removeRetiredHooks\(SETTINGS_JSON\)/, 'and removal must be wired into install');
 });

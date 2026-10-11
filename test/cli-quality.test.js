@@ -1,7 +1,7 @@
 /**
  * Tests for CLI quality refactoring (Milestone 6)
- * Covers: buildEvent handler map, readProjectDeps, insertGuardSection,
- *         readUpdateCache, addHeartbeatHook, readPyContent
+ * Covers: readProjectDeps, insertGuardSection, readUpdateCache, readPyContent
+ * (v6: the heartbeat hook and its buildEvent were cut)
  * Uses Node.js built-in test runner (node --test)
  */
 
@@ -11,90 +11,14 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 
-const { buildEvent } = require("../scripts/gsd-t-heartbeat.js");
 const {
   readProjectDeps,
   readPyContent,
   insertGuardSection,
   readUpdateCache,
-  addHeartbeatHook,
   readSettingsJson,
   PKG_ROOT,
 } = require("../bin/gsd-t.js");
-
-// ─── buildEvent (handler map refactor) ──────────────────────────────────────
-
-describe("buildEvent", () => {
-  it("returns session_start for SessionStart event", () => {
-    const result = buildEvent({ hook_event_name: "SessionStart", session_id: "s1", source: "cli", model: "opus" });
-    assert.equal(result.evt, "session_start");
-    assert.equal(result.sid, "s1");
-    assert.deepStrictEqual(result.data, { source: "cli", model: "opus" });
-    assert.ok(result.ts);
-  });
-
-  it("returns tool event for PostToolUse", () => {
-    const result = buildEvent({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Read", tool_input: { file_path: "/tmp/x" } });
-    assert.equal(result.evt, "tool");
-    assert.equal(result.tool, "Read");
-    assert.equal(result.agent_id, null);
-  });
-
-  it("PostToolUse includes agent_id when provided", () => {
-    const result = buildEvent({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Bash", tool_input: { command: "ls" }, agent_id: "a1" });
-    assert.equal(result.agent_id, "a1");
-  });
-
-  it("returns agent_spawn for SubagentStart", () => {
-    const result = buildEvent({ hook_event_name: "SubagentStart", session_id: "s1", agent_id: "a1", agent_type: "explore" });
-    assert.equal(result.evt, "agent_spawn");
-    assert.deepStrictEqual(result.data, { agent_id: "a1", agent_type: "explore", parent_id: "s1", tokens: null });
-  });
-
-  it("SubagentStart uses parent_agent_id when provided", () => {
-    const result = buildEvent({ hook_event_name: "SubagentStart", session_id: "s1", agent_id: "a2", agent_type: "explore", parent_agent_id: "a1" });
-    assert.equal(result.data.parent_id, "a1");
-  });
-
-  it("returns agent_stop for SubagentStop with parent_id", () => {
-    const result = buildEvent({ hook_event_name: "SubagentStop", session_id: "s1", agent_id: "a1", agent_type: "explore" });
-    assert.equal(result.evt, "agent_stop");
-    assert.equal(result.data.parent_id, "s1");
-    assert.equal(result.data.agent_id, "a1");
-  });
-
-  it("returns task_done for TaskCompleted", () => {
-    const result = buildEvent({ hook_event_name: "TaskCompleted", session_id: "s1", task_subject: "fix bug", teammate_name: "dev" });
-    assert.equal(result.evt, "task_done");
-    assert.deepStrictEqual(result.data, { task: "fix bug", agent: "dev" });
-  });
-
-  it("returns agent_idle for TeammateIdle", () => {
-    const result = buildEvent({ hook_event_name: "TeammateIdle", session_id: "s1", teammate_name: "dev", team_name: "t1" });
-    assert.equal(result.evt, "agent_idle");
-  });
-
-  it("returns notification for Notification", () => {
-    const result = buildEvent({ hook_event_name: "Notification", session_id: "s1", message: "hello", title: "info" });
-    assert.equal(result.evt, "notification");
-    assert.deepStrictEqual(result.data, { message: "hello", title: "info" });
-  });
-
-  it("returns session_stop for Stop", () => {
-    const result = buildEvent({ hook_event_name: "Stop", session_id: "s1" });
-    assert.equal(result.evt, "session_stop");
-  });
-
-  it("returns session_end for SessionEnd", () => {
-    const result = buildEvent({ hook_event_name: "SessionEnd", session_id: "s1", reason: "user_exit" });
-    assert.equal(result.evt, "session_end");
-    assert.deepStrictEqual(result.data, { reason: "user_exit" });
-  });
-
-  it("returns null for unknown events", () => {
-    assert.equal(buildEvent({ hook_event_name: "Unknown", session_id: "s1" }), null);
-  });
-});
 
 // ─── readProjectDeps ────────────────────────────────────────────────────────
 
@@ -189,35 +113,5 @@ describe("readSettingsJson", () => {
       assert.equal(typeof result, "object");
       assert.ok(!Array.isArray(result));
     }
-  });
-});
-
-// ─── addHeartbeatHook ───────────────────────────────────────────────────────
-
-describe("addHeartbeatHook", () => {
-  it("adds hook to empty event array", () => {
-    const hooks = {};
-    const result = addHeartbeatHook(hooks, "SessionStart", 'node "script.js"');
-    assert.equal(result, true);
-    assert.equal(hooks.SessionStart.length, 1);
-    assert.equal(hooks.SessionStart[0].hooks[0].command, 'node "script.js"');
-    assert.equal(hooks.SessionStart[0].hooks[0].async, true);
-  });
-
-  it("returns false if hook already exists", () => {
-    const hooks = {
-      SessionStart: [{ hooks: [{ command: "node gsd-t-heartbeat.js" }] }],
-    };
-    const result = addHeartbeatHook(hooks, "SessionStart", 'node "gsd-t-heartbeat.js"');
-    assert.equal(result, false);
-  });
-
-  it("adds to existing array without heartbeat", () => {
-    const hooks = {
-      PostToolUse: [{ hooks: [{ command: "other-script.js" }] }],
-    };
-    const result = addHeartbeatHook(hooks, "PostToolUse", 'node "gsd-t-heartbeat.js"');
-    assert.equal(result, true);
-    assert.equal(hooks.PostToolUse.length, 2);
   });
 });

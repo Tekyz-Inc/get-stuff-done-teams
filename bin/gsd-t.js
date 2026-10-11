@@ -18,21 +18,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const readline = require("readline");
 const { execFileSync, spawn: cpSpawn } = require("child_process");
-let debugLedger;
-try {
-  debugLedger = require(path.join(__dirname, "debug-ledger.js"));
-} catch (_) {
-  debugLedger = {
-    readLedger: () => [],
-    appendEntry: () => {},
-    getLedgerStats: () => ({ entryCount: 0, sizeBytes: 0, needsCompaction: false, failedHypotheses: [], passCount: 0, failCount: 0 }),
-    clearLedger: () => {},
-    compactLedger: () => {},
-    generateAntiRepetitionPreamble: () => "",
-  };
-}
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -203,24 +189,6 @@ const {
 } = require("./playwright-bootstrap.cjs");
 const { hasUI } = require("./ui-detection.cjs");
 
-// M100 D1: stack-adaptive storage scaffolder — the sole init-scaffold seam.
-// Presents real alternatives and PAUSES for human approval; never silently
-// picks a logging backend. See .gsd-t/contracts/logging-scaffold-seam-contract.md.
-const { scaffoldLogging } = require("./gsd-t-logging-scaffolder.cjs");
-
-// runLoggingScaffoldStep(projectDir, opts): the init-dispatch integration
-// point. Calls the scaffolder and explicitly checks the envelope's `status`
-// field: on "PAUSED" it halts BEFORE any sink/template write and surfaces
-// alternatives[] to the caller; it only proceeds (halted:false) once a
-// resolved `backend` comes back (fresh approval or a valid recorded choice).
-function runLoggingScaffoldStep(projectDir, opts) {
-  const envelope = scaffoldLogging(Object.assign({ projectDir }, opts || {}));
-  if (envelope.status === "PAUSED") {
-    return { halted: true, alternatives: envelope.alternatives, resumeToken: envelope.resumeToken };
-  }
-  return { halted: false, backend: envelope.backend, envelope };
-}
-
 function readProjectDeps(projectDir) {
   const pkgPath = path.join(projectDir, "package.json");
   if (!fs.existsSync(pkgPath)) return [];
@@ -341,136 +309,6 @@ function getInstalledCommands() {
   }
 }
 
-// ─── Heartbeat ──────────────────────────────────────────────────────────────
-
-const HEARTBEAT_SCRIPT = "gsd-t-heartbeat.js";
-const HEARTBEAT_HOOKS = [
-  "SessionStart", "PostToolUse", "SubagentStart", "SubagentStop",
-  "TaskCompleted", "TeammateIdle", "Notification", "Stop", "SessionEnd"
-];
-
-function installHeartbeat() {
-  ensureDir(SCRIPTS_DIR);
-
-  // Copy heartbeat script
-  const src = path.join(PKG_SCRIPTS, HEARTBEAT_SCRIPT);
-  const dest = path.join(SCRIPTS_DIR, HEARTBEAT_SCRIPT);
-
-  if (!fs.existsSync(src)) {
-    warn("Heartbeat script not found in package — skipping");
-    return;
-  }
-
-  const srcContent = fs.readFileSync(src, "utf8");
-  const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
-
-  if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
-    copyFile(src, dest, HEARTBEAT_SCRIPT);
-  } else {
-    info("Heartbeat script unchanged");
-  }
-
-  // Configure hooks in settings.json
-  const hooksAdded = configureHeartbeatHooks(dest);
-  if (hooksAdded > 0) {
-    success(`${hooksAdded} heartbeat hooks configured in settings.json`);
-  } else {
-    info("Heartbeat hooks already configured");
-  }
-}
-
-function configureHeartbeatHooks(scriptPath) {
-  const parsed = readSettingsJson();
-  if (parsed === null && fs.existsSync(SETTINGS_JSON)) {
-    warn("settings.json has invalid JSON — cannot configure hooks");
-    return 0;
-  }
-  const settings = parsed || {};
-
-  if (!settings.hooks) settings.hooks = {};
-  const cmd = `node "${scriptPath.replace(/\\/g, "\\\\")}"`;
-  let added = 0;
-
-  for (const event of HEARTBEAT_HOOKS) {
-    if (addHeartbeatHook(settings.hooks, event, cmd)) added++;
-  }
-
-  if (added > 0 && !isSymlink(SETTINGS_JSON)) {
-    fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
-  } else if (added > 0) {
-    warn("Skipping settings.json write — target is a symlink");
-  }
-  return added;
-}
-
-function addHeartbeatHook(hooks, event, cmd) {
-  if (!hooks[event]) hooks[event] = [];
-  const hasHeartbeat = hooks[event].some((entry) =>
-    entry.hooks && entry.hooks.some((h) => h.command && h.command.includes(HEARTBEAT_SCRIPT))
-  );
-  if (hasHeartbeat) return false;
-  hooks[event].push({ matcher: "", hooks: [{ type: "command", command: cmd, async: true }] });
-  return true;
-}
-
-// ─── Reader Contract (M93) ──────────────────────────────────────────────────
-// RETIRED the deterministic brevity-guard Stop hook: a pattern-matching gate can
-// only ever be SELECTIVE (it catches the phrasings it enumerates and misses every
-// new one — the whack-a-mole the user hit). Replaced by the every-turn Reader
-// Contract injected by scripts/gsd-t-auto-route.js (the UserPromptSubmit hook):
-// the standard is put in front of the model each turn, applied to ALL replies,
-// instead of a backstop guessing which ones are bad. This function now REMOVES
-// the old Stop hook from any install that still has it.
-
-const BREVITY_GUARD_SCRIPT = "gsd-t-brevity-guard.js";
-
-function uninstallBrevityGuardHook() {
-  const parsed = readSettingsJson();
-  if (parsed === null && fs.existsSync(SETTINGS_JSON)) {
-    warn("settings.json has invalid JSON — cannot remove brevity-guard hook");
-    return;
-  }
-  const settings = parsed || {};
-  if (!settings.hooks || !Array.isArray(settings.hooks.Stop)) {
-    info("Reader Contract active every turn (no legacy brevity-guard hook to remove)");
-    return;
-  }
-  const before = settings.hooks.Stop.length;
-  settings.hooks.Stop = settings.hooks.Stop.filter((entry) =>
-    !(entry.hooks && entry.hooks.some((h) => h.command && h.command.includes(BREVITY_GUARD_SCRIPT)))
-  );
-  if (settings.hooks.Stop.length === before) {
-    info("Reader Contract active every turn (no legacy brevity-guard hook present)");
-    return;
-  }
-  if (!isSymlink(SETTINGS_JSON)) {
-    fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
-    success("Removed legacy brevity-guard Stop hook — Reader Contract now applies every turn");
-  } else {
-    warn("Skipping settings.json write — target is a symlink");
-  }
-}
-
-// ─── Context Meter ──────────────────────────────────────────────────────────
-
-const CONTEXT_METER_SCRIPT = "gsd-t-context-meter.js";
-const CONTEXT_METER_DEPS_DIR = "context-meter";
-const CONTEXT_METER_CONFIG_TEMPLATE = "context-meter-config.json";
-const CONTEXT_METER_CONFIG_DEST = path.join(".gsd-t", "context-meter-config.json");
-const CONTEXT_METER_GITIGNORE_ENTRIES = [
-  ".gsd-t/.context-meter-state.json",
-  ".gsd-t/context-meter.log",
-];
-const CONTEXT_METER_HOOK_MARKER = "gsd-t-context-meter";
-// Canonical global hook — runs the script from the globally-installed npm package.
-// Guarded so it silently exits 0 if the package is not present (non-GSD-T projects).
-const CONTEXT_METER_HOOK_COMMAND =
-  'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-context-meter.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-context-meter.js" || true\'';
-// Legacy command patterns that must be migrated on install/update/init.
-const CONTEXT_METER_STALE_PATTERNS = [
-  /node\s+"?\$CLAUDE_PROJECT_DIR\/scripts\/gsd-t-context-meter\.js"?/,
-];
-
 // M97 — graph-intercept PostToolUse hook on Grep. Runs from the global package;
 // the script itself fails-open (no-op) in non-GSD-T projects / projects without a
 // graph, so it is safe to register globally with a Grep matcher.
@@ -484,26 +322,6 @@ const GRAPH_INTERCEPT_HOOK_COMMAND =
 const READ_INTERCEPT_HOOK_MARKER = "gsd-t-read-intercept";
 const READ_INTERCEPT_HOOK_COMMAND =
   'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-read-intercept.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-read-intercept.js" || true\'';
-
-// M101 — architect-oversight PreToolUse hook on Write|Edit. Same global-package
-// pattern as the intercept hooks: runs the script from the globally-installed
-// package, and the script fails-open (no-op) in non-GSD-T projects / prose writes,
-// so it is safe to register globally with a Write|Edit matcher. It reminds the model
-// to run the Architect's Oversight Six-Stage Pass before writing code (M101).
-const ARCHITECT_HOOK_MARKER = "gsd-t-architect-oversight-guard";
-const ARCHITECT_HOOK_COMMAND =
-  'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-architect-oversight-guard.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-architect-oversight-guard.js" || true\'';
-
-// M105 — worktree-collision PreToolUse hook on Write|Edit. Same global-package
-// pattern. Blocks an edit when ANOTHER GSD-T session is live in the SAME working
-// tree (detected from the per-session heartbeat files already written into
-// .gsd-t/), and tells the user the exact `git worktree add` command to run.
-// Silent when working alone, silent inside a worktree, silent outside a repo,
-// and fail-open on any internal error — it detects a collision, it does not gate
-// correctness.
-const WORKTREE_HOOK_MARKER = "gsd-t-worktree-guard";
-const WORKTREE_HOOK_COMMAND =
-  'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-worktree-guard.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-worktree-guard.js" || true\'';
 
 // ─── M106 Fallback guard (PreToolUse Write|Edit) ────────────────────────────
 // Denies a write that introduces a fallback the user never approved. NO `|| true`
@@ -541,351 +359,122 @@ const INSTALL_HEAL_MARKER = "gsd-t-install-heal";
 const INSTALL_HEAL_COMMAND =
   'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-install-heal.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-install-heal.js" || true\'';
 
-// ─── M107 Concise hook — RETIRED in v5.11.15 ────────────────────────────────
-// The marker survives its removal: installing DELETES this hook from a machine
-// that still has it, and a marker is how it is found. Deleting the name would
-// leave the hook running everywhere it was already installed.
-const CONCISE_HOOK_MARKER = "gsd-t-concise-hook";
-
-// Append entries to {projectDir}/.gitignore. Each entry added only if absent.
-// Idempotent. Returns true if any entries were added, false otherwise.
-function ensureGitignoreEntries(projectDir, entries) {
-  const gitignorePath = path.join(projectDir, ".gitignore");
-  if (isSymlink(gitignorePath)) {
-    warn("Skipping .gitignore — target is a symlink");
-    return false;
-  }
-  let content = "";
-  try {
-    if (fs.existsSync(gitignorePath)) {
-      content = fs.readFileSync(gitignorePath, "utf8");
-    }
-  } catch (e) {
-    warn(`Failed to read .gitignore: ${e.message}`);
-    return false;
-  }
-  const existingLines = new Set(
-    content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-  );
-  const toAdd = entries.filter((e) => !existingLines.has(e));
-  if (toAdd.length === 0) return false;
-  try {
-    if (!fs.existsSync(gitignorePath)) {
-      fs.writeFileSync(gitignorePath, toAdd.join("\n") + "\n");
-    } else {
-      const prefix = content.length > 0 && !content.endsWith("\n") ? "\n" : "";
-      const block =
-        "\n# GSD-T context meter (session state — do not commit)\n" +
-        toAdd.join("\n") +
-        "\n";
-      fs.appendFileSync(gitignorePath, prefix + block);
-    }
-    return true;
-  } catch (e) {
-    warn(`Failed to append to .gitignore: ${e.message}`);
-    return false;
-  }
-}
-
-// Install the Context Meter into a project directory.
-// Copies scripts/gsd-t-context-meter.js, scripts/context-meter/*.js (runtime
-// only — skips .test.js), and the config template (if missing). Also appends
-// entries to .gitignore.
-function installContextMeter(projectDir) {
-  try {
-    // 1. Copy gsd-t-context-meter.js → {projectDir}/scripts/
-    const projectScriptsDir = path.join(projectDir, "scripts");
-    if (!fs.existsSync(projectScriptsDir)) {
-      try {
-        fs.mkdirSync(projectScriptsDir, { recursive: true });
-      } catch (e) {
-        warn(`Failed to create scripts/: ${e.message}`);
-        return false;
-      }
-    }
-    const scriptSrc = path.join(PKG_SCRIPTS, CONTEXT_METER_SCRIPT);
-    const scriptDest = path.join(projectScriptsDir, CONTEXT_METER_SCRIPT);
-    if (!fs.existsSync(scriptSrc)) {
-      warn(`${CONTEXT_METER_SCRIPT} not found in package — skipping context meter`);
-      return false;
-    }
-    if (!isSymlink(scriptDest)) {
-      const srcContent = fs.readFileSync(scriptSrc, "utf8");
-      const destContent = fs.existsSync(scriptDest)
-        ? fs.readFileSync(scriptDest, "utf8")
-        : "";
-      if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
-        fs.copyFileSync(scriptSrc, scriptDest);
-        try {
-          fs.chmodSync(scriptDest, 0o755);
-        } catch {}
-      }
-    }
-
-    // 2. Copy scripts/context-meter/*.js (runtime files only)
-    const depsSrcDir = path.join(PKG_SCRIPTS, CONTEXT_METER_DEPS_DIR);
-    const depsDestDir = path.join(projectScriptsDir, CONTEXT_METER_DEPS_DIR);
-    if (fs.existsSync(depsSrcDir)) {
-      if (!fs.existsSync(depsDestDir)) {
-        try {
-          fs.mkdirSync(depsDestDir, { recursive: true });
-        } catch (e) {
-          warn(`Failed to create scripts/${CONTEXT_METER_DEPS_DIR}/: ${e.message}`);
-          return false;
-        }
-      }
-      let depFiles = [];
-      try {
-        depFiles = fs.readdirSync(depsSrcDir);
-      } catch (e) {
-        warn(`Failed to read ${CONTEXT_METER_DEPS_DIR}/: ${e.message}`);
-        return false;
-      }
-      for (const fname of depFiles) {
-        if (fname.includes(".test.")) continue;
-        const fsrc = path.join(depsSrcDir, fname);
-        const fdest = path.join(depsDestDir, fname);
-        try {
-          const stat = fs.statSync(fsrc);
-          if (!stat.isFile()) continue;
-        } catch {
-          continue;
-        }
-        if (isSymlink(fdest)) continue;
-        try {
-          const srcContent = fs.readFileSync(fsrc, "utf8");
-          const destContent = fs.existsSync(fdest)
-            ? fs.readFileSync(fdest, "utf8")
-            : "";
-          if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
-            fs.copyFileSync(fsrc, fdest);
-          }
-        } catch (e) {
-          warn(`Failed to copy ${CONTEXT_METER_DEPS_DIR}/${fname}: ${e.message}`);
-        }
-      }
-    }
-
-    // 3. Copy config template → {projectDir}/.gsd-t/context-meter-config.json
-    //    ONLY if the destination does not already exist (never overwrite user config).
-    const configSrc = path.join(PKG_TEMPLATES, CONTEXT_METER_CONFIG_TEMPLATE);
-    const configDest = path.join(projectDir, CONTEXT_METER_CONFIG_DEST);
-    const gsdtDir = path.dirname(configDest);
-    if (!fs.existsSync(gsdtDir)) {
-      try {
-        fs.mkdirSync(gsdtDir, { recursive: true });
-      } catch (e) {
-        warn(`Failed to create .gsd-t/: ${e.message}`);
-      }
-    }
-    if (fs.existsSync(configSrc) && !fs.existsSync(configDest)) {
-      if (!isSymlink(configDest)) {
-        try {
-          fs.copyFileSync(configSrc, configDest);
-        } catch (e) {
-          warn(`Failed to copy context-meter-config.json: ${e.message}`);
-        }
-      }
-    }
-
-    // 4. Append .gitignore entries
-    ensureGitignoreEntries(projectDir, CONTEXT_METER_GITIGNORE_ENTRIES);
-
-    return true;
-  } catch (e) {
-    warn(`installContextMeter failed: ${e.message}`);
-    return false;
-  }
-}
-
-// Register the Context Meter PostToolUse hook in ~/.claude/settings.json.
-// Opt-in pre-commit hook installer (M41 D5). Appends the capture-lint block
-// to .git/hooks/pre-commit; if the file doesn't exist, copies our stock
-// script. Never overwrites an existing hook.
-const CAPTURE_LINT_HOOK_MARKER = "# GSD-T capture lint";
-// M50 D2 — Playwright pre-commit gate marker. Installed via
-// `gsd-t doctor --install-hooks`. Idempotent: appends a delimited block to
-// `.git/hooks/pre-commit` if the marker isn't already present.
-const PLAYWRIGHT_GATE_HOOK_MARKER = "# GSD-T playwright gate";
-
-function installPlaywrightGateHook(projectDir) {
-  const gitDir = path.join(projectDir, ".git");
-  if (!fs.existsSync(gitDir)) {
-    warn("No .git directory — not a git repo; skipping playwright-gate install");
-    return false;
-  }
-  const hooksDir = path.join(gitDir, "hooks");
-  try { fs.mkdirSync(hooksDir, { recursive: true }); } catch (_) {}
-  const hookPath = path.join(hooksDir, "pre-commit");
-  const stockSrc = path.join(PKG_ROOT, "scripts", "hooks", "pre-commit-playwright-gate");
-  let stock = "";
-  try { stock = fs.readFileSync(stockSrc, "utf8"); } catch (_) {
-    warn("Could not read pre-commit-playwright-gate script from package");
-    return false;
-  }
-  if (!fs.existsSync(hookPath)) {
-    fs.writeFileSync(hookPath, stock);
-    try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
-    success(`Playwright gate installed at ${path.relative(projectDir, hookPath)}`);
-    info("The hook reads .gsd-t/.last-playwright-pass to gate viewer-source commits");
-    return true;
-  }
-  const existing = fs.readFileSync(hookPath, "utf8");
-  if (existing.includes(PLAYWRIGHT_GATE_HOOK_MARKER)) {
-    info("Playwright-gate block already present in pre-commit hook — no change");
-    return true;
-  }
-  const appended = existing.trimEnd() +
-    "\n\n" + PLAYWRIGHT_GATE_HOOK_MARKER + "\n" +
-    stock.replace(/^#!.*\n/, "") + "\n";
-  fs.writeFileSync(hookPath, appended);
-  try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
-  success(`Playwright-gate block appended to ${path.relative(projectDir, hookPath)}`);
-  return true;
-}
-
-function installCaptureLintHook(projectDir) {
-  const gitDir = path.join(projectDir, ".git");
-  if (!fs.existsSync(gitDir)) {
-    warn("No .git directory — not a git repo; skipping hook install");
-    return false;
-  }
-  const hooksDir = path.join(gitDir, "hooks");
-  try { fs.mkdirSync(hooksDir, { recursive: true }); } catch (_) {}
-  const hookPath = path.join(hooksDir, "pre-commit");
-  const stockSrc = path.join(PKG_ROOT, "scripts", "hooks", "pre-commit-capture-lint");
-  let stock = "";
-  try { stock = fs.readFileSync(stockSrc, "utf8"); } catch (_) {
-    warn("Could not read pre-commit-capture-lint script from package");
-    return false;
-  }
-
-  if (!fs.existsSync(hookPath)) {
-    fs.writeFileSync(hookPath, stock);
-    try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
-    success(`Hook installed at ${path.relative(projectDir, hookPath)}`);
-    info("Test with: gsd-t capture-lint --staged");
-    return true;
-  }
-
-  const existing = fs.readFileSync(hookPath, "utf8");
-  if (existing.includes(CAPTURE_LINT_HOOK_MARKER)) {
-    info("Capture-lint block already present in pre-commit hook — no change");
-    return true;
-  }
-
-  const appended = existing.trimEnd() +
-    "\n\n" + CAPTURE_LINT_HOOK_MARKER + "\n" +
-    stock.replace(/^#!.*\n/, "") + "\n";
-  fs.writeFileSync(hookPath, appended);
-  try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
-  success(`Capture-lint block appended to ${path.relative(projectDir, hookPath)}`);
-  info("Test with: gsd-t capture-lint --staged");
-  return true;
-}
-
-// M52 D1 — journey-coverage gate hook installer. Block-delimited so uninstall
-// is a clean string excise. Stock script lives at scripts/hooks/pre-commit-journey-coverage.
-const JOURNEY_COVERAGE_HOOK_BEGIN = "# >>> GSD-T journey-coverage gate >>>";
-const JOURNEY_COVERAGE_HOOK_END = "# <<< GSD-T journey-coverage gate <<<";
-
-function installJourneyCoverageHook(projectDir) {
-  const gitDir = path.join(projectDir, ".git");
-  if (!fs.existsSync(gitDir)) { warn("No .git directory — skipping journey-coverage hook install"); return false; }
-  const hooksDir = path.join(gitDir, "hooks");
-  try { fs.mkdirSync(hooksDir, { recursive: true }); } catch (_) {}
-  const hookPath = path.join(hooksDir, "pre-commit");
-  const stockSrc = path.join(PKG_ROOT, "scripts", "hooks", "pre-commit-journey-coverage");
-  let stock;
-  try { stock = fs.readFileSync(stockSrc, "utf8"); } catch (_) { warn("Could not read pre-commit-journey-coverage script"); return false; }
-  const block = JOURNEY_COVERAGE_HOOK_BEGIN + "\n" + stock.replace(/^#!.*\n/, "") + "\n" + JOURNEY_COVERAGE_HOOK_END + "\n";
-  if (!fs.existsSync(hookPath)) {
-    fs.writeFileSync(hookPath, "#!/usr/bin/env bash\nset -e\n\n" + block);
-    try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
-    success(`Journey-coverage gate installed at ${path.relative(projectDir, hookPath)}`);
-    return true;
-  }
-  const existing = fs.readFileSync(hookPath, "utf8");
-  if (existing.includes(JOURNEY_COVERAGE_HOOK_BEGIN)) { info("Journey-coverage block already present — no change"); return true; }
-  fs.writeFileSync(hookPath, existing.trimEnd() + "\n\n" + block);
-  try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
-  success(`Journey-coverage block appended to ${path.relative(projectDir, hookPath)}`);
-  return true;
-}
-
-// Idempotent — if an existing hook references CONTEXT_METER_HOOK_MARKER the
-// command string is refreshed/migrated in-place to the canonical form.
-// Stale entries matching CONTEXT_METER_STALE_PATTERNS are migrated on the spot.
-// All other settings/hooks are preserved.
-// Returns { installed: bool, action: "added"|"updated"|"noop" }.
-function configureContextMeterHooks(settingsPath) {
-  const targetPath = settingsPath || SETTINGS_JSON;
-  let settings = {};
-  const fileExists = fs.existsSync(targetPath);
-  if (fileExists) {
-    try {
-      settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
-      if (!settings || typeof settings !== "object") settings = {};
-    } catch {
-      warn("settings.json has invalid JSON — cannot configure context meter hook");
-      return { installed: false, action: "noop" };
-    }
-  }
-
-  if (!settings.hooks) settings.hooks = {};
-  if (!Array.isArray(settings.hooks.PostToolUse)) settings.hooks.PostToolUse = [];
-
-  const cmd = CONTEXT_METER_HOOK_COMMAND;
-  let action = "noop";
-  let found = false;
-
-  for (const entry of settings.hooks.PostToolUse) {
-    if (!entry || !Array.isArray(entry.hooks)) continue;
-    for (const h of entry.hooks) {
-      if (!h || typeof h.command !== "string") continue;
-      const isCurrentCanonical = h.command === cmd;
-      const isMarkerMatch = h.command.includes(CONTEXT_METER_HOOK_MARKER);
-      const isStaleMatch = !isCurrentCanonical &&
-        CONTEXT_METER_STALE_PATTERNS.some((re) => re.test(h.command));
-
-      if (isCurrentCanonical || isMarkerMatch || isStaleMatch) {
-        found = true;
-        if (!isCurrentCanonical) {
-          h.command = cmd;
-          action = "updated";
-        }
-      }
-    }
-  }
-
-  if (!found) {
-    settings.hooks.PostToolUse.push({
-      matcher: "*",
-      hooks: [{ type: "command", command: cmd }],
-    });
-    action = "added";
-  }
-
-  if (action === "noop") {
-    return { installed: true, action: "noop" };
-  }
-
-  if (isSymlink(targetPath)) {
-    warn("Skipping settings.json write — target is a symlink");
-    return { installed: false, action: "noop" };
-  }
-  try {
-    fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
-  } catch (e) {
-    warn(`Failed to write settings.json: ${e.message}`);
-    return { installed: false, action: "noop" };
-  }
-  return { installed: true, action };
-}
-
 // M97 — register the graph-intercept PostToolUse hook (matcher "Grep").
 // Idempotent: find-by-marker, refresh stale command, else add. Mirrors the
 // context-meter installer. The script fails-open so this is safe globally.
+// ─── Date guard + CLAUDE.md changelog hooks ─────────────────────────────────
+// Registered the same way as the fallback guard: run from the global package,
+// no `|| true`, so a missing script fails loudly instead of silently turning
+// the guard off. Before v6 nothing in the installer copied or registered these
+// three — they ran only on machines where they had been wired by hand.
+const DATE_GUARD_MARKER = "gsd-t-date-guard";
+const DATE_GUARD_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-date-guard.js"';
+const CHANGELOG_CHECK_MARKER = "gsd-t-changelog-check";
+const CHANGELOG_CHECK_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-changelog-check.js"';
+const CHANGELOG_POST_EDIT_MARKER = "gsd-t-changelog-post-edit";
+const CHANGELOG_POST_EDIT_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-changelog-post-edit.js"';
+
+// Every hook GSD-T registers today. Uninstall removes exactly these.
+const GSDT_HOOK_MARKERS = [
+  GRAPH_INTERCEPT_HOOK_MARKER, READ_INTERCEPT_HOOK_MARKER, FALLBACK_HOOK_MARKER,
+  GRAPH_SEARCH_HOOK_MARKER, GRAPH_USE_REPORT_MARKER, INSTALL_HEAL_MARKER,
+  DATE_GUARD_MARKER, CHANGELOG_CHECK_MARKER, CHANGELOG_POST_EDIT_MARKER,
+  "gsd-t-update-check", "gsd-t-auto-route",
+];
+
+// ─── v6 slim-down: what GSD-T installed before and no longer ships ───────────
+// ONE list drives every removal on install / update / update-all. A file is
+// removed only when its first 1,200 characters contain one of the VERBATIM
+// header lines GSD-T shipped it with (checked against every version in git
+// history). A user's own same-named file has no such header and is left alone.
+// Nothing here is globbed.
+const RETIRED_V6 = {
+  // ~/.claude/commands — gsd-t-*.md files the package no longer ships are
+  // removed by removeRetiredCommands(); these are the non-prefixed ones.
+  commands: {
+    "gsd.md": ["You are the GSD-T smart router"],
+  },
+  // Project bin/ (stray sweep in copyBinToolsToProject) AND ~/.claude/bin.
+  bin: {
+    "archive-progress.cjs": ["node bin/archive-progress.js --per-archive 20     # override \"entries per archive\" (default 20)"],
+    "cli-preflight-checks/branch-guard.cjs": ["branch-guard — verify current git branch matches CLAUDE.md \"Expected branch\" rule."],
+    "cli-preflight-checks/contracts-stable.cjs": ["contracts are expected pre-execute. After execute starts, they should all be STABLE."],
+    "cli-preflight-checks/deps-installed.cjs": ["- No `package.json` at all → ok:true (non-Node project; nothing to check)"],
+    "cli-preflight-checks/manifest-fresh.cjs": ["Severity: info. Never blocks (top-level `ok` only flips on error-severity)."],
+    "cli-preflight-checks/ports-free.cjs": ["For each port, runs `lsof -nP -iTCP:<port> -sTCP:LISTEN`. Exit 0 + non-empty"],
+    "cli-preflight-checks/working-tree-state.cjs": ["Reads `dirtyTreeWhitelist: string[]` from `.gsd-t/.unattended/config.json`."],
+    "cli-preflight.cjs": ["Pure inspector — no LLM spawn, no token spend, no side effects beyond reading"],
+    "gsd-t-architectural-trigger.cjs": ["answer n-gram fingerprints). When divergence exceeds DIVERGENCE_THRESHOLD, fires"],
+    "gsd-t-archive-domains.cjs": ["Containment guard ([[feedback_destructive_path_ops_containment]]): every removed path MUST resolve"],
+    "gsd-t-boundary-normalize-check.cjs": ["gsd-t-boundary-normalize-check — a value entering the program must be cleaned"],
+    "gsd-t-build-coverage.cjs": ["GSD-T build-coverage (M57 D1)"],
+    "gsd-t-ci-parity.cjs": ["Auto-detects CI config via locked detection precedence (user decision — do"],
+    "gsd-t-competition-judge.cjs": ["candidate). Contract: .gsd-t/contracts/competition-mode-contract.md v1.0.0."],
+    "gsd-t-concise-rewrite.cjs": ["[RULE] concise-rewrite-never-changes-a-fact"],
+    "gsd-t-context-brief.cjs": ["Pure inspector — no LLM spawn, no token spend, no side effects beyond reading"],
+    "gsd-t-divergence-grammar.cjs": ["⚠ Divergence: <RULE-ID or section> — supersedes shipped <what>. Reason: <user intention>."],
+    "gsd-t-env-registry-check.cjs": ["A project that has neither the table nor the rule is a NO-OP PASS (it simply"],
+    "gsd-t-file-disjointness.cjs": ["- unprovable — tasks with no touch-list source (routed sequential; safe-default)"],
+    "gsd-t-graph-use-gate.cjs": ["`gsd-t-graph-anti-grep-lint.cjs` is STATIC. It reads source files and looks"],
+    "gsd-t-guard-map-derive.cjs": ["(the gate iterates the DOC's id set; an absent key is treated as unbacked, but"],
+    "gsd-t-guard-map.cjs": ["<invariant prose> ... [RULE — <tag>] # tagged, invariant LEFT (Extension style)"],
+    "gsd-t-jargon-lint.cjs": ["- /\\bM\\d+(-D\\d+(-T\\d+)?)?\\b/   GSD-T milestone/domain/task code (M93, M93-D3, M93-D3-T1)"],
+    "gsd-t-logging-envelope-check.cjs": ["- STRUCTURAL ONLY: parse shape as shape, never text.includes(category/action)."],
+    "gsd-t-loop-ledger.cjs": ["House style §0: { ok:true, ... } | { ok:false, error }; zero external deps; sync APIs."],
+    "gsd-t-milestone-state.cjs": ["emits an ASSERTABLE, greppable logged decision (`feedback_no_silent_degradation`)."],
+    "gsd-t-model-profile.cjs": ["Contract: .gsd-t/contracts/model-profile-config-contract.md v1.0.0 STABLE"],
+    "gsd-t-model-tier-policy.cjs": ["SINGLE source of truth for GSD-T model-tier policy"],
+    "gsd-t-project-history.cjs": ["Three sources, cheapest first: git, the decision log, and what the user typed"],
+    "gsd-t-research-gate.cjs": ["returns the house-style JSON envelope:"],
+    "gsd-t-rule-consume.cjs": ["- `redTeam` → the Red Team attack-surface frame (each rule = an invariant to attack)"],
+    "gsd-t-rule-mine.cjs": ["fast to read: David is confirming something he already said, not recalling it."],
+    "gsd-t-schema-id-check.cjs": ["added in the working tree — i.e. tables this run is introducing. A repo with an"],
+    "gsd-t-testplan-halt.cjs": ["Both are a HALT, never a fallback: on non-convergence this tool refuses to continue and"],
+    "gsd-t-testplan-lint.cjs": ["A test plan (`TestPlan-[FeatureArea].md`) is what a reviewer approves BEFORE"],
+    "gsd-t-testplan-rows.cjs": ["Three consumers read `TestPlan-*.md` (contract test-plan-first-contract.md §2):"],
+    "gsd-t-traceability-gate.cjs": ["FAILS if that path is absent. This gate enforces that binding BEFORE execute."],
+    "gsd-t-verify-gate-judge.cjs": ["Companion to bin/gsd-t-verify-gate.cjs. Takes a verify-gate envelope JSON"],
+    "gsd-t-verify-gate.cjs": ["3. ok = (skipTrack1 || track1.ok) && (skipTrack2 || track2.ok). Purely deterministic."],
+    "live-activity-report.cjs": ["GSD-T Live Activity Report (M54 D1 T1)"],
+    "parallel-cli-tee.cjs": ["2. NDJSON line shape: {\"t\": isoTs, \"stream\": \"stdout\"|\"stderr\", \"data\": line}."],
+    "parallel-cli.cjs": ["via `bin/parallel-cli-tee.cjs`. Lifecycle / per-worker timeout / fail-fast"],
+    "parallelism-report.cjs": ["GSD-T Parallelism Report (M44 D9 T1)"],
+  },
+  // ~/.claude/scripts (paths relative to it).
+  scripts: {
+    "gsd-t-heartbeat.js": ["Writes structured events to .gsd-t/heartbeat-{session_id}.jsonl"],
+    "gsd-t-in-session-probe.js": ["Captures the RAW Claude Code hook payload for Stop / SessionEnd / PostToolUse"],
+    "gsd-t-tools.js": ["Returns compact JSON. Subcommands: state, validate, parse, list, git, template"],
+    "gsd-t-statusline.js": ["Outputs compact project status for display in Claude Code's statusLine setting."],
+    "gsd-t-event-writer.js": ["Writes structured events to .gsd-t/events/YYYY-MM-DD.jsonl (UTC date rotation)."],
+    "gsd-t-architect-oversight-guard.js": ["GSD-T PreToolUse hook (Write|Edit) — Architect's Oversight trigger (M101)."],
+    "gsd-t-brevity-guard.js": ["GSD-T Stop hook — blocks exhausting ANSWER-mode replies before the user reads them."],
+    "gsd-t-dashboard-server.js": ["GSD-T Dashboard Server — Zero-dep SSE server for .gsd-t/events/*.jsonl"],
+    "gsd-t-dashboard.html": ["<title>GSD-T Agent Dashboard</title>"],
+    "gsd-t-transcript.html": ["<title>__PROJECT_NAME__</title>"],
+    "gsd-t-watch-state.js": ["Records per-agent progress into `.gsd-t/.watch-state/{agent_id}.json` so"],
+    "hooks/gsd-t-conversation-capture.js": ["data (not just tokens — that's the job of `gsd-t-in-session-usage-hook.js`)."],
+    "hooks/gsd-t-in-session-usage-hook.js": ["stdin, resolves the project directory from `payload.cwd`, then delegates to"],
+    "hooks/gsd-t-ctx-cue.sh": ["# gsd-t-ctx-cue.sh — GSD-T low-context visual cue (M85)"],
+  },
+  // ~/.claude itself — the status bar script installStatusLine() copied there.
+  claudeDir: {
+    "statusline-command.sh": ["Line 1: [GSD-T] | vX.Y.ZZ | ctx N% left | project | git branch | model id | HH:MM TZ"],
+  },
+  // settings.json hook commands containing any of these are removed.
+  hookMarkers: [
+    "gsd-t-worktree-guard", // M105, retired 2026-08-08 (blocked its own user's edits)
+    "gsd-t-context-meter",  // M61 — script deleted; native /context replaced it
+    "gsd-t-heartbeat", "gsd-t-in-session-probe", "gsd-t-ctx-cue",
+    "gsd-t-conversation-capture", "gsd-t-in-session-usage-hook", "gsd-t-board-notify",
+    "gsd-t-compact-detector", "gsd-t-calibration-hook", "gsd-t-dashboard-autostart",
+    "gsd-t-architect-oversight-guard", "gsd-t-brevity-guard", "gsd-t-concise-hook",
+  ],
+};
+
 function configureGraphInterceptHook(settingsPath) {
   const targetPath = settingsPath || SETTINGS_JSON;
   let settings = {};
@@ -990,21 +579,6 @@ function configureReadInterceptHook(settingsPath) {
   return { installed: true, action };
 }
 
-// M101 — register the architect-oversight PreToolUse hook (matcher "Write|Edit").
-// Idempotent: find-by-marker, refresh stale command, else add. Mirrors the M98
-// read-intercept installer but on PreToolUse. The script fails-open so this is
-// safe globally (silent in non-GSD-T projects and on prose/doc writes).
-function configureArchitectHook(settingsPath) {
-  return configureWriteEditHook(settingsPath, ARCHITECT_HOOK_MARKER, ARCHITECT_HOOK_COMMAND, "architect");
-}
-
-// M105 — register the worktree-collision guard. Reuses the same registrar rather
-// than copying it (the function below was architect-specific; generalized to take
-// the marker + command, so a third Write|Edit hook needs no new code).
-function configureWorktreeGuardHook(settingsPath) {
-  return configureWriteEditHook(settingsPath, WORKTREE_HOOK_MARKER, WORKTREE_HOOK_COMMAND, "worktree guard");
-}
-
 // M106 — register the fallback guard on Write|Edit. Same registrar again.
 function configureFallbackGuardHook(settingsPath) {
   return configureWriteEditHook(settingsPath, FALLBACK_HOOK_MARKER, FALLBACK_HOOK_COMMAND, "fallback guard");
@@ -1012,6 +586,19 @@ function configureFallbackGuardHook(settingsPath) {
 
 // M117 — register the graph search guard on Bash|Grep. Both doors: bypass mode
 // routes searches through Bash, and leaving either open makes it the habit.
+// v6 — the date guard (PreToolUse Write|Edit) and the two CLAUDE.md changelog
+// hooks (SessionStart check, PostToolUse Write|Edit). Same registrar as the
+// fallback guard: find by marker, refresh a stale command, else add.
+function configureDateGuardHook(settingsPath) {
+  return configureWriteEditHook(settingsPath, DATE_GUARD_MARKER, DATE_GUARD_COMMAND, "date guard");
+}
+function configureChangelogCheckHook(settingsPath) {
+  return configureEventHook(settingsPath, "SessionStart", CHANGELOG_CHECK_MARKER, CHANGELOG_CHECK_COMMAND, "CLAUDE.md changelog check");
+}
+function configureChangelogPostEditHook(settingsPath) {
+  return configureToolHook(settingsPath, "PostToolUse", CHANGELOG_POST_EDIT_MARKER, CHANGELOG_POST_EDIT_COMMAND, "CLAUDE.md changelog post-edit", "Write|Edit");
+}
+
 function configureGraphSearchGuardHook(settingsPath) {
   return configurePreToolUseHook(
     settingsPath, GRAPH_SEARCH_HOOK_MARKER, GRAPH_SEARCH_HOOK_COMMAND,
@@ -1026,67 +613,6 @@ function configureGraphUseReportHook(settingsPath) {
   );
 }
 
-// Register a Stop hook by marker. Same find-refresh-or-add shape as the
-// PreToolUse registrar; Stop entries carry no matcher.
-function configureStopHook(settingsPath, marker, command, label) {
-  const targetPath = settingsPath || SETTINGS_JSON;
-  let settings = {};
-  if (fs.existsSync(targetPath)) {
-    try {
-      settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
-      if (!settings || typeof settings !== "object") settings = {};
-    } catch {
-      warn(`settings.json has invalid JSON — cannot configure ${label} hook`);
-      return { installed: false, action: "noop" };
-    }
-  }
-  if (!settings.hooks) settings.hooks = {};
-  if (!Array.isArray(settings.hooks.Stop)) settings.hooks.Stop = [];
-
-  let action = "noop";
-  let found = false;
-  for (const entry of settings.hooks.Stop) {
-    if (!entry || !Array.isArray(entry.hooks)) continue;
-    for (const h of entry.hooks) {
-      if (!h || typeof h.command !== "string") continue;
-      if (h.command === command || h.command.includes(marker)) {
-        found = true;
-        if (h.command !== command) { h.command = command; action = "updated"; }
-      }
-    }
-  }
-  if (!found) {
-    settings.hooks.Stop.push({ hooks: [{ type: "command", command }] });
-    action = "added";
-  }
-  if (action === "noop") return { installed: true, action: "noop" };
-  if (isSymlink(targetPath)) {
-    warn("Skipping settings.json write — target is a symlink");
-    return { installed: false, action: "noop" };
-  }
-  try {
-    fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
-  } catch (e) {
-    warn(`Failed to write settings.json: ${e.message}`);
-    return { installed: false, action: "noop" };
-  }
-  return { installed: true, action };
-}
-
-// M107 RETIRED (v5.11.15). The rewriter shortened a reply after it was written,
-// and a Stop hook cannot unsay what is already on screen — so David read the
-// long version, then the short one. It also cost a whole extra turn, and its
-// own instruction was misread often enough to print a THIRD copy. The Reader
-// Contract, injected before every turn, does the same job for free and in the
-// only place it can work: before the words are written.
-//
-// Installing now REMOVES the hook rather than adding it. A retired feature that
-// keeps running on 32 machines is not retired, and only the installer can reach
-// them.
-function removeConciseHook(settingsPath) {
-  return removeStopHook(settingsPath, CONCISE_HOOK_MARKER);
-}
-
 // M108 — register the install self-heal on SessionStart, so a broken install is
 // repaired before any work begins.
 function configureInstallHealHook(settingsPath) {
@@ -1098,36 +624,6 @@ function configureInstallHealHook(settingsPath) {
 // Stop event instead of PreToolUse.
 function configureStopHook(settingsPath, marker, command, label) {
   return configureEventHook(settingsPath, "Stop", marker, command, label);
-}
-
-/**
- * Delete a Stop hook by marker, wherever it is registered.
- *
- * Retiring a hook in the package is not enough — it keeps firing on every
- * machine that already installed it, and the installer is the only thing that
- * reaches those machines. An unreadable or malformed settings file STOPS the
- * install: leaving a retired hook running while reporting success is the same
- * silent staleness that left eleven dead commands typeable for months.
- */
-function removeStopHook(settingsPath, marker) {
-  if (!fs.existsSync(settingsPath)) return { removed: 0 };
-
-  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-  const groups = settings.hooks && settings.hooks.Stop;
-  if (!Array.isArray(groups)) return { removed: 0 };
-
-  let removed = 0;
-  for (const group of groups) {
-    if (!Array.isArray(group.hooks)) continue;
-    const before = group.hooks.length;
-    group.hooks = group.hooks.filter((h) => !String(h && h.command || "").includes(marker));
-    removed += before - group.hooks.length;
-  }
-  if (removed === 0) return { removed: 0 };
-
-  settings.hooks.Stop = groups.filter((g) => Array.isArray(g.hooks) && g.hooks.length > 0);
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
-  return { removed };
 }
 
 // Register a hook on any event by marker. One registrar for every event, so a
@@ -1185,6 +681,11 @@ function configureWriteEditHook(settingsPath, marker, command, label) {
 // graph search guard watches Bash|Grep, not Write|Edit, and a second copy of
 // this function is where the two would drift apart.
 function configurePreToolUseHook(settingsPath, marker, command, label, matcher) {
+  return configureToolHook(settingsPath, "PreToolUse", marker, command, label, matcher);
+}
+
+// The matcher-carrying registrar, for any tool event (PreToolUse / PostToolUse).
+function configureToolHook(settingsPath, event, marker, command, label, matcher) {
   const targetPath = settingsPath || SETTINGS_JSON;
   let settings = {};
   if (fs.existsSync(targetPath)) {
@@ -1197,12 +698,12 @@ function configurePreToolUseHook(settingsPath, marker, command, label, matcher) 
     }
   }
   if (!settings.hooks) settings.hooks = {};
-  if (!Array.isArray(settings.hooks.PreToolUse)) settings.hooks.PreToolUse = [];
+  if (!Array.isArray(settings.hooks[event])) settings.hooks[event] = [];
 
   const cmd = command;
   let action = "noop";
   let found = false;
-  for (const entry of settings.hooks.PreToolUse) {
+  for (const entry of settings.hooks[event]) {
     if (!entry || !Array.isArray(entry.hooks)) continue;
     for (const h of entry.hooks) {
       if (!h || typeof h.command !== "string") continue;
@@ -1214,7 +715,7 @@ function configurePreToolUseHook(settingsPath, marker, command, label, matcher) 
     }
   }
   if (!found) {
-    settings.hooks.PreToolUse.push({
+    settings.hooks[event].push({
       matcher,
       hooks: [{ type: "command", command: cmd }],
     });
@@ -1250,7 +751,6 @@ function removeInterceptHooks(settingsPath) {
   if (!settings.hooks) return false;
 
   const postMarkers = [GRAPH_INTERCEPT_HOOK_MARKER, READ_INTERCEPT_HOOK_MARKER];
-  const preMarkers = [ARCHITECT_HOOK_MARKER, WORKTREE_HOOK_MARKER];
   let removed = 0;
 
   const stripByMarkers = (arr, markers) => {
@@ -1267,7 +767,6 @@ function removeInterceptHooks(settingsPath) {
   };
 
   settings.hooks.PostToolUse = stripByMarkers(settings.hooks.PostToolUse, postMarkers);
-  settings.hooks.PreToolUse = stripByMarkers(settings.hooks.PreToolUse, preMarkers);
   if (removed === 0) return false;
 
   if (isSymlink(targetPath)) {
@@ -1302,26 +801,29 @@ function removeInterceptHooks(settingsPath) {
 // edits forever, so "could not remove it" must stop the install loudly rather
 // than report success.
 function removeRetiredHooks(settingsPath) {
-  const RETIRED_HOOK_MARKERS = ["gsd-t-worktree-guard", CONTEXT_METER_HOOK_MARKER];
-  const targetPath = settingsPath || SETTINGS_JSON;
+  return removeHooksByMarkers(settingsPath || SETTINGS_JSON, RETIRED_V6.hookMarkers);
+}
+
+// Remove every hook whose command contains one of `markers`, on any event, and
+// drop groups left empty. Throws on any failure: a retired hook that silently
+// survives keeps running forever, so "could not remove it" must stop loudly.
+function removeHooksByMarkers(targetPath, markers) {
   if (!fs.existsSync(targetPath)) return { removed: 0 };
 
   const settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
   if (!settings.hooks) return { removed: 0 };
 
   let removed = 0;
-  const isRetired = (h) =>
-    typeof h.command === "string" &&
-    RETIRED_HOOK_MARKERS.some((m) => h.command.includes(m));
+  const matches = (h) =>
+    typeof h.command === "string" && markers.some((m) => h.command.includes(m));
 
   for (const event of Object.keys(settings.hooks)) {
     const groups = settings.hooks[event];
     if (!Array.isArray(groups)) continue;
-    // Strip retired hooks from inside each group, then drop groups left empty.
     const rewritten = [];
     for (const g of groups) {
       if (!Array.isArray(g.hooks)) { rewritten.push(g); continue; }
-      const kept = g.hooks.filter((h) => !isRetired(h));
+      const kept = g.hooks.filter((h) => !matches(h));
       removed += g.hooks.length - kept.length;
       if (kept.length > 0) rewritten.push({ ...g, hooks: kept });
     }
@@ -1331,123 +833,87 @@ function removeRetiredHooks(settingsPath) {
   if (removed === 0) return { removed: 0 };
 
   if (isSymlink(targetPath)) {
-    throw new Error(`Cannot remove retired hooks — ${targetPath} is a symlink`);
+    throw new Error(`Cannot remove hooks — ${targetPath} is a symlink`);
   }
   fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
   return { removed };
 }
 
-// Remove any context meter PostToolUse hooks from settings.json.
-// Used during uninstall. Leaves all other hooks intact.
-function removeContextMeterHook(settingsPath) {
-  const targetPath = settingsPath || SETTINGS_JSON;
-  if (!fs.existsSync(targetPath)) return false;
-  let settings;
-  try {
-    settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
-    if (!settings || typeof settings !== "object") return false;
-  } catch {
-    warn("settings.json has invalid JSON — cannot remove context meter hook");
-    return false;
+// Delete one file GSD-T installed, but only if it still carries a header GSD-T
+// shipped. Returns "removed" | "absent" | "kept". Throws when the path escapes
+// `root` or the file cannot be read/deleted — a leftover that runs is the bug.
+function removeShippedFile(root, rel, sentinels) {
+  const rootAbs = path.resolve(root);
+  const abs = path.resolve(rootAbs, rel);
+  if (!abs.startsWith(rootAbs + path.sep) || abs === rootAbs) {
+    throw new Error(`Refusing to remove ${abs} — outside ${rootAbs}`);
   }
+  if (!fs.existsSync(abs)) return "absent";
+  const st = fs.lstatSync(abs);
+  if (st.isSymbolicLink() || !st.isFile()) return "kept";
+  const head = fs.readFileSync(abs, "utf8").slice(0, 1200);
+  if (!sentinels.some((s) => head.includes(s))) return "kept";
+  fs.unlinkSync(abs);
+  return "removed";
+}
 
-  if (!settings.hooks || !Array.isArray(settings.hooks.PostToolUse)) return false;
-
-  const before = settings.hooks.PostToolUse.length;
-  settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter((entry) => {
-    if (!entry || !Array.isArray(entry.hooks)) return true;
-    // Keep the entry only if NONE of its hooks reference the context meter
-    return !entry.hooks.some(
-      (h) => h && typeof h.command === "string" && h.command.includes(CONTEXT_METER_HOOK_MARKER)
-    );
-  });
-  const removed = before - settings.hooks.PostToolUse.length;
-  if (removed === 0) return false;
-
-  if (isSymlink(targetPath)) {
-    warn("Skipping settings.json write — target is a symlink");
-    return false;
+// Remove a directory GSD-T created, only once it is empty.
+function removeEmptyDir(root, rel) {
+  const rootAbs = path.resolve(root);
+  const abs = path.resolve(rootAbs, rel);
+  if (!abs.startsWith(rootAbs + path.sep) || abs === rootAbs) {
+    throw new Error(`Refusing to remove ${abs} — outside ${rootAbs}`);
   }
-  try {
-    fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
-    return true;
-  } catch (e) {
-    warn(`Failed to write settings.json: ${e.message}`);
-    return false;
+  if (fs.existsSync(abs) && fs.lstatSync(abs).isDirectory() && fs.readdirSync(abs).length === 0) {
+    fs.rmdirSync(abs);
   }
 }
 
-// Interactive prompt for the Anthropic API key env var.
-// Skips if not a TTY or if the env var is already set.
-// Never writes the key anywhere — just prints the export command for the user
-// to paste into their shell profile themselves. Always non-blocking.
-async function promptForApiKeyIfMissing(envVarName) {
-  const varName = envVarName || "ANTHROPIC_API_KEY";
-  if (!process.stdout.isTTY || !process.stdin.isTTY) return "";
-  if (process.env[varName]) return process.env[varName];
+// v6 — remove what earlier versions installed into ~/.claude and v6 no longer
+// ships: commands, ~/.claude/bin tools, ~/.claude/scripts, the status bar, and
+// their hook registrations. Every removal is named; a user's own file with the
+// same name (no GSD-T header) is reported and left alone.
+function removeRetiredV6Files() {
+  const groups = [
+    [COMMANDS_DIR, RETIRED_V6.commands, "commands/"],
+    [GLOBAL_BIN_DIR, RETIRED_V6.bin, "bin/"],
+    [SCRIPTS_DIR, RETIRED_V6.scripts, "scripts/"],
+    [CLAUDE_DIR, RETIRED_V6.claudeDir, ""],
+  ];
+  const removed = [];
+  const kept = [];
+  for (const [root, entries, label] of groups) {
+    for (const [rel, sentinels] of Object.entries(entries)) {
+      const r = removeShippedFile(root, rel, sentinels);
+      if (r === "removed") removed.push(label + rel);
+      if (r === "kept") kept.push(label + rel);
+    }
+  }
+  removeEmptyDir(GLOBAL_BIN_DIR, "cli-preflight-checks");
+  removeEmptyDir(SCRIPTS_DIR, "hooks");
 
-  heading("Context Meter — Anthropic API Key");
-  log("");
-  log(`  ${YELLOW}⚠${RESET}  Context Meter: ${varName} is not set.`);
-  log(`     The hook uses Anthropic's count_tokens API (free, not billed) to measure`);
-  log(`     real context window usage. Without it, the meter falls back to heuristics.`);
-  log(`     Get a key: https://console.anthropic.com/settings/keys`);
-  log("");
-
-  let rl;
-  try {
-    rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  } catch (e) {
-    warn(`Could not open API key prompt: ${e.message}`);
-    return "";
+  // The status bar pointed at the script removed above. Clear the setting only
+  // when it names that GSD-T script and the script is gone.
+  const statusScript = path.join(CLAUDE_DIR, "statusline-command.sh");
+  let statusCleared = false;
+  if (fs.existsSync(SETTINGS_JSON) && !fs.existsSync(statusScript)) {
+    const settings = JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
+    const sl = settings.statusLine;
+    if (sl && typeof sl.command === "string" && sl.command.includes(statusScript)) {
+      if (isSymlink(SETTINGS_JSON)) throw new Error(`Cannot clear statusLine — ${SETTINGS_JSON} is a symlink`);
+      delete settings.statusLine;
+      fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
+      statusCleared = true;
+    }
   }
 
-  return new Promise((resolve) => {
-    try {
-      rl.question("  Paste key now, or press Enter to skip: ", (answer) => {
-        try {
-          const key = (answer || "").trim();
-          if (key.length === 0) {
-            log("");
-            info(`Skipped. Set ${varName} later or run 'gsd-t doctor' to re-check.`);
-            log("");
-          } else {
-            log("");
-            success("Got it. Add this line to your shell profile (~/.zshrc or ~/.bashrc):");
-            log("");
-            log(`    ${DIM}export ${varName}="${key}"${RESET}`);
-            log("");
-            log("  Re-open your shell or run the export command to activate.");
-            log("");
-          }
-          resolve(key);
-        } finally {
-          try { rl.close(); } catch {}
-        }
-      });
-    } catch (e) {
-      warn(`API key prompt failed: ${e.message}`);
-      try { rl.close(); } catch {}
-      resolve("");
-    }
-  });
-}
-
-// Resolve the apiKeyEnvVar from the project's context-meter-config.json
-// Falls back to "ANTHROPIC_API_KEY" if loader unavailable or config absent.
-function resolveApiKeyEnvVar(projectDir) {
-  try {
-    const loader = require(path.join(PKG_ROOT, "bin", "context-meter-config.cjs"));
-    if (loader && typeof loader.loadConfig === "function") {
-      const cfg = loader.loadConfig(projectDir || process.cwd());
-      if (cfg && typeof cfg.apiKeyEnvVar === "string" && cfg.apiKeyEnvVar.length > 0) {
-        return cfg.apiKeyEnvVar;
-      }
-    }
-  } catch {
-    // Fall through to default
+  if (removed.length) {
+    info(`Removed ${removed.length} file(s) GSD-T no longer ships:`);
+    for (const f of removed) info(`    ~/.claude/${f}`);
   }
-  return "ANTHROPIC_API_KEY";
+  if (statusCleared) info("Cleared the GSD-T status line from settings.json (retired in v6)");
+  for (const f of kept) info(`Left ~/.claude/${f} in place — it has no GSD-T header, so it is not ours`);
+  return { removed, kept, statusCleared };
 }
 
 // ─── Update Check Hook ──────────────────────────────────────────────────────
@@ -1592,307 +1058,26 @@ function configureAutoRouteHook(scriptPath) {
   }
 }
 
-// ─── In-Session Hooks (M43 D1 token usage + M45 D2 conversation capture) ────
-
-const HOOKS_DIR = path.join(SCRIPTS_DIR, "hooks");
-const PKG_HOOKS = path.join(PKG_SCRIPTS, "hooks");
-
-// Each entry: { script, events, async, runner } — `events` is the array of hook
-// event names this script must be wired into. `runner` is the interpreter
-// ("node" default, "bash" for *.sh hooks). `async: true` lets the hook run
-// detached; OMIT it for hooks whose stdout must reach the terminal (the
-// ctx-cue banner is synchronous by design — see its header).
-// The `gsd-t-conversation-capture.js` hook runs on SessionStart,
-// UserPromptSubmit, and Stop (per the global CLAUDE.md M45 D2 install block —
-// PostToolUse stays opt-in via the GSD_T_CAPTURE_TOOL_USES env flag, so we
-// don't auto-register it). `gsd-t-in-session-usage-hook.js` runs on Stop (per
-// M43 D1 contract). `gsd-t-ctx-cue.sh` runs synchronously on Stop (M85 —
-// low-context red banner; sync so its stdout reaches the terminal).
-const IN_SESSION_HOOKS = [
-  {
-    script: "gsd-t-conversation-capture.js",
-    events: ["SessionStart", "UserPromptSubmit", "Stop"],
-    async: true,
-  },
-  {
-    script: "gsd-t-in-session-usage-hook.js",
-    events: ["Stop"],
-    async: true,
-  },
-  {
-    script: "gsd-t-ctx-cue.sh",
-    events: ["Stop"],
-    runner: "bash",
-  },
-];
-
-function installInSessionHooks() {
-  ensureDir(SCRIPTS_DIR);
-  ensureDir(HOOKS_DIR);
-
-  if (!fs.existsSync(PKG_HOOKS)) {
-    info("No scripts/hooks/ in package — skipping in-session hooks");
-    return;
-  }
-
-  // Copy each script into ~/.claude/scripts/hooks/
-  for (const hook of IN_SESSION_HOOKS) {
-    const src = path.join(PKG_HOOKS, hook.script);
-    const dest = path.join(HOOKS_DIR, hook.script);
-    if (!fs.existsSync(src)) {
-      warn(`In-session hook source missing: ${hook.script} — skipping`);
-      continue;
-    }
-    const srcContent = fs.readFileSync(src, "utf8");
-    const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
-    if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
-      copyFile(src, dest, `hooks/${hook.script}`);
-      try { fs.chmodSync(dest, 0o755); } catch {}
-    } else {
-      info(`In-session hook unchanged: ${hook.script}`);
-    }
-  }
-
-  configureInSessionHooks();
-}
-
-function configureInSessionHooks() {
-  const parsed = readSettingsJson();
-  if (parsed === null && fs.existsSync(SETTINGS_JSON)) {
-    warn("settings.json has invalid JSON — cannot configure in-session hooks");
-    return;
-  }
-  const settings = parsed || {};
-  if (!settings.hooks) settings.hooks = {};
-
-  let added = 0;
-  for (const hook of IN_SESSION_HOOKS) {
-    const scriptPath = path.join(HOOKS_DIR, hook.script);
-    const runner = hook.runner || "node";
-    const cmd = `${runner} "${scriptPath.replace(/\\/g, "\\\\")}"`;
-
-    for (const event of hook.events) {
-      if (!settings.hooks[event]) settings.hooks[event] = [];
-      const already = settings.hooks[event].some((entry) =>
-        entry.hooks && entry.hooks.some((h) => h.command && h.command.includes(hook.script))
-      );
-      if (already) continue;
-      const hookEntry = { type: "command", command: cmd };
-      if (hook.async) hookEntry.async = true;
-      settings.hooks[event].push({
-        matcher: "",
-        hooks: [hookEntry],
-      });
-      added++;
-    }
-  }
-
-  if (added === 0) {
-    info("In-session hooks already configured");
-    return;
-  }
-  if (isSymlink(SETTINGS_JSON)) {
-    warn("Skipping settings.json write — target is a symlink");
-    return;
-  }
-  try {
-    fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
-    success(`${added} in-session hook entr${added === 1 ? "y" : "ies"} configured in settings.json`);
-  } catch (e) {
-    warn(`Failed to write settings.json: ${e.message}`);
-  }
-}
-
-// ─── Status Line ─────────────────────────────────────────────────────────────
-
-// The GSD-T status bar. Canonical source: scripts/statusline-command.sh. Copy
-// it to ~/.claude/statusline-command.sh and point settings.statusLine at it so
-// edits in the package survive install/update/update-all. We only set
-// statusLine when it is absent or already points at our script — never clobber
-// a user's custom status line.
-const STATUSLINE_SCRIPT = "statusline-command.sh";
-
-function installStatusLine() {
-  ensureDir(CLAUDE_DIR);
-  const src = path.join(PKG_SCRIPTS, STATUSLINE_SCRIPT);
-  if (!fs.existsSync(src)) {
-    info("No statusline-command.sh in package — skipping status line");
-    return;
-  }
-  const dest = path.join(CLAUDE_DIR, STATUSLINE_SCRIPT);
-  const srcContent = fs.readFileSync(src, "utf8");
-  const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
-  if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
-    copyFile(src, dest, STATUSLINE_SCRIPT);
-    try { fs.chmodSync(dest, 0o755); } catch {}
-  } else {
-    info("Status line script unchanged");
-  }
-
-  const parsed = readSettingsJson();
-  if (parsed === null && fs.existsSync(SETTINGS_JSON)) {
-    warn("settings.json has invalid JSON — cannot configure status line");
-    return;
-  }
-  const settings = parsed || {};
-  const desiredCmd = `bash ${dest}`;
-  const existing = settings.statusLine;
-  // Set only when absent or already ours (command references our script).
-  const isOurs =
-    existing &&
-    existing.type === "command" &&
-    typeof existing.command === "string" &&
-    existing.command.includes(STATUSLINE_SCRIPT);
-  if (existing && !isOurs) {
-    info("Custom status line present — leaving it untouched");
-    return;
-  }
-  if (isOurs && existing.command === desiredCmd) {
-    info("Status line already configured");
-    return;
-  }
-  if (isSymlink(SETTINGS_JSON)) {
-    warn("Skipping settings.json write — target is a symlink");
-    return;
-  }
-  settings.statusLine = { type: "command", command: desiredCmd };
-  try {
-    fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
-    success("Status line configured in settings.json");
-  } catch (e) {
-    warn(`Failed to write settings.json: ${e.message}`);
-  }
-}
-
-// ─── Figma MCP ──────────────────────────────────────────────────────────────
-
-const FIGMA_MCP_URL = "https://mcp.figma.com/mcp";
-const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
-
-function configureFigmaMcp() {
-  // Check ~/.claude.json (where `claude mcp add` stores servers)
-  try {
-    if (fs.existsSync(CLAUDE_JSON)) {
-      const cj = JSON.parse(fs.readFileSync(CLAUDE_JSON, "utf8"));
-      if (cj.mcpServers && cj.mcpServers.figma) {
-        info("Figma MCP already configured");
-        return;
-      }
-    }
-  } catch { /* ignore parse errors */ }
-
-  // Also check settings.json (legacy location)
-  const settings = readSettingsJson() || {};
-  if (settings.mcpServers && settings.mcpServers.figma) {
-    info("Figma MCP already configured (settings.json)");
-    return;
-  }
-
-  // Add via `claude mcp add` for proper OAuth registration
-  try {
-    execFileSync("claude", ["mcp", "add", "--transport", "http", "-s", "user", "figma", FIGMA_MCP_URL], {
-      encoding: "utf8",
-      timeout: 10000,
-    });
-    success("Figma MCP configured (remote: " + FIGMA_MCP_URL + ")");
-    info("Authenticate with Figma on next session start (browser OAuth)");
-  } catch {
-    warn("Could not auto-configure Figma MCP — add manually:");
-    log(`  ${DIM}$${RESET} claude mcp add --transport http -s user figma ${FIGMA_MCP_URL}`);
-  }
-}
-
-// ─── Utility Scripts ─────────────────────────────────────────────────────────
-
-const UTILITY_SCRIPTS = ["gsd-t-tools.js", "gsd-t-statusline.js", "gsd-t-event-writer.js"];
-
-function installUtilityScripts() {
-  ensureDir(SCRIPTS_DIR);
-  const notDelivered = [];
-  for (const script of UTILITY_SCRIPTS) {
-    const src = path.join(PKG_SCRIPTS, script);
-    const dest = path.join(SCRIPTS_DIR, script);
-    if (!fs.existsSync(src)) {
-      // Promised but absent from the package. Reported, never skipped quietly —
-      // the same silence let projects run for weeks on a half install.
-      notDelivered.push(script);
-      continue;
-    }
-    const srcContent = fs.readFileSync(src, "utf8");
-    const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
-    if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
-      copyFile(src, dest, script);
-    } else {
-      info(`${script} unchanged`);
-    }
-  }
-  if (notDelivered.length) {
-    warn(`${notDelivered.length} script(s) are named by the installer but absent from the package:`);
-    for (const s of notDelivered) warn(`    ${s}`);
-    warn(`  Anything depending on these will fail. This is a packaging defect.`);
-  }
-}
-
 // ─── Global Bin Tools (~/.claude/bin/) ───────────────────────────────────────
-// Modules resolved by globally-installed scripts via
-// `path.join(__dirname, "..", "bin", <tool>)` (e.g. gsd-t-dashboard-server.js
-// → parallelism-report.cjs). Distinct from PROJECT_BIN_TOOLS, which copy into
-// each registered project's bin/.
+// Tools that must work outside any project (on PATH, or resolved by a hook from
+// ~/.claude/bin). Distinct from PROJECT_BIN_TOOLS, which copy into each
+// registered project's bin/.
 const GLOBAL_BIN_TOOLS = [
-  "parallelism-report.cjs",
-  "live-activity-report.cjs",
   // M111 — prints the worktree a session should start in. Called by the shell
   // BEFORE claude launches, so it must be on PATH rather than only in a project.
   "gsd-t-pick-worktree.cjs",
   // M112 — the two modules gsd-t-pick-worktree requires. Without them it throws
   // on load, so a tool that ships alone is a tool that does not run.
-  // worktree-detect also backs branch-guard's "is this a side copy" question.
   "gsd-t-worktree-detect.cjs",
   "gsd-t-worktree-provision.cjs",
-  // M55 D5 — preflight + brief + verify-gate dispatch targets propagated to ~/.claude/bin/.
-  "cli-preflight.cjs",
-  "gsd-t-context-brief.cjs",
-  "gsd-t-verify-gate.cjs",
-  "gsd-t-verify-gate-judge.cjs",
-  // M55 D2 substrate — parallel-cli engine (added v3.25.11 patch — missed in initial M55 D5 wire-in).
-  "parallel-cli.cjs",
-  // M57 — CI-parity verify-gate checks (structural build-coverage + containment-safe ci-parity).
-  "gsd-t-build-coverage.cjs",
-  "gsd-t-ci-parity.cjs",
-  // M82 — Competition Mode generate-and-judge selection oracle.
-  "gsd-t-competition-judge.cjs",
-  // M83 — Plan-phase acceptance-traceability gate.
-  "gsd-t-traceability-gate.cjs",
-  // M85 — Model-tier policy single source of truth (resolver + predicate).
-  "gsd-t-model-tier-policy.cjs",
-  // M86 — Model-profile config + resolver CLI (standard/pro/premium tier-spend switch).
-  "gsd-t-model-profile.cjs",
-  // M89 — Auto-research gate classifier (internal vs external claim routing; no LLM call).
-  "gsd-t-research-gate.cjs",
-  // M90 D1 — Architectural-assumption trigger (divergence-sampling + extend-signal; §2).
-  "gsd-t-architectural-trigger.cjs",
-  // M90 D2 — Loop ledger (non-convergence detection + halt directive; §3).
-  "gsd-t-loop-ledger.cjs",
-  // Backlog #40 — deterministic archive+sweep of a completed milestone's domain dirs.
-  "gsd-t-archive-domains.cjs",
-  // v5.4.10 — integer-identity primary-key gate. gsd-t-verify-gate.cjs dispatches to
-  // this by absolute path, so it MUST ship wherever the verify gate ships or the
-  // schema-id check throws ENOENT. Same class as the M99 store-resolver omission below.
-  "gsd-t-schema-id-check.cjs",
-  "gsd-t-boundary-normalize-check.cjs",
   // M112 — measures a slice plan in LINES and splits what is too big. Called by
   // the scan workflow before any reviewing starts.
   "gsd-t-slice-budget.cjs",
-  // v5.5.10 — PseudoCode §1.1 flow-line style gate (contract v1.2.0). The verify
-  // workflow fires it on the same doc set as the guard-map gate, so it must ship
-  // wherever verify ships. Also in PROJECT_BIN_TOOLS below — a tool wired into a
-  // caller but absent from BOTH lists is dead in every project
-  // ([[project_global_bin_propagation_gap]], 4 prior occurrences).
+  // PseudoCode §1.1 flow-line style gate (`gsd-t pseudocode-style`), used by the architect pass.
   "gsd-t-pseudocode-style.cjs",
   // M106 — Fallback detector. scripts/gsd-t-fallback-guard.js (a PreToolUse hook)
   // shells out to this by absolute path; if it is missing the guard DENIES the
-  // write rather than allowing it unchecked, so an omission here breaks every
-  // Write/Edit rather than failing silently. Also in PROJECT_BIN_TOOLS below.
+  // write rather than allowing it unchecked. Also in PROJECT_BIN_TOOLS below.
   "gsd-t-fallback-detect.cjs",
   // M117 — Search classifier. The graph search guard resolves it from the
   // package when a project has no copy, so it must ship globally too.
@@ -1900,37 +1085,22 @@ const GLOBAL_BIN_TOOLS = [
   // M108 — Install self-check, run by the SessionStart hook and by
   // `gsd-t install-check`.
   "gsd-t-install-check.cjs",
-  // M109 — project-history reader + rule miner, used by /gsd-t-setup to write a
-  // project CLAUDE.md from what actually happened rather than from a template.
-  "gsd-t-project-history.cjs", "gsd-t-rule-mine.cjs",
-  // M115 (contract test-plan-first-contract.md §5) — the A2 shape gate and the A5
-  // non-convergence halt for the test-plan-first command. Both are dispatched by
-  // `bin/gsd-t.js` ("testplan-lint" / "testplan-halt" cases) AND by the verify
-  // workflow's gate wiring, so an omission here is the same propagation-gap class
-  // caught four times before ([[project_global_bin_propagation_gap]]). Also in
-  // PROJECT_BIN_TOOLS below — both lists, both tools.
-  "gsd-t-testplan-lint.cjs", "gsd-t-testplan-halt.cjs", "gsd-t-testplan-rows.cjs",
   // v5.20.10 — deterministic Tekyz estimate-sheet writer + read-back audit
-  // (`gsd-t estimate-sheet`). Dispatched by bin/gsd-t.js AND read by
-  // /gsd-t-estimate, so it ships in BOTH lists ([[project_global_bin_propagation_gap]]).
+  // (`gsd-t estimate-sheet`). In BOTH lists ([[project_global_bin_propagation_gap]]).
   "gsd-t-estimate-sheet.cjs",
 ];
 
-// Directories under bin/ that must ship whole. A runner whose parts stay behind
-// is worse than one that is absent: cli-preflight.cjs shipped for months without
-// its checks, found an empty directory, and returned a clean pass having
-// verified nothing.
-const GLOBAL_BIN_DIRS = ["cli-preflight-checks"];
-
 function installGlobalBinTools() {
   ensureDir(GLOBAL_BIN_DIR);
+  // A tool this list promises but the package lacks is a packaging defect that
+  // breaks every machine. HALT before copying anything rather than install half.
+  const missing = GLOBAL_BIN_TOOLS.filter((tool) => !fs.existsSync(path.join(PKG_ROOT, "bin", tool)));
+  if (missing.length) {
+    throw new Error(`Package is missing global bin tool(s): ${missing.join(", ")} — reinstall @tekyzinc/gsd-t`);
+  }
   for (const tool of GLOBAL_BIN_TOOLS) {
     const src = path.join(PKG_ROOT, "bin", tool);
     const dest = path.join(GLOBAL_BIN_DIR, tool);
-    if (!fs.existsSync(src)) {
-      warn(`Global bin tool source missing: ${tool} — skipping`);
-      continue;
-    }
     const srcContent = fs.readFileSync(src, "utf8");
     const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
     if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
@@ -1940,200 +1110,9 @@ function installGlobalBinTools() {
       info(`bin/${tool} unchanged`);
     }
   }
-
-  for (const dirName of GLOBAL_BIN_DIRS) {
-    const srcDir = path.join(PKG_ROOT, "bin", dirName);
-    const destDir = path.join(GLOBAL_BIN_DIR, dirName);
-    if (!fs.existsSync(srcDir)) {
-      warn(`Global bin directory source missing: ${dirName} — skipping`);
-      continue;
-    }
-    ensureDir(destDir);
-    for (const file of fs.readdirSync(srcDir)) {
-      if (!file.endsWith(".cjs") && !file.endsWith(".js")) continue;
-      const src = path.join(srcDir, file);
-      const dest = path.join(destDir, file);
-      const srcContent = fs.readFileSync(src, "utf8");
-      const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
-      if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
-        copyFile(src, dest, `bin/${dirName}/${file}`);
-      } else {
-        info(`bin/${dirName}/${file} unchanged`);
-      }
-    }
-  }
 }
 
-// ─── CGC (CodeGraphContext) ──────────────────────────────────────────────────
-
-function installCgc() {
-  // Check Python availability
-  let pythonCmd = null;
-  for (const cmd of ["python3", "python"]) {
-    try {
-      const ver = execFileSync(cmd, ["--version"], {
-        encoding: "utf8", timeout: 3000,
-        stdio: ["pipe", "pipe", "pipe"]
-      }).trim();
-      const major = parseInt((ver.match(/(\d+)\.\d+/) || [])[1]);
-      if (major >= 3) { pythonCmd = cmd; break; }
-    } catch { /* try next */ }
-  }
-
-  if (!pythonCmd) {
-    warn("Python 3 not found — CGC graph engine skipped");
-    info("Install Python 3.10+ to enable deep code graph analysis");
-    return;
-  }
-
-  // Check if CGC is already installed
-  let cgcInstalled = false;
-  try {
-    execFileSync("cgc", ["--version"], {
-      encoding: "utf8", timeout: 3000,
-      stdio: ["pipe", "pipe", "pipe"]
-    });
-    cgcInstalled = true;
-  } catch { /* not installed */ }
-
-  if (!cgcInstalled) {
-    info("Installing CodeGraphContext...");
-    try {
-      execFileSync(pythonCmd, ["-m", "pip", "install", "codegraphcontext"], {
-        encoding: "utf8", timeout: 120000,
-        stdio: ["pipe", "pipe", "pipe"]
-      });
-      success("CodeGraphContext installed");
-    } catch (e) {
-      warn("CGC install failed — graph engine will use native-only mode");
-      info("To install manually: pip install codegraphcontext");
-      return;
-    }
-  } else {
-    // Check for update
-    try {
-      const pipOut = execFileSync(pythonCmd, [
-        "-m", "pip", "install", "--upgrade", "--dry-run", "codegraphcontext"
-      ], {
-        encoding: "utf8", timeout: 30000,
-        stdio: ["pipe", "pipe", "pipe"]
-      });
-      if (pipOut.includes("Would install")) {
-        info("Updating CodeGraphContext...");
-        execFileSync(pythonCmd, [
-          "-m", "pip", "install", "--upgrade", "codegraphcontext"
-        ], {
-          encoding: "utf8", timeout: 120000,
-          stdio: ["pipe", "pipe", "pipe"]
-        });
-        success("CodeGraphContext updated");
-      } else {
-        info("CodeGraphContext up to date");
-      }
-    } catch {
-      info("CodeGraphContext already installed (update check skipped)");
-    }
-  }
-
-  // Check Neo4j availability via Docker
-  let neo4jReady = false;
-  try {
-    const dInfo = execFileSync("docker", ["inspect", "gsd-t-neo4j"], {
-      encoding: "utf8", timeout: 5000,
-      stdio: ["pipe", "pipe", "pipe"]
-    });
-    const container = JSON.parse(dInfo);
-    if (container[0] && container[0].State &&
-        container[0].State.Running) {
-      neo4jReady = true;
-      info("Neo4j container running");
-    } else {
-      // Container exists but stopped — start it
-      execFileSync("docker", ["start", "gsd-t-neo4j"], {
-        encoding: "utf8", timeout: 10000,
-        stdio: ["pipe", "pipe", "pipe"]
-      });
-      neo4jReady = true;
-      success("Neo4j container started");
-    }
-  } catch {
-    // No container — check if Docker is available
-    try {
-      execFileSync("docker", ["info"], {
-        encoding: "utf8", timeout: 5000,
-        stdio: ["pipe", "pipe", "pipe"]
-      });
-      // Docker available — create Neo4j container
-      info("Creating Neo4j container for graph engine...");
-      try {
-        execFileSync("docker", [
-          "run", "-d", "--name", "gsd-t-neo4j",
-          "-p", "7474:7474", "-p", "7687:7687",
-          "-e", "NEO4J_AUTH=neo4j/gsdt-graph-2026",
-          "--restart", "unless-stopped",
-          "neo4j:5-community"
-        ], {
-          encoding: "utf8", timeout: 120000,
-          stdio: ["pipe", "pipe", "pipe"]
-        });
-        neo4jReady = true;
-        success("Neo4j container created (port 7474/7687)");
-      } catch (e) {
-        warn("Failed to create Neo4j container");
-        info("Run manually: docker run -d --name gsd-t-neo4j -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/gsdt-graph-2026 neo4j:5-community");
-      }
-    } catch {
-      warn("Docker not available — CGC will use native-only graph mode");
-      info("Install Docker Desktop to enable CGC deep analysis");
-    }
-  }
-
-  // Configure CGC to use Neo4j
-  if (neo4jReady) {
-    const cgcConfigDir = path.join(os.homedir(), ".codegraphcontext");
-    const cgcConfigFile = path.join(cgcConfigDir, ".env");
-    ensureDir(cgcConfigDir);
-    if (!fs.existsSync(cgcConfigFile) ||
-        !fs.readFileSync(cgcConfigFile, "utf8").includes("NEO4J_URI")) {
-      // Create or append Neo4j config
-      try {
-        execFileSync("cgc", ["config", "set", "DEFAULT_DATABASE", "neo4j"], {
-          encoding: "utf8", timeout: 5000,
-          stdio: ["pipe", "pipe", "pipe"],
-          env: { ...process.env, PYTHONIOENCODING: "utf-8" }
-        });
-        execFileSync("cgc", ["config", "set", "NEO4J_URI", "bolt://localhost:7687"], {
-          encoding: "utf8", timeout: 5000,
-          stdio: ["pipe", "pipe", "pipe"],
-          env: { ...process.env, PYTHONIOENCODING: "utf-8" }
-        });
-        execFileSync("cgc", ["config", "set", "NEO4J_PASSWORD", "gsdt-graph-2026"], {
-          encoding: "utf8", timeout: 5000,
-          stdio: ["pipe", "pipe", "pipe"],
-          env: { ...process.env, PYTHONIOENCODING: "utf-8" }
-        });
-        // Add NEO4J_USERNAME manually (not a CGC config key)
-        const envContent = fs.readFileSync(cgcConfigFile, "utf8");
-        if (!envContent.includes("NEO4J_USERNAME")) {
-          fs.appendFileSync(cgcConfigFile,
-            "\n# Neo4j connection settings\nNEO4J_USERNAME=neo4j\n");
-        }
-        success("CGC configured for Neo4j");
-      } catch {
-        warn("CGC config write failed — configure manually");
-      }
-    } else {
-      info("CGC Neo4j config exists");
-    }
-  }
-
-  // Summary
-  if (neo4jReady) {
-    success("Graph engine: CGC + Neo4j (full analysis)");
-  } else {
-    info("Graph engine: native-only (install Docker for CGC)");
-  }
-}
+// ─── SCIP indexers ───────────────────────────────────────────────────────────
 
 // M95: install the SCIP indexers that give the code graph compiler-accurate
 // call-edge resolution. These are a GSD-T requirement (not "optional only to get
@@ -2357,116 +1336,35 @@ async function doInstall(opts = {}) {
   const { gsdtCommands, utilityCommands } = installCommands(isUpdate);
   installGlobalClaudeMd(isUpdate);
 
-  heading("Heartbeat (Real-time Events)");
-  installHeartbeat();
-
-  heading("Reader Contract (M93 — concise replies, every turn)");
-  uninstallBrevityGuardHook();
-
   heading("Update Check (Session Start)");
   installUpdateCheck();
 
-  heading("Auto-Route (UserPromptSubmit)");
+  heading("Live Clock + Reader Contract (UserPromptSubmit)");
   installAutoRoute();
-
-  heading("In-Session Hooks (Conversation Capture + Token Usage + Ctx Cue)");
-  installInSessionHooks();
-
-  heading("Status Line");
-  installStatusLine();
-
-  heading("Figma MCP (Design-to-Code)");
-  configureFigmaMcp();
 
   heading("Shared Templates");
   installSharedTemplates();
 
-  heading("Utility Scripts");
-  installUtilityScripts();
-
   heading("Global Bin Tools (~/.claude/bin/)");
   installGlobalBinTools();
 
-  // M61: Context Meter retired (scripts/gsd-t-context-meter.js deleted; native
-  // /context replaces it). The configureContextMeterHooks() call that stood here
-  // re-registered a PostToolUse hook pointing at that deleted script on every
-  // install. removeRetiredHooks() below now strips it instead.
+  heading("Hooks");
+  reportHook(configureGraphInterceptHook(SETTINGS_JSON), "Graph-intercept hook (structural greps consult the code graph — M97)");
+  reportHook(configureReadInterceptHook(SETTINGS_JSON), "Read-intercept hook (structural code reads point at graph body slices — M98)");
+  reportHook(configureFallbackGuardHook(SETTINGS_JSON), "Fallback guard (denies a write that adds an unapproved fallback — M106)");
+  reportHook(configureDateGuardHook(SETTINGS_JSON), "Date guard (blocks a timestamp that drifts from the live clock)");
+  reportHook(configureGraphSearchGuardHook(SETTINGS_JSON), "Graph search guard (blocks a structural code search, names the graph query — M117)");
+  reportHook(configureGraphUseReportHook(SETTINGS_JSON), "Graph use report (flags a turn that did structural work without asking the graph — M117)");
+  reportHook(configureChangelogPostEditHook(SETTINGS_JSON), "CLAUDE.md changelog post-edit hook (M110)");
+  // SessionStart entries are put FIRST, so register install-heal last: it then
+  // runs before anything else tries to use the tools it repairs.
+  reportHook(configureChangelogCheckHook(SETTINGS_JSON), "CLAUDE.md changelog check (M110)");
+  reportHook(configureInstallHealHook(SETTINGS_JSON), "Install self-heal (restores missing tools before work starts — M108)");
 
-  heading("Graph-Intercept (PostToolUse on Grep — M97)");
-  const giHook = configureGraphInterceptHook(SETTINGS_JSON);
-  if (giHook.installed) {
-    if (giHook.action === "added") success("Graph-intercept hook added (structural greps consult the code graph)");
-    else if (giHook.action === "updated") success("Graph-intercept hook refreshed");
-    else info("Graph-intercept hook already configured");
-  }
-
-  // M98 — read-intercept: a structural code-read gets a graph note pointing at `graph body`.
-  const riHook = configureReadInterceptHook(SETTINGS_JSON);
-  if (riHook.installed) {
-    if (riHook.action === "added") success("Read-intercept hook added (structural code reads point at graph body slices)");
-    else if (riHook.action === "updated") success("Read-intercept hook refreshed");
-    else info("Read-intercept hook already configured");
-  }
-
-  const archHook = configureArchitectHook(SETTINGS_JSON);
-  if (archHook.installed) {
-    if (archHook.action === "added") success("Architect-oversight hook added (Six-Stage Pass reminder before writing code — M101)");
-    else if (archHook.action === "updated") success("Architect-oversight hook refreshed");
-    else info("Architect-oversight hook already configured");
-  }
-
+  heading("Retired in v6");
   const retired = removeRetiredHooks(SETTINGS_JSON);
-  if (retired.removed > 0) {
-    success(`Removed ${retired.removed} retired hook(s) from settings.json (worktree-collision guard — M105; context meter — M61)`);
-  }
-
-  // M105 worktree-collision guard RETIRED (2026-08-08). It detected sessions from
-  // heartbeat files, which every subagent also writes, so one session with agents
-  // read as many colliding sessions and the guard blocked its own user's edits.
-  // Detecting a session from a file it happens to write was the wrong signal.
-  // Its replacement (gsd-t-auto-worktree) detects real terminal sessions from the
-  // process table and routes each into its own worktree at SessionStart, so no
-  // collision can occur in the first place. Any previously-registered copy is
-  // removed by removeRetiredHooks() below.
-  const fbHook = configureFallbackGuardHook(SETTINGS_JSON);
-  if (fbHook.installed) {
-    if (fbHook.action === "added") success("Fallback guard added (denies a write that adds an unapproved fallback — M106)");
-    else if (fbHook.action === "refreshed") success("Fallback guard refreshed");
-    else info("Fallback guard already configured");
-  }
-
-
-  // M117 — the graph search guard and its Stop-time report. The graph rule had
-  // three enforcement points before this and all three missed the path actually
-  // taken: the Grep-tool and Read-tool hooks never fire in bypass mode (every
-  // search goes out through Bash), and the runtime use-gate only runs inside
-  // verify, never in a plain conversation.
-  const gsHook = configureGraphSearchGuardHook(SETTINGS_JSON);
-  if (gsHook.installed) {
-    if (gsHook.action === "added") success("Graph search guard added (blocks a structural code search, names the graph query — M117)");
-    else if (gsHook.action === "updated") success("Graph search guard refreshed");
-    else info("Graph search guard already configured");
-  }
-
-  const gurHook = configureGraphUseReportHook(SETTINGS_JSON);
-  if (gurHook.installed) {
-    if (gurHook.action === "added") success("Graph use report added (flags a turn that did structural work without asking the graph — M117)");
-    else if (gurHook.action === "updated") success("Graph use report refreshed");
-    else info("Graph use report already configured");
-  }
-
-  const ccHook = removeConciseHook(SETTINGS_JSON);
-  if (ccHook.removed) success("Concise-rewrite hook removed — retired in v5.11.15");
-
-  const healHook = configureInstallHealHook(SETTINGS_JSON);
-  if (healHook.installed) {
-    if (healHook.action === "added") success("Install self-heal added (restores missing tools before work starts — M108)");
-    else if (healHook.action === "refreshed") success("Install self-heal refreshed");
-    else info("Install self-heal already configured");
-  }
-
-  heading("Graph Engine (CGC)");
-  installCgc();
+  if (retired.removed > 0) success(`Removed ${retired.removed} retired hook(s) from settings.json`);
+  removeRetiredV6Files();
 
   heading("SCIP Indexers (Compiler-Accurate Code Graph — M95)");
   installScipIndexers();
@@ -2474,6 +1372,13 @@ async function doInstall(opts = {}) {
   saveInstalledVersion();
 
   showInstallSummary(gsdtCommands.length, utilityCommands.length);
+}
+
+function reportHook(result, label) {
+  if (!result.installed) throw new Error(`Could not register: ${label}`);
+  if (result.action === "added") success(`${label} — added`);
+  else if (result.action === "noop") info(`${label} — already configured`);
+  else success(`${label} — refreshed`);
 }
 
 function showInstallSummary(gsdtCount, utilCount) {
@@ -2486,9 +1391,7 @@ function showInstallSummary(gsdtCount, utilCount) {
   log(`${BOLD}Quick Start:${RESET}`);
   log(`  ${DIM}$${RESET} cd your-project`);
   log(`  ${DIM}$${RESET} claude`);
-  log(`  ${DIM}>${RESET} /gsd-t-init my-project`);
-  log(`  ${DIM}>${RESET} /gsd-t-milestone "First Feature"`);
-  log(`  ${DIM}>${RESET} /gsd-t-wave`);
+  log(`  ${DIM}>${RESET} /gsd-t-init-scan-setup`);
   log("");
   log(`${BOLD}Other commands:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t status      ${DIM}— check installation${RESET}`);
@@ -2616,12 +1519,6 @@ async function doInit(projectName) {
   initGsdtDir(projectDir, projectName, today);
   copyBinToolsToProject(projectDir, projectName);
 
-  // M61 D1: Context Meter retired (token-budget.cjs + scripts/gsd-t-context-meter.js
-  // deleted). Native /context replaces it. No longer provisioned at install —
-  // installContextMeter / configureContextMeterHooks would register a PostToolUse
-  // hook pointing at a deleted script. Both functions remain defined but unused
-  // (cleaned in M65 follow-up).
-
   if (registerProject(projectDir)) success("Registered in ~/.claude/.gsd-t-projects");
 
   // M50 D1: Universal Playwright bootstrap. If the project has UI signal but
@@ -2641,29 +1538,6 @@ async function doInit(projectName) {
       warn(`Playwright install errored: ${e.message || e}`);
       info("Re-run with: gsd-t doctor --install-playwright");
     }
-  }
-
-  // M52 D1: auto-install the journey-coverage gate. Idempotent — no-op if marker present.
-  if (hasUI(projectDir)) installJourneyCoverageHook(projectDir);
-
-  // M100 D1: storage scaffolder step. Presents real backend alternatives and
-  // PAUSES for human approval — the ONE sanctioned pause against Level-3
-  // full-auto. On PAUSED, halts here and surfaces alternatives; never writes
-  // a trace/audit sink or picks a backend silently. See
-  // .gsd-t/contracts/logging-scaffold-seam-contract.md.
-  try {
-    const loggingOutcome = runLoggingScaffoldStep(projectDir);
-    if (loggingOutcome.halted) {
-      warn("Logging backend not yet chosen — scaffolder is PAUSED for human approval:");
-      for (const alt of loggingOutcome.alternatives) {
-        info(`  - ${alt.backend}${alt.recommended ? " (recommended)" : ""}: ${alt.label} — ${alt.reason}`);
-      }
-      info(`Re-run init with an approved backend to resume (resumeToken: ${loggingOutcome.resumeToken}).`);
-    } else {
-      success(`Logging backend: ${loggingOutcome.backend}`);
-    }
-  } catch (e) {
-    warn(`Logging scaffold step errored: ${e.message || e}`);
   }
 
   showInitTree(projectDir);
@@ -2698,105 +1572,8 @@ function doStatus() {
   showStatusCommands();
   showStatusConfig();
   showStatusTeams();
-  showStatusContextMeter();
   showStatusProject();
-  showStatusTokenBlock();
   log("");
-}
-
-function showStatusTokenBlock() {
-  const cwd = process.cwd();
-  if (!fs.existsSync(path.join(cwd, ".gsd-t"))) return;
-  let milestone = null;
-  try {
-    const progressPath = path.join(cwd, ".gsd-t", "progress.md");
-    if (fs.existsSync(progressPath)) {
-      const src = fs.readFileSync(progressPath, "utf8");
-      const m = src.match(/## Current Milestone:\s*(\S+)/) || src.match(/Milestone:\s*(M\d+)/);
-      if (m) milestone = m[1];
-    }
-  } catch (_) {}
-  try {
-    const dashboard = require(path.join(__dirname, "gsd-t-token-dashboard.cjs"));
-    const agg = dashboard.aggregateSync({ projectDir: cwd, milestone });
-    log(dashboard.renderStatusBlock(agg));
-  } catch (_) {}
-}
-
-function formatRelativeTime(timestampIso) {
-  const then = Date.parse(timestampIso);
-  if (!Number.isFinite(then)) return "unknown";
-  const deltaSec = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (deltaSec < 60) return `${deltaSec}s ago`;
-  if (deltaSec < 3600) return `${Math.floor(deltaSec / 60)}m ago`;
-  if (deltaSec < 86400) return `${Math.floor(deltaSec / 3600)}h ago`;
-  return `${Math.floor(deltaSec / 86400)} days ago`;
-}
-
-function showStatusContextMeter() {
-  heading("Context Meter");
-  const cwd = process.cwd();
-  const statePath = path.join(cwd, ".gsd-t", ".context-meter-state.json");
-
-  let state = null;
-  try {
-    if (fs.existsSync(statePath)) {
-      state = JSON.parse(fs.readFileSync(statePath, "utf8"));
-    }
-  } catch {
-    state = null;
-  }
-
-  if (!state || typeof state !== "object") {
-    log(`  ${DIM}Context: N/A (meter hook not run this session)${RESET}`);
-    return;
-  }
-
-  // Error case: lastError set. Promoted from DIM to ERROR in v3.10.12.
-  // Before: a silent dim line nobody read. After: a red alarm so users see
-  // that the context-window guardrail is DEAD (M36 regression fix).
-  if (state.lastError) {
-    const code = (state.lastError && state.lastError.code) || "unknown";
-    const rel = state.timestamp ? formatRelativeTime(state.timestamp) : "never measured";
-    log(`  ${RED}${BOLD}✗ CONTEXT METER DEAD${RESET} ${RED}— error: ${code}, last check: ${rel}${RESET}`);
-    log(`    ${RED}The context-window guardrail is NOT working. Long sessions will hit /compact.${RESET}`);
-    log(`    ${YELLOW}Fix: run 'gsd-t doctor' for diagnostics${RESET}`);
-    return;
-  }
-
-  // Require minimum viable fields for a fresh reading
-  if (
-    typeof state.pct !== "number" ||
-    typeof state.modelWindowSize !== "number" ||
-    typeof state.threshold !== "string" ||
-    typeof state.timestamp !== "string"
-  ) {
-    log(`  ${DIM}Context: N/A (meter hook not run this session)${RESET}`);
-    return;
-  }
-
-  const pctStr = state.pct.toFixed(1);
-  const rel = formatRelativeTime(state.timestamp);
-  const ageMs = Date.now() - Date.parse(state.timestamp);
-  const stale = !Number.isFinite(ageMs) || ageMs > 5 * 60 * 1000;
-  const staleSuffix = stale ? " (stale)" : "";
-
-  // v3.0.0 three-band: normal (green) / warn (yellow) / stop (bold red).
-  let color = DIM;
-  switch (state.threshold) {
-    case "normal":
-      color = GREEN;
-      break;
-    case "warn":
-      color = YELLOW;
-      break;
-    case "stop":
-      color = BOLD + RED;
-      break;
-  }
-
-  const line = `Context: ${pctStr}% of ${state.modelWindowSize} tokens (${state.threshold} band) — last check ${rel}${staleSuffix}`;
-  log(`  ${color}${line}${RESET}`);
 }
 
 function showStatusVersion() {
@@ -2894,15 +1671,9 @@ function doUninstall() {
   removeInstalledCommands();
   removeVersionFile();
 
-  // Remove context meter PostToolUse hook from settings.json
-  if (removeContextMeterHook(SETTINGS_JSON)) {
-    success("Context meter PostToolUse hook removed from settings.json");
-  }
-
-  // M98 — remove the graph + read intercept PostToolUse hooks
-  if (removeInterceptHooks(SETTINGS_JSON)) {
-    success("Graph/read-intercept PostToolUse hooks removed from settings.json");
-  }
+  // Every hook GSD-T registers, plus any retired one still lingering.
+  const hooks = removeHooksByMarkers(SETTINGS_JSON, GSDT_HOOK_MARKERS.concat(RETIRED_V6.hookMarkers));
+  if (hooks.removed > 0) success(`Removed ${hooks.removed} GSD-T hook(s) from settings.json`);
 
   warn("~/.claude/CLAUDE.md was NOT removed (may contain your customizations)");
   info("Remove manually if desired: delete the GSD-T section from ~/.claude/CLAUDE.md");
@@ -3222,138 +1993,6 @@ async function checkProjectHealth(projects) {
 
 // ── Global Rule Sync (M27) ──────────────────────────────────────────────────
 
-function syncGlobalRulesToProject(projectDir) {
-  try {
-    const gsm = require("./global-sync-manager.js");
-    const globalRules = gsm.readGlobalRules();
-    if (globalRules.length === 0) return 0;
-
-    // Filter: universal OR promotion_count >= 2
-    const qualifying = globalRules.filter((r) =>
-      r.is_universal === true || (r.promotion_count || 0) >= 2);
-    if (qualifying.length === 0) return 0;
-
-    // Load local rules to check for duplicates
-    let localRules = [];
-    try {
-      const re = require("./rule-engine.js");
-      localRules = re.getActiveRules(projectDir);
-    } catch { /* rule-engine may not exist in target project */ }
-
-    const rulesFile = path.join(projectDir, ".gsd-t", "metrics", "rules.jsonl");
-    let injected = 0;
-
-    for (const globalRule of qualifying) {
-      const triggerFp = JSON.stringify(
-        globalRule.original_rule && globalRule.original_rule.trigger
-          ? globalRule.original_rule.trigger : {});
-      const alreadyExists = localRules.some((lr) =>
-        JSON.stringify(lr.trigger || {}) === triggerFp);
-      if (alreadyExists) continue;
-
-      // Inject as candidate rule
-      const candidate = {
-        id: `global-${globalRule.global_id}`,
-        created_at: new Date().toISOString(),
-        name: (globalRule.original_rule && globalRule.original_rule.name) || globalRule.global_id,
-        description: (globalRule.original_rule && globalRule.original_rule.description) || "Synced from global rules",
-        trigger: (globalRule.original_rule && globalRule.original_rule.trigger) || {},
-        severity: (globalRule.original_rule && globalRule.original_rule.severity) || "MEDIUM",
-        action: (globalRule.original_rule && globalRule.original_rule.action) || "warn",
-        patch_template_id: null,
-        activation_count: 0,
-        last_activated: null,
-        milestone_created: "global",
-        status: "active",
-        source_global_id: globalRule.global_id,
-      };
-
-      // Append to local rules.jsonl
-      const dir = path.dirname(rulesFile);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.appendFileSync(rulesFile, JSON.stringify(candidate) + "\n");
-      localRules.push(candidate); // track to avoid re-injecting within same sync
-      injected++;
-    }
-    return injected;
-  } catch {
-    return 0;
-  }
-}
-
-function syncGlobalRules(projects) {
-  let totalSynced = 0;
-  try {
-    const gsm = require("./global-sync-manager.js");
-    const globalRules = gsm.readGlobalRules();
-    if (globalRules.length === 0) {
-      log(`${DIM}  ℹ No global rules to sync${RESET}`);
-      return 0;
-    }
-
-    heading("Global Rule Sync");
-    for (const projectDir of projects) {
-      if (!fs.existsSync(projectDir)) continue;
-      const count = syncGlobalRulesToProject(projectDir);
-      if (count > 0) {
-        success(`Synced ${count} global rules to ${path.basename(projectDir)}`);
-        totalSynced += count;
-      }
-    }
-    if (totalSynced === 0) {
-      info("All projects already have qualifying global rules");
-    }
-  } catch {
-    // global-sync-manager may not exist yet
-  }
-  return totalSynced;
-}
-
-function exportUniversalRulesForNpm() {
-  try {
-    const gsm = require("./global-sync-manager.js");
-    const globalRules = gsm.readGlobalRules();
-    const npmCandidates = globalRules.filter((r) => r.is_npm_candidate === true);
-    if (npmCandidates.length === 0) return 0;
-
-    const rulesDir = path.join(PKG_ROOT, "examples", "rules");
-    if (!fs.existsSync(rulesDir)) fs.mkdirSync(rulesDir, { recursive: true });
-
-    const version = PKG_VERSION;
-    const exported = npmCandidates.map((r) => ({
-      ...r,
-      shipped_in_version: r.shipped_in_version || version,
-    }));
-
-    const filePath = path.join(rulesDir, "universal-rules.jsonl");
-    fs.writeFileSync(filePath, exported.map((r) => JSON.stringify(r)).join("\n") + "\n");
-
-    // Update shipped_in_version on global rules
-    for (const r of npmCandidates) {
-      if (!r.shipped_in_version) {
-        r.shipped_in_version = version;
-      }
-    }
-    // Write updated rules back to global
-    const allRules = gsm.readGlobalRules();
-    for (const r of allRules) {
-      const match = npmCandidates.find((c) => c.global_id === r.global_id);
-      if (match) r.shipped_in_version = match.shipped_in_version;
-    }
-    // Re-read and write to ensure consistency
-    const rulesFile = path.join(os.homedir(), ".claude", "metrics", "global-rules.jsonl");
-    if (fs.existsSync(rulesFile)) {
-      const tmp = rulesFile + ".tmp." + process.pid;
-      fs.writeFileSync(tmp, allRules.map((r) => JSON.stringify(r)).join("\n") + "\n");
-      fs.renameSync(tmp, rulesFile);
-    }
-
-    return exported.length;
-  } catch {
-    return 0;
-  }
-}
-
 async function doUpdateAll() {
   // Step 1: Upgrade the globally-installed npm package FIRST. Without this,
   // `update-all` would only propagate command files — but the global `gsd-t`
@@ -3385,9 +2024,6 @@ async function doUpdateAll() {
     }
   }
 
-  // Global rule sync — propagate proven rules across projects
-  const syncCount = syncGlobalRules(projects);
-
   const {
     playwrightMissing,
     swaggerMissing,
@@ -3399,7 +2035,6 @@ async function doUpdateAll() {
     counts,
     playwrightMissing,
     swaggerMissing,
-    syncCount,
     playwrightAutoInstalled,
     graphMissing,
   );
@@ -3497,6 +2132,10 @@ async function updateGlobalCommands() {
   } else {
     heading(`GSD-T ${versionLink()}`);
     success("Global commands already up to date");
+    // Same version, but files a v6 update retired may still be on this machine.
+    const retired = removeRetiredHooks(SETTINGS_JSON);
+    if (retired.removed > 0) success(`Removed ${retired.removed} retired hook(s) from settings.json`);
+    removeRetiredV6Files();
   }
 }
 
@@ -3528,18 +2167,14 @@ function updateSingleProject(projectDir, counts) {
   const guardAdded = updateProjectClaudeMd(claudeMd, projectName);
   const changelogCreated = createProjectChangelog(projectDir, projectName);
   const binToolsCopied = copyBinToolsToProject(projectDir, projectName);
-  const archiveRan = runProgressArchiveMigration(projectDir, projectName);
-  const taskCounterRetired = runTaskCounterRetirementMigration(projectDir, projectName);
-  const unattendedConfigCreated = ensureUnattendedConfig(projectDir, projectName);
-  const gitignoreUpdated = ensureUnattendedGitignore(projectDir, projectName);
-  if (guardAdded || changelogCreated || binToolsCopied || archiveRan || taskCounterRetired || unattendedConfigCreated || gitignoreUpdated) {
+  if (guardAdded || changelogCreated || binToolsCopied) {
     counts.updated++;
   } else {
     // The "no mutator ran" branch — distinct from "running latest GSD-T version".
-    // Be explicit: this only means the 7 migration ops were no-ops. The slash
+    // Be explicit: this only means the 3 migration ops were no-ops. The slash
     // commands and global CLI come from the npm-global install, not from any
     // per-project artifact, so this status doesn't claim or imply a version.
-    info(`${projectName} — no migrations needed (CLAUDE.md guard, CHANGELOG, bin tools, unattended config all current)`);
+    info(`${projectName} — no migrations needed (CLAUDE.md guard, CHANGELOG, bin tools all current)`);
     counts.skipped++;
   }
 }
@@ -3548,135 +2183,45 @@ function updateSingleProject(projectDir, counts) {
 // a new tool only requires appending to this array. Use .cjs extension so they
 // always run as CommonJS regardless of the project's package.json "type" field.
 const PROJECT_BIN_TOOLS = [
-  "archive-progress.cjs",
-  // M55 — preflight + parallel-cli + brief + verify-gate libraries copied to project bin/
-  // so per-project workflows can `require('./bin/cli-preflight.cjs')` etc. without
-  // depending on the globally-installed gsd-t CLI being on PATH.
-  "cli-preflight.cjs", "parallel-cli.cjs", "parallel-cli-tee.cjs",
-  "gsd-t-context-brief.cjs",
-  "gsd-t-verify-gate.cjs", "gsd-t-verify-gate-judge.cjs",
-  // M100 D3 — trace+audit envelope gate. verify-gate dispatches to it via __dirname,
-  // so a project with the gate but not this file fails `logging-envelope` on every
-  // verify (TimeTracking TD-395, 2026-09-03 — the 5th propagation gap of this class;
-  // test/verify-gate-tools-propagated.test.js now asserts the whole set structurally).
-  "gsd-t-logging-envelope-check.cjs",
-  // v5.4.10 — integer-identity primary-key gate. gsd-t-verify-gate.cjs dispatches to
-  // it via an absolute path in the Track 2 plan, so a project that has the verify gate
-  // but NOT this file gets an ENOENT on every verify. Ships alongside the gate itself.
-  "gsd-t-schema-id-check.cjs",
-  "gsd-t-boundary-normalize-check.cjs",
   // M112 — measures a slice plan in LINES and splits what is too big. Called by
   // the scan workflow before any reviewing starts.
   "gsd-t-slice-budget.cjs",
-  // M82 — Competition Mode judge + its disjointness oracle dependency, so a
-  // project's gsd-t-phase workflow can score candidate partitions via the
-  // project-local bin (runCli prefers bin/<tool>.cjs over the global binary).
-  "gsd-t-competition-judge.cjs", "gsd-t-file-disjointness.cjs",
-  // M83 — Plan-phase acceptance-traceability gate (runs in the plan workflow).
-  "gsd-t-traceability-gate.cjs",
-  // M85 — Model-tier policy resolver, so command invokers in consumer projects
-  // can resolve stage tiers at invoke time (M69 injection pattern).
-  "gsd-t-model-tier-policy.cjs",
-  // M86 — Model-profile config + resolver CLI (standard/pro/premium tier-spend switch).
-  "gsd-t-model-profile.cjs",
   // M106 — Fallback detector. The PreToolUse guard prefers the project-local
-  // copy; the verify gate dispatches to it by absolute path. Missing here means
-  // every Write/Edit is DENIED (the guard halts rather than allowing unchecked),
-  // so this entry is load-bearing — [[project_global_bin_propagation_gap]].
+  // copy. Missing here means every Write/Edit is DENIED (the guard halts rather
+  // than allowing unchecked), so this entry is load-bearing.
   "gsd-t-fallback-detect.cjs",
-  // M113 — Graph USE gate. The verify gate dispatches to it by absolute path,
-  // and it reads the project's OWN .gsd-t/graphDB/logs ledger, so it must live
-  // in the project — [[project_global_bin_propagation_gap]].
-  "gsd-t-graph-use-gate.cjs",
-  // M117 — Search classifier for the graph search guard. The PreToolUse guard
-  // prefers the project-local copy and DENIES every search if it cannot load
-  // one, so an omission here blocks all work rather than failing quietly —
-  // [[project_global_bin_propagation_gap]].
+  // M117 — Search classifier for the graph search guard. The guard prefers the
+  // project-local copy and DENIES every search if it cannot load one.
   "gsd-t-code-search-classifier.cjs",
-  // M107 — Concise rewriter, invoked by the Stop hook.
   // M108 — Install self-check. Every project carries its own copy so it can
   // verify and repair itself even when the global install is what broke.
   "gsd-t-install-check.cjs",
-  // M109 — project-history reader + rule miner, so /gsd-t-setup can write a
-  // project CLAUDE.md from what actually happened rather than from a template.
-  "gsd-t-project-history.cjs", "gsd-t-rule-mine.cjs",
-  // M89 — Auto-research gate classifier (classify a guessed claim as internal vs external;
-  // propagated to each registered project's bin/ so the workflow runCli fallback resolves
-  // downstream — per [[project_global_bin_propagation_gap]]).
-  "gsd-t-research-gate.cjs",
-  // M90 D1 — Architectural-assumption trigger (divergence-sampling + extend-signal; §2).
-  // Propagated so project-local runCli helpers can invoke it without the global binary.
-  "gsd-t-architectural-trigger.cjs",
-  // M90 D2 — Loop ledger (non-convergence detection + halt directive; §3).
-  // Propagated so project-local runCli helpers (gsd-t-debug.workflow.js) can invoke it.
-  "gsd-t-loop-ledger.cjs",
   // M110 — CLAUDE.md changelog tracking. Scaffolds and appends to the changelog file.
   "gsd-t-claude-md-changelog.cjs",
-  // Backlog #40 — deterministic archive+sweep of a completed milestone's domain dirs
-  // (complete-milestone Step 7). Propagated so complete-milestone can invoke it project-local.
-  "gsd-t-archive-domains.cjs",
-  // M91 (merged M87+M88) — PseudoCode source-of-truth deterministic gates, propagated so
-  // project-local runCli helpers (gsd-t-verify / gsd-t-milestone workflows) resolve them
-  // without the global binary. guard-map = the [RULE] guard-bridge verify gate (D1);
-  // guard-map-derive = build→map derivation seam (G2); milestone-state = sign-off /
-  // isDefined predicate (G1); rule-consume = triad rule-set consumer (G3);
-  // divergence-grammar = §4 parse/format round-trip (G4).
-  "gsd-t-guard-map.cjs", "gsd-t-guard-map-derive.cjs", "gsd-t-milestone-state.cjs",
-  "gsd-t-rule-consume.cjs", "gsd-t-divergence-grammar.cjs",
-  // Contract v1.2.0 (2026-07-29) — the §1.1 flow-line STYLE gate, sibling of the
-  // guard-map gate above. guard-map holds what a PseudoCode doc CONTAINS; this
-  // holds how it READS (nested decision tree in plain English, technical terms
-  // glossed alongside, code identifiers below the divider). Propagated so the
-  // verify workflow's project-local runCli resolves it downstream.
+  // PseudoCode §1.1 flow-line STYLE gate (`gsd-t pseudocode-style`).
   "gsd-t-pseudocode-style.cjs",
-  // M93 — jargon-gloss lint for written docs (the file surface the brevity-guard
-  // Stop hook can't reach). Propagated so a project's doc checks can invoke it.
-  "gsd-t-jargon-lint.cjs",
-  // M94/M95 — code-graph runtime. The wired consumers (execute/wave disjointness,
-  // debug, quick, impact, plan, scan) look for `bin/gsd-t-graph-query-cli.cjs` IN
-  // THE PROJECT and fall back to grep when it is absent. Propagating the query CLI
-  // plus its require-chain (indexer, freshness, edge-extract, SCIP upgrade + reader)
-  // is what actually makes a project graph-aware instead of grep-dependent.
+  // M94/M95 — code-graph runtime. The wired consumers (scan, debug, the
+  // intercept hooks) look for `bin/gsd-t-graph-query-cli.cjs` IN THE PROJECT.
+  // Propagating the query CLI plus its require-chain (indexer, freshness,
+  // edge-extract, SCIP upgrade + reader) is what makes a project graph-aware.
   // [[project_code_graph_universal_consumer]] [[feedback_graph_is_architectural_anchor]]
   "gsd-t-graph-query-cli.cjs", "gsd-t-graph-index.cjs", "gsd-t-graph-freshness.cjs",
   "gsd-t-graph-edge-extract.cjs", "gsd-t-graph-scip-upgrade.cjs", "gsd-t-scip-reader.cjs",
-  // M99 (added 2026-06-30, resolver added to the copy list 2026-07-12) — the query
-  // CLI `require`s gsd-t-graph-store-resolver.cjs at load time (line ~76). It was
-  // added to the source in M99 but NEVER added here, so update-all copied the CLI
-  // and 6 of its 7 deps and silently omitted this one → the CLI threw on require →
-  // graph dead → grep fallback (found by the Binvoice architect run 2026-07-12).
-  // Same class as [[project_global_bin_propagation_gap]] / [[project_m96_graph_runs_in_projects]].
+  // M99 — the query CLI `require`s the store resolver at load time; omitting it
+  // left the CLI throwing on require (Binvoice architect run 2026-07-12).
   "gsd-t-graph-store-resolver.cjs",
   // Required by the indexer + freshness walker (project graph exclude list).
   "gsd-t-graph-exclude.cjs",
-  // M96 — multi-location resolver for the store engine (better-sqlite3), so a
-  // copied tool finds the engine from the GSD-T global package, not the project's
-  // own (usually absent) node_modules. Fail-loud with remediation if all miss.
+  // M96 — multi-location resolver for the store engine (better-sqlite3).
   "gsd-t-require-store.cjs",
-  // Broken-Graph-Halts — the ONE shared availability classifier (graph-absent vs
-  // graph-broken → ABSENT/auto-build vs BROKEN/HALT). The sandboxed workflows invoke
-  // it via Bash (`node bin/gsd-t-graph-availability.cjs classify <reason>`), so it MUST
-  // ship to every project or the consumers can't classify. Same propagation class as
-  // gsd-t-graph-store-resolver.cjs above. [[project_global_bin_propagation_gap]]
+  // Broken-Graph-Halts — the ONE shared availability classifier (ABSENT vs
+  // BROKEN). The sandboxed scan + debug workflows invoke it via Bash.
   "gsd-t-graph-availability.cjs",
-  // M102 — Environment Registry. The shared marker-block doc-writer + the
-  // registry helper (record/lookup/detect/add-permission/ensure-gitignore).
-  // Sandboxed workflows (init/populate + provisioning execute/quick tasks) call
-  // the registry via project-local Bash, and the registry `require`s the shared
-  // writer at load — BOTH must ship or the registry throws / the writer is a
-  // second copy. Same propagation class as the graph tools above.
-  // [[project_global_bin_propagation_gap]]
-  // Plus the verify-gate lint (gsd-t-verify-gate.cjs invokes it via __dirname,
-  // so it must sit alongside the gate in the project's bin/).
-  "gsd-t-doc-marker.cjs", "gsd-t-env-registry.cjs", "gsd-t-env-registry-check.cjs",
-  // M115 (contract test-plan-first-contract.md §5) — the A2 shape gate and the A5
-  // non-convergence halt. The verify workflow's project-local runCli resolves these,
-  // and /gsd-t-test-plan calls them directly — same propagation-gap class as the
-  // graph tools above. Also in GLOBAL_BIN_TOOLS — both lists, both tools.
-  "gsd-t-testplan-lint.cjs", "gsd-t-testplan-halt.cjs", "gsd-t-testplan-rows.cjs",
+  // M102 — Environment Registry + the shared marker-block doc-writer it
+  // `require`s at load. BOTH must ship or the registry throws.
+  "gsd-t-doc-marker.cjs", "gsd-t-env-registry.cjs",
   // v5.20.10 — deterministic Tekyz estimate-sheet writer + read-back audit
-  // (`gsd-t estimate-sheet`). Dispatched by bin/gsd-t.js AND read by
-  // /gsd-t-estimate, so it ships in BOTH lists ([[project_global_bin_propagation_gap]]).
+  // (`gsd-t estimate-sheet`). In BOTH lists ([[project_global_bin_propagation_gap]]).
   "gsd-t-estimate-sheet.cjs",
 ];
 
@@ -3722,6 +2267,8 @@ const DEPRECATED_BIN_STRAY_SIGNATURES = {
   // M61 D1/D4 — misc retired
   "log-tail.cjs": ["Log Tail — print the last N lines"], // verbatim shipped comment
   "event-stream.cjs": ["bin/event-stream.cjs", "unattended supervisor watch-tick"],
+  // v6 slim-down — every cut tool that update-all once copied into projects.
+  ...RETIRED_V6.bin,
 };
 const DEPRECATED_BIN_STRAYS = Object.keys(DEPRECATED_BIN_STRAY_SIGNATURES);
 
@@ -3849,141 +2396,11 @@ function copyBinToolsToProject(projectDir, projectName) {
   return cleaned > 0;
 }
 
-// One-shot migration: roll the project's progress.md Decision Log into archive
-// files using bin/archive-progress.js. A marker file ensures we only do this once
-// per project — subsequent runs are no-ops.
-function runProgressArchiveMigration(projectDir, projectName) {
-  const progressMd = path.join(projectDir, ".gsd-t", "progress.md");
-  if (!fs.existsSync(progressMd)) return false;
-
-  const markerPath = path.join(projectDir, ".gsd-t", ".archive-migration-v1");
-  if (fs.existsSync(markerPath)) return false;
-
-  const archiveScript = path.join(projectDir, "bin", "archive-progress.cjs");
-  if (!fs.existsSync(archiveScript)) return false;
-
-  try {
-    const output = execFileSync("node", [archiveScript, "--quiet"], {
-      cwd: projectDir,
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    fs.writeFileSync(
-      markerPath,
-      `# archive-migration-v1\nApplied: ${new Date().toISOString()}\nTool: bin/archive-progress.js\n`
-    );
-    info(`${projectName} — progress.md Decision Log archived (one-time migration)`);
-    return true;
-  } catch (e) {
-    warn(`${projectName} — archive migration failed: ${e.message}`);
-    return false;
-  }
-}
-
-// One-shot migration: retire the v2.74.12 task-counter proxy. Removes the stale
-// bin/task-counter.cjs and any leftover .task-counter* state/config files from
-// downstream projects, then writes a marker so subsequent runs are no-ops. The
-// context meter hook (M34) is the authoritative context-burn signal now.
-function runTaskCounterRetirementMigration(projectDir, projectName) {
-  const gsdtDir = path.join(projectDir, ".gsd-t");
-  if (!fs.existsSync(gsdtDir)) return false;
-
-  const markerPath = path.join(gsdtDir, ".task-counter-retired-v1");
-  if (fs.existsSync(markerPath)) return false;
-
-  const targets = [
-    path.join(projectDir, "bin", "task-counter.cjs"),
-    path.join(gsdtDir, "task-counter-config.json"),
-    path.join(gsdtDir, ".task-counter-state.json"),
-    path.join(gsdtDir, ".task-counter"),
-  ];
-
-  let removed = 0;
-  for (const target of targets) {
-    try {
-      if (fs.existsSync(target)) {
-        try { if (fs.lstatSync(target).isSymbolicLink()) continue; } catch {}
-        fs.unlinkSync(target);
-        removed++;
-      }
-    } catch (e) {
-      warn(`${projectName} — failed to remove ${path.basename(target)}: ${e.message}`);
-    }
-  }
-
-  try {
-    fs.writeFileSync(
-      markerPath,
-      `# task-counter-retired-v1\nApplied: ${new Date().toISOString()}\nReplaced-by: scripts/gsd-t-context-meter.js (M34)\n`
-    );
-  } catch (e) {
-    warn(`${projectName} — failed to write retirement marker: ${e.message}`);
-    return false;
-  }
-
-  if (removed > 0) {
-    info(`${projectName} — retired task-counter (removed ${removed} file(s))`);
-  } else {
-    info(`${projectName} — retired task-counter (no legacy files found)`);
-  }
-  return true;
-}
-
-function ensureUnattendedConfig(projectDir, projectName) {
-  const configDir = path.join(projectDir, ".gsd-t", ".unattended");
-  const configPath = path.join(configDir, "config.json");
-  if (fs.existsSync(configPath)) return false;
-  if (!fs.existsSync(path.join(projectDir, ".gsd-t"))) return false;
-
-  try {
-    if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true });
-    }
-    const defaultConfig = {
-      protectedBranches: ["main", "master", "develop", "trunk", "release/*", "hotfix/*"],
-      dirtyTreeWhitelist: [
-        ".gsd-t/heartbeat-*.jsonl",
-        ".gsd-t/.context-meter-state.json",
-        ".gsd-t/events/*.jsonl",
-        ".gsd-t/token-metrics.jsonl",
-        ".gsd-t/token-log.md",
-        ".gsd-t/.unattended/*",
-        ".gsd-t/.handoff/*",
-        ".claude/settings.local.json",
-        ".claude/settings.local.json.bak*",
-      ],
-      maxIterations: 200,
-      hours: 24,
-    };
-    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2) + "\n");
-    info(`${projectName} — created .gsd-t/.unattended/config.json (edit to customize)`);
-    return true;
-  } catch (e) {
-    warn(`${projectName} — failed to create unattended config: ${e.message}`);
-    return false;
-  }
-}
-
-const UNATTENDED_GITIGNORE_ENTRIES = [
-  "bin/context-meter-state.cjs",
-  ".gsd-t/.archive-migration-v1",
-  ".gsd-t/.task-counter-retired-v1",
-];
-
-function ensureUnattendedGitignore(projectDir, projectName) {
-  const added = ensureGitignoreEntries(projectDir, UNATTENDED_GITIGNORE_ENTRIES);
-  if (added) {
-    info(`${projectName} — added GSD-T entries to .gitignore`);
-  }
-  return added;
-}
-
 function showUpdateAllSummary(
   total,
   counts,
   playwrightMissing,
   swaggerMissing,
-  syncCount,
   playwrightAutoInstalled,
   graphMissing,
 ) {
@@ -4002,7 +2419,6 @@ function showUpdateAllSummary(
   if (Array.isArray(graphMissing) && graphMissing.length > 0) {
     log(`  No code graph:       ${graphMissing.length}`);
   }
-  if (syncCount > 0) log(`  Global rules synced: ${syncCount}`);
   log("");
 }
 
@@ -4142,41 +2558,6 @@ async function checkDoctorProject(opts) {
   return issues;
 }
 
-function checkDoctorCgc() {
-  let issues = 0;
-  heading("Graph Engine (CGC)");
-
-  // Check CGC binary
-  try {
-    const ver = execFileSync("cgc", ["--version"], {
-      encoding: "utf8", timeout: 3000,
-      stdio: ["pipe", "pipe", "pipe"]
-    }).trim();
-    success(`CodeGraphContext ${ver}`);
-  } catch {
-    warn("CGC not installed (deep code analysis unavailable)");
-    info("Run 'pip install codegraphcontext' or reinstall GSD-T");
-    issues++;
-    return issues;
-  }
-
-  // Check Neo4j
-  try {
-    execFileSync("docker", ["inspect", "gsd-t-neo4j", "--format", "{{.State.Running}}"], {
-      encoding: "utf8", timeout: 5000,
-      stdio: ["pipe", "pipe", "pipe"]
-    }).trim() === "true"
-      ? success("Neo4j container running")
-      : (warn("Neo4j container stopped"), info("Run: docker start gsd-t-neo4j"), issues++);
-  } catch {
-    warn("Neo4j container not found");
-    info("Run: docker run -d --name gsd-t-neo4j -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/gsdt-graph-2026 neo4j:5-community");
-    issues++;
-  }
-
-  return issues;
-}
-
 // M95: report SCIP indexer presence. SCIP gives the code graph compiler-accurate
 // call-edge resolution (who-calls / test-impl / blast-radius across imports).
 // Absence is a WARN (graph still works at tree-sitter floor), not a hard error.
@@ -4202,239 +2583,6 @@ function checkDoctorScip() {
   return issues;
 }
 
-// Verify context meter wiring: hook registration, hook script presence,
-// config validity, and a local estimation dry-run.
-// Returns number of issues (RED results). Mirrors checkDoctorCgc shape.
-async function checkDoctorContextMeter(projectDir) {
-  let issues = 0;
-  heading("Context Meter");
-
-  const cwd = projectDir || process.cwd();
-
-  // Load config (used by checks 3 and 4). Missing file → defaults; invalid
-  // JSON or schema-mismatch → throws (handled in Check 3).
-  let cfg = null;
-  let cfgLoadErr = null;
-  try {
-    const { loadConfig } = require("./context-meter-config.cjs");
-    cfg = loadConfig(cwd);
-  } catch (e) {
-    cfgLoadErr = e;
-  }
-
-  // Check 1: Hook registered in ~/.claude/settings.json
-  let hookRegistered = false;
-  try {
-    if (fs.existsSync(SETTINGS_JSON)) {
-      const raw = fs.readFileSync(SETTINGS_JSON, "utf8");
-      const settings = JSON.parse(raw);
-      const postHooks = (settings && settings.hooks && settings.hooks.PostToolUse) || [];
-      for (const entry of postHooks) {
-        if (!entry || !Array.isArray(entry.hooks)) continue;
-        for (const h of entry.hooks) {
-          if (h && typeof h.command === "string" && h.command.includes(CONTEXT_METER_HOOK_MARKER)) {
-            hookRegistered = true;
-            break;
-          }
-        }
-        if (hookRegistered) break;
-      }
-    }
-  } catch {
-    // Fall through — treat as not registered
-  }
-  if (hookRegistered) {
-    success("Context meter hook registered in settings.json");
-  } else {
-    error("Context meter hook not installed — run gsd-t install");
-    issues++;
-  }
-
-  // Check 2: Hook script file exists in project
-  const scriptPath = path.join(cwd, "scripts", CONTEXT_METER_SCRIPT);
-  if (fs.existsSync(scriptPath)) {
-    success("Hook script present");
-  } else {
-    error(`Hook script missing at scripts/${CONTEXT_METER_SCRIPT} — run gsd-t update`);
-    issues++;
-  }
-
-  // Check 3: Config file parses via loader
-  const configPath = path.join(cwd, CONTEXT_METER_CONFIG_DEST);
-  if (cfgLoadErr) {
-    error(`Config file invalid: ${cfgLoadErr.message} — fix ${CONTEXT_METER_CONFIG_DEST}`);
-    issues++;
-  } else if (fs.existsSync(configPath)) {
-    success(`Config valid (threshold ${cfg.thresholdPct}%, check every ${cfg.checkFrequency} calls)`);
-  } else {
-    warn("Using default config — run gsd-t install to copy template");
-  }
-
-  // Check 4: Dry-run local token estimation
-  const estimatorPath = path.join(cwd, "scripts", "context-meter", "estimate-tokens.js");
-  if (!fs.existsSync(estimatorPath)) {
-    error("Token estimator missing at scripts/context-meter/estimate-tokens.js — run gsd-t update");
-    issues++;
-  } else {
-    try {
-      const { estimateTokens } = require(estimatorPath);
-      const result = estimateTokens({
-        system: "",
-        messages: [{ role: "user", content: [{ type: "text", text: "ping" }] }],
-      });
-      if (result && typeof result.inputTokens === "number") {
-        success(`Token estimator dry-run OK (${result.inputTokens} tokens)`);
-      } else {
-        error("Token estimator returned null");
-        issues++;
-      }
-    } catch (e) {
-      error(`Token estimator dry-run threw: ${e.message}`);
-      issues++;
-    }
-  }
-
-  return issues;
-}
-
-// M49 — Detect dashboard server processes whose pidfile is missing or
-// mismatched ("orphans"). The lazy-dashboard + idle-TTL changes prevent new
-// orphans from accumulating, but recovery is still needed for any that piled
-// up under earlier versions. With `--prune`, kills the orphan PIDs.
-//
-// "Orphan" = a `gsd-t-dashboard-server.js` process whose pidfile (at
-// `{projectDir}/.gsd-t/.dashboard.pid` resolved from the process's cwd / the
-// `GSD_T_PROJECT_DIR` env / the registered-projects list) doesn't list the pid.
-//
-// Detection is best-effort across platforms — `ps` shape varies. We use:
-//   - macOS / Linux:  `ps -eo pid,command` (no `=`-stripped header)
-//   - Windows:        unsupported here (logged as N/A)
-//
-// Returns an issue count (0 if clean, 1 if orphans found and not pruned).
-function checkDoctorDashboardOrphans(opts) {
-  const prune = !!(opts && opts.prune);
-  let issues = 0;
-  heading("Dashboard Orphans");
-
-  if (process.platform === "win32") {
-    info("Skipping (Windows process inventory not yet supported)");
-    return 0;
-  }
-
-  let psOut;
-  try {
-    psOut = execFileSync("ps", ["-eo", "pid,command"], {
-      encoding: "utf8",
-      timeout: 5000,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-  } catch {
-    warn("Could not run `ps -eo pid,command` — orphan detection skipped");
-    return 0;
-  }
-
-  const dashPids = [];
-  for (const line of psOut.split("\n")) {
-    const t = line.trim();
-    if (!t) continue;
-    if (!t.includes("gsd-t-dashboard-server.js")) continue;
-    if (t.includes("ps -eo")) continue; // never list ourselves
-    if (t.includes("grep")) continue;
-    const m = t.match(/^(\d+)\s+(.+)$/);
-    if (!m) continue;
-    const pid = parseInt(m[1], 10);
-    if (!Number.isFinite(pid) || pid <= 0) continue;
-    // Red Team — only treat as a dashboard process if the first argv token is
-    // a `node`-flavored binary AND the second token ends with the script
-    // filename. Filters out e.g. `cat gsd-t-dashboard-server.js`,
-    // `vim gsd-t-dashboard-server.js`, etc. that happen to mention the path.
-    const argv = m[2].trim().split(/\s+/);
-    if (argv.length < 2) continue;
-    const exe = argv[0];
-    const script = argv[1] || "";
-    const exeIsNode = /(^|\/)node([0-9.]+)?$/.test(exe);
-    const scriptMatches = script.endsWith("gsd-t-dashboard-server.js");
-    if (!exeIsNode || !scriptMatches) continue;
-    dashPids.push({ pid, cmd: m[2] });
-  }
-
-  if (dashPids.length === 0) {
-    success("No dashboard processes running");
-    return 0;
-  }
-
-  // Collect candidate pidfiles. We probe (a) cwd + GSD_T_PROJECT_DIR for the
-  // current shell, (b) each registered project. Each contributes one
-  // {projectDir → pidfile pid} mapping. An orphan is a live dashboard pid
-  // that doesn't match any pidfile we found.
-  const projects = new Set();
-  projects.add(process.cwd());
-  if (process.env.GSD_T_PROJECT_DIR) projects.add(process.env.GSD_T_PROJECT_DIR);
-  try {
-    for (const p of getRegisteredProjects()) projects.add(p);
-  } catch { /* registry may not exist */ }
-
-  const knownPids = new Set();
-  for (const proj of projects) {
-    const pidFile = path.join(proj, ".gsd-t", ".dashboard.pid");
-    try {
-      const raw = fs.readFileSync(pidFile, "utf8").trim();
-      const pid = parseInt(raw, 10);
-      if (Number.isFinite(pid) && pid > 0) knownPids.add(pid);
-    } catch { /* missing or unreadable */ }
-    // Also accept the older M38 pidfile (no leading dot).
-    const legacyPidFile = path.join(proj, ".gsd-t", "dashboard.pid");
-    try {
-      const raw = fs.readFileSync(legacyPidFile, "utf8").trim();
-      const pid = parseInt(raw, 10);
-      if (Number.isFinite(pid) && pid > 0) knownPids.add(pid);
-    } catch { /* missing */ }
-  }
-
-  const orphans = dashPids.filter((d) => !knownPids.has(d.pid));
-
-  log(`  Detected ${dashPids.length} dashboard process${dashPids.length === 1 ? "" : "es"} ` +
-      `(${knownPids.size} tracked via pidfile, ${orphans.length} orphan${orphans.length === 1 ? "" : "s"})`);
-
-  if (orphans.length === 0) {
-    success("No orphans");
-    return 0;
-  }
-
-  for (const o of orphans) {
-    log(`  ${YELLOW}orphan${RESET} pid=${o.pid}`);
-  }
-
-  if (prune) {
-    let killed = 0;
-    let failed = 0;
-    for (const o of orphans) {
-      try {
-        process.kill(o.pid, "SIGTERM");
-        killed++;
-      } catch (err) {
-        if (err && err.code === "ESRCH") {
-          // Already gone — count as success.
-          killed++;
-        } else {
-          failed++;
-        }
-      }
-    }
-    if (failed === 0) {
-      success(`Pruned ${killed} orphan${killed === 1 ? "" : "s"}`);
-    } else {
-      warn(`Pruned ${killed}, failed ${failed}`);
-      issues++;
-    }
-  } else {
-    info("Run `gsd-t doctor --prune` to kill orphans");
-    issues++;
-  }
-
-  return issues;
-}
-
 async function doDoctor(opts) {
   heading("GSD-T Doctor");
   log("");
@@ -4442,26 +2590,7 @@ async function doDoctor(opts) {
   issues += checkDoctorEnvironment();
   issues += checkDoctorInstallation();
   issues += await checkDoctorProject(opts);
-  issues += checkDoctorCgc();
   issues += checkDoctorScip();
-  // M61 D1: Context Meter retired (token-budget.cjs + context-meter hook deleted).
-  // checkDoctorContextMeter would emit phantom errors for the deleted subsystem
-  // and tell the user to reinstall it. Native /context replaces the meter.
-  // M61 D4: dashboard orphan check left for the deleted dashboard-server is also
-  // dead, but harmless (ps string-match, no require) — deferred.
-  issues += checkDoctorDashboardOrphans(opts);
-  // M50 D2: opt-in install of the playwright-gate pre-commit hook.
-  if (opts && opts.installHooks) {
-    log("");
-    heading("Installing pre-commit hooks");
-    installPlaywrightGateHook(process.cwd());
-  }
-  // M52 D1: opt-in install of the journey-coverage pre-commit hook.
-  if (opts && opts.installJourneyHook) {
-    log("");
-    heading("Installing journey-coverage pre-commit hook");
-    installJourneyCoverageHook(process.cwd());
-  }
   log("");
   if (issues === 0) {
     log(`${GREEN}${BOLD}  All checks passed!${RESET}`);
@@ -4604,10 +2733,7 @@ function doChangelog() {
 // / index / query) now delegate to the M94 D5 query CLI
 // (bin/gsd-t-graph-query-cli.cjs). [RULE] graph-status-live
 // [RULE] graph-rewire-no-dangling-export
-//
-// Preserved intact: `gsd-t graph --output json|table` and `gsd-t graph tasks`
-// which print the M44 task-DAG (bin/gsd-t-task-graph.cjs) — a SEPARATE working
-// feature unrelated to the codebase entity graph. (Destructive Action Guard.)
+// (v6: the M44 task-DAG verbs `graph --output` / `graph tasks` were cut with execute.)
 
 /**
  * Delegate a verb to the D5 graph query CLI.
@@ -4751,14 +2877,6 @@ function doGraphQuery(args) {
 }
 
 function doGraph(args) {
-  // M44 D1-T4: `gsd-t graph --output json|table` prints the task-graph DAG
-  // (parsed from .gsd-t/domains/*/tasks.md). This is a SEPARATE working feature
-  // (Destructive Action Guard — preserved intact). [RULE] graph-rewire-no-dangling-export
-  const outIdx = args.indexOf("--output");
-  if (outIdx !== -1) {
-    const fmt = args[outIdx + 1] || "json";
-    return doGraphTaskOutput(fmt);
-  }
   const sub = args[0] || "status";
   switch (sub) {
     case "index":         doGraphIndex(); break;
@@ -4771,7 +2889,6 @@ function doGraph(args) {
     // Database tables (Drizzle pgTable/mysqlTable/sqliteTable + pgEnum).
     case "who-uses":      { const e = _graphQueryCli(["who-uses"].concat(args.slice(1))); log(JSON.stringify(e, null, 2)); break; }
     case "table":         { const e = _graphQueryCli(["table",        args[1] || ""]); log(JSON.stringify(e, null, 2)); break; }
-    case "tasks":         doGraphTaskOutput(args[1] || "table"); break;
     case "metrics":       { // M99 D3-T2: append-only arm — rollup the telemetry ledger
       const _metricsRollup = require("./gsd-t-graph-metrics-rollup.cjs");
       const _metricsJson = (args[1] === "--json" || args[2] === "--json");
@@ -4819,848 +2936,36 @@ function doGraph(args) {
     }
     default:
       error(`Unknown graph subcommand: ${sub}`);
-      info("Usage: gsd-t graph [index|status|query|who-imports|who-calls|blast-radius|body|who-uses|table|tasks|metrics|wiring-log]");
-      info("       gsd-t graph --output json|table   (task DAG)");
+      info("Usage: gsd-t graph [index|status|query|who-imports|who-calls|blast-radius|body|who-uses|table|metrics|wiring-log]");
   }
 }
-
-// M44 D1-T4: print the task DAG built by bin/gsd-t-task-graph.cjs.
-function doGraphTaskOutput(format) {
-  const tg = require("./gsd-t-task-graph.cjs");
-  let graph;
-  try {
-    graph = tg.buildTaskGraph({ projectDir: process.cwd() });
-  } catch (e) {
-    if (e && e.name === "TaskGraphCycleError") {
-      error(`Task graph cycle: ${(e.cycle || []).join(" → ")}`);
-      process.exit(2);
-    }
-    error(e && e.message ? e.message : String(e));
-    process.exit(2);
-  }
-  const fmt = String(format || "table").toLowerCase();
-  if (fmt === "json") {
-    process.stdout.write(JSON.stringify(graph, null, 2) + "\n");
-    return;
-  }
-  if (fmt === "table") {
-    if (!graph.nodes.length) {
-      info("No tasks found in .gsd-t/domains/*/tasks.md");
-      if (graph.warnings.length) graph.warnings.forEach((w) => warn(w));
-      return;
-    }
-    // header
-    const rows = graph.nodes.map((n) => ({
-      id: n.id,
-      domain: n.domain,
-      wave: String(n.wave),
-      status: n.status,
-      ready: graph.ready.indexOf(n.id) !== -1 ? "yes" : "no",
-      deps: n.deps.join(", ") || "-",
-    }));
-    const cols = ["id", "domain", "wave", "status", "ready", "deps"];
-    const widths = {};
-    for (const c of cols) {
-      widths[c] = c.length;
-      for (const r of rows) widths[c] = Math.max(widths[c], String(r[c]).length);
-    }
-    const fmtRow = (r) =>
-      cols.map((c) => String(r[c]).padEnd(widths[c])).join("  ");
-    log(fmtRow(Object.fromEntries(cols.map((c) => [c, c.toUpperCase()]))));
-    log(cols.map((c) => "-".repeat(widths[c])).join("  "));
-    for (const r of rows) log(fmtRow(r));
-    log("");
-    info(`${graph.nodes.length} tasks · ${graph.edges.length} edges · ${graph.ready.length} ready`);
-    if (graph.warnings.length) {
-      log("");
-      warn(`${graph.warnings.length} warning(s):`);
-      graph.warnings.forEach((w) => log(`  ${w}`));
-    }
-    return;
-  }
-  error(`Unknown --output format: ${format} (expected: json|table)`);
-  process.exit(2);
-}
-
-// ─── Token-Log Writer (Fix 1, v3.12.12) ─────────────────────────────────────
-
-const _TL_HEADER =
-  "| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |\n" +
-  "|---|---|---|---|---|---|---|---|---|---|\n";
-
-/**
- * Append one row to {projectDir}/.gsd-t/token-log.md for a headless exec
- * invocation. Best-effort — never throws.
- */
-function appendHeadlessTokenLog(projectDir, entry) {
-  try {
-    const logPath = path.join(projectDir, ".gsd-t", "token-log.md");
-    const note = entry.exitCode === 0 ? "headless exec: ok" : `headless exec: exit ${entry.exitCode}`;
-    // v3.12.14: prefer env-var model over hardcoded "unknown".
-    const model = process.env.GSD_T_MODEL || "unknown";
-    const row =
-      `| ${entry.dtStart} | ${entry.dtEnd} | ${entry.command} | headless | ${model} | ${entry.durationS}s | ${note} | - | - | unknown |\n`;
-    const gsdtDir = path.join(projectDir, ".gsd-t");
-    if (!fs.existsSync(gsdtDir)) fs.mkdirSync(gsdtDir, { recursive: true });
-    if (!fs.existsSync(logPath)) {
-      fs.writeFileSync(logPath, `# GSD-T Token Log\n\n${_TL_HEADER}${row}`);
-    } else {
-      const existing = fs.readFileSync(logPath, "utf8");
-      if (!existing.includes("| Datetime-start |")) {
-        fs.writeFileSync(logPath, `# GSD-T Token Log\n\n${_TL_HEADER}${existing}${row}`);
-      } else {
-        fs.appendFileSync(logPath, row);
-      }
-    }
-  } catch (_) {
-    /* best-effort */
-  }
-}
-
-// ─── Headless Mode ────────────────────────────────────────────────────────────
-
-/**
- * Parse headless flags from args array.
- * Extracts --json, --timeout=N, --log from args, returns remainder as positional args.
- */
-function parseHeadlessFlags(args) {
-  const flags = { json: false, timeout: 300, log: false };
-  const positional = [];
-  for (const arg of args) {
-    if (arg === "--json") {
-      flags.json = true;
-    } else if (arg.startsWith("--timeout=")) {
-      const n = parseInt(arg.slice("--timeout=".length), 10);
-      if (!isNaN(n) && n > 0) flags.timeout = n;
-    } else if (arg === "--log") {
-      flags.log = true;
-    } else {
-      positional.push(arg);
-    }
-  }
-  return { flags, positional };
-}
-
-/**
- * Build the claude -p invocation string for a GSD-T command.
- *
- * Non-interactive `claude -p` mode requires the bare `/gsd-t-X` form — the
- * `/gsd-t-X` namespace prefix is rejected as "Unknown command" even
- * though interactive mode accepts both. Verified by M36 Phase 0 Spike A
- * (2026-04-15). See .gsd-t/M36-spike-findings.md.
- */
-function buildHeadlessCmd(command, cmdArgs) {
-  const argStr = cmdArgs.length > 0 ? " " + cmdArgs.join(" ") : "";
-  return `/gsd-t-${command}${argStr}`;
-}
-
-/**
- * Map claude output + process exit code to a GSD-T headless exit code.
- * Exit codes: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error,
- *             4=blocked-needs-human, 5=command-dispatch-failed
- *
- * Inlined from the former bin/headless-exit-codes.cjs (M65) — that file existed
- * to decouple the exit-code map from the CLI so the unattended supervisor could
- * require it without pulling in gsd-t.js. The supervisor was retired in M61 D2,
- * so the only remaining requirer is this file; the helper now lives inline.
- *
- * Match terminal markers, not narration. A bare "tests failed" substring
- * appears in healthy output ("0 tests failed", "no tests failed", quoted in
- * prose). Require a non-zero count prefix or a structured terminal marker.
- * Bug history: M45 worker output contained "tests failed" 6× in narration,
- * mapping exit 0 → 1 and halting a successful run — keep these regexes anchored.
- */
-const HEADLESS_NONZERO_FAILURE_COUNT_RE =
-  /(?:^|\b)([1-9]\d*)\s+(?:tests?|specs?|assertions?|examples?|suites?)\s+failed\b/i;
-const HEADLESS_STRUCTURED_FAIL_RE = /^FAIL[:\s]/m;
-const HEADLESS_JEST_SUMMARY_FAIL_RE = /^Tests:\s+\d+\s+failed/im;
-const HEADLESS_VERIFICATION_FAILED_RE =
-  /(?:^|[.!?]\s+)(?:verification|verify|quality gate)\s+failed\b/im;
-const HEADLESS_CONTEXT_BUDGET_RE =
-  /(?:^|[.!?]\s+)(?:context budget exceeded|context window exceeded|budget exceeded|token limit)\b/im;
-const HEADLESS_BLOCKED_HUMAN_RE =
-  /\bblocked\b[\s\S]{0,80}?\b(?:needs? human|human input|human approval)\b/i;
-
-function mapHeadlessExitCode(processExitCode, output) {
-  if (processExitCode !== 0 && processExitCode !== null) return 3;
-  const raw = output || "";
-  if (/^unknown command:/im.test(raw)) return 5;
-  if (HEADLESS_CONTEXT_BUDGET_RE.test(raw)) return 2;
-  if (HEADLESS_BLOCKED_HUMAN_RE.test(raw)) return 4;
-  if (
-    HEADLESS_VERIFICATION_FAILED_RE.test(raw) ||
-    HEADLESS_NONZERO_FAILURE_COUNT_RE.test(raw) ||
-    HEADLESS_STRUCTURED_FAIL_RE.test(raw) ||
-    HEADLESS_JEST_SUMMARY_FAIL_RE.test(raw)
-  ) return 1;
-  return 0;
-}
-
-/**
- * Generate a headless log file path.
- */
-function headlessLogPath(projectDir, timestamp) {
-  const ts = timestamp || Date.now();
-  return path.join(projectDir, ".gsd-t", `headless-${ts}.log`);
-}
-
-/**
- * Execute a GSD-T command via claude -p (non-interactive).
- */
-function doHeadlessExec(command, cmdArgs, flags) {
-  const opts = flags || {};
-  const jsonMode = opts.json || false;
-  const timeoutMs = (opts.timeout || 300) * 1000;
-  const logMode = opts.log || false;
-  const startTime = Date.now();
-  const timestamp = new Date(startTime).toISOString();
-
-  // Verify claude CLI is available
-  try {
-    execFileSync("claude", ["--version"], {
-      encoding: "utf8", timeout: 5000,
-      stdio: ["pipe", "pipe", "pipe"]
-    });
-  } catch {
-    const msg = "claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code";
-    if (jsonMode) {
-      process.stdout.write(JSON.stringify({
-        success: false, exitCode: 3, gsdtExitCode: 3,
-        command, args: cmdArgs, output: msg,
-        timestamp, duration: Date.now() - startTime, logFile: null
-      }) + "\n");
-    } else {
-      error(msg);
-    }
-    process.exit(3);
-  }
-
-  const prompt = buildHeadlessCmd(command, cmdArgs);
-  let logFile = null;
-
-  if (!jsonMode) {
-    heading(`GSD-T Headless — ${command}`);
-    info(`Prompt: ${prompt}`);
-    info(`Timeout: ${opts.timeout || 300}s`);
-    if (logMode) {
-      logFile = headlessLogPath(process.cwd(), startTime);
-      info(`Log: ${logFile}`);
-    }
-    log("");
-  } else if (logMode) {
-    logFile = headlessLogPath(process.cwd(), startTime);
-  }
-
-  let output = "";
-  let processExitCode = 0;
-
-  // Inject command/phase/trace/model/project-dir env vars so worker
-  // event-stream entries (writer CLI + heartbeat hook) are tagged in the
-  // child's context (Fix 2, v3.12.12; trace/model/project-dir added v3.12.14
-  // for the null-telemetry regression fix).
-  const workerEnv = Object.assign({}, process.env, {
-    GSD_T_COMMAND: `gsd-t-${command}`,
-    GSD_T_PHASE: process.env.GSD_T_PHASE || "execute",
-    GSD_T_PROJECT_DIR: process.env.GSD_T_PROJECT_DIR || process.cwd(),
-  });
-  if (process.env.GSD_T_TRACE_ID) workerEnv.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
-  if (process.env.GSD_T_MODEL) workerEnv.GSD_T_MODEL = process.env.GSD_T_MODEL;
-
-  try {
-    // GSD-T-LINT: skip stream-json (reason: gsd-t headless one-shot entrypoint — output is buffered into one string by callers, not user-watchable progress)
-    const result = execFileSync("claude", ["-p", "--dangerously-skip-permissions", prompt], {
-      encoding: "utf8",
-      timeout: timeoutMs,
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd: process.cwd(),
-      env: workerEnv,
-    });
-    output = result;
-  } catch (e) {
-    // execFileSync throws on non-zero exit or timeout
-    output = (e.stdout || "") + (e.stderr || "");
-    processExitCode = e.status || 1;
-    if (e.signal === "SIGTERM" || e.code === "ETIMEDOUT") {
-      processExitCode = 3;
-      output += "\n[headless: process timed out]";
-    }
-  }
-
-  const gsdtExitCode = mapHeadlessExitCode(processExitCode, output);
-  const duration = Date.now() - startTime;
-
-  // Append to token-log.md (Fix 1, v3.12.12) — headless exec writes a row so
-  // `gsd-t headless <command>` spawns are visible in the log.
-  appendHeadlessTokenLog(process.cwd(), {
-    dtStart: new Date(startTime).toISOString().slice(0, 16).replace("T", " "),
-    dtEnd: new Date(startTime + duration).toISOString().slice(0, 16).replace("T", " "),
-    command: `gsd-t-${command}`,
-    durationS: Math.round(duration / 1000),
-    exitCode: gsdtExitCode,
-  });
-
-  // Write log file if requested
-  if (logMode && logFile) {
-    try {
-      const gsdtDir = path.join(process.cwd(), ".gsd-t");
-      ensureDir(gsdtDir);
-      const logContent = [
-        `GSD-T Headless Log`,
-        `Command: ${command}`,
-        `Args: ${cmdArgs.join(" ")}`,
-        `Timestamp: ${timestamp}`,
-        `Duration: ${duration}ms`,
-        `Exit Code: ${gsdtExitCode}`,
-        `---`,
-        output
-      ].join("\n");
-      fs.writeFileSync(logFile, logContent);
-    } catch (e) {
-      if (!jsonMode) warn(`Failed to write log: ${e.message}`);
-    }
-  }
-
-  if (jsonMode) {
-    process.stdout.write(JSON.stringify({
-      success: gsdtExitCode === 0,
-      exitCode: processExitCode,
-      gsdtExitCode,
-      command,
-      args: cmdArgs,
-      output,
-      timestamp,
-      duration,
-      logFile
-    }) + "\n");
-  } else {
-    process.stdout.write(output);
-    if (!output.endsWith("\n")) process.stdout.write("\n");
-    if (gsdtExitCode !== 0) {
-      log("");
-      warn(`Exit code: ${gsdtExitCode}`);
-    }
-  }
-
-  process.exit(gsdtExitCode);
-}
-
-// ─── Headless Query ──────────────────────────────────────────────────────────
-
-const VALID_QUERY_TYPES = ["status", "domains", "contracts", "debt", "context", "backlog", "graph"];
-
-function queryResult(type, data) {
-  return { type, timestamp: new Date().toISOString(), data };
-}
-
-function queryStatus(projectDir) {
-  const progressPath = path.join(projectDir, ".gsd-t", "progress.md");
-  if (!fs.existsSync(progressPath)) {
-    return queryResult("status", { error: "progress.md not found" });
-  }
-  const content = fs.readFileSync(progressPath, "utf8");
-  const versionMatch = content.match(/##\s*Version:\s*(.+)/);
-  const projectMatch = content.match(/##\s*Project:\s*(.+)/);
-  const statusMatch = content.match(/##\s*Status:\s*(.+)/);
-  const milestoneMatch = content.match(/##\s*Active Milestone\s*[\r\n]+\s*(.+)/);
-  const phaseMatch = content.match(/Phase:\s*(\w+)/);
-  return queryResult("status", {
-    version: versionMatch ? versionMatch[1].trim() : null,
-    project: projectMatch ? projectMatch[1].trim() : null,
-    status: statusMatch ? statusMatch[1].trim() : null,
-    activeMilestone: milestoneMatch ? milestoneMatch[1].trim() : null,
-    phase: phaseMatch ? phaseMatch[1].trim() : null
-  });
-}
-
-function queryDomains(projectDir) {
-  const domainsDir = path.join(projectDir, ".gsd-t", "domains");
-  if (!fs.existsSync(domainsDir)) {
-    return queryResult("domains", { domains: [] });
-  }
-  const entries = fs.readdirSync(domainsDir).filter((f) => {
-    const fp = path.join(domainsDir, f);
-    return fs.statSync(fp).isDirectory();
-  });
-  const domains = entries.map((name) => {
-    const domainDir = path.join(domainsDir, name);
-    return {
-      name,
-      hasScope: fs.existsSync(path.join(domainDir, "scope.md")),
-      hasTasks: fs.existsSync(path.join(domainDir, "tasks.md")),
-      hasConstraints: fs.existsSync(path.join(domainDir, "constraints.md"))
-    };
-  });
-  return queryResult("domains", { domains });
-}
-
-function queryContracts(projectDir) {
-  const contractsDir = path.join(projectDir, ".gsd-t", "contracts");
-  if (!fs.existsSync(contractsDir)) {
-    return queryResult("contracts", { contracts: [] });
-  }
-  const contracts = fs.readdirSync(contractsDir)
-    .filter((f) => f.endsWith(".md") && f !== ".gitkeep");
-  return queryResult("contracts", { contracts });
-}
-
-function queryDebt(projectDir) {
-  const debtPath = path.join(projectDir, ".gsd-t", "techdebt.md");
-  if (!fs.existsSync(debtPath)) {
-    return queryResult("debt", { items: [], count: 0 });
-  }
-  const content = fs.readFileSync(debtPath, "utf8");
-  // Parse table rows: | ID | Severity | Description | ...
-  const rows = content.split("\n").filter((line) => {
-    return line.startsWith("| ") && !line.startsWith("| ID") && !line.startsWith("| ---") && !line.startsWith("| #");
-  });
-  const items = rows.map((row) => {
-    const cells = row.split("|").slice(1, -1).map((c) => c.trim());
-    return cells.length >= 2 ? { id: cells[0], severity: cells[1], description: cells[2] || "" } : null;
-  }).filter(Boolean);
-  return queryResult("debt", { items, count: items.length });
-}
-
-function queryContext(projectDir) {
-  const tokenLogPath = path.join(projectDir, ".gsd-t", "token-log.md");
-  if (!fs.existsSync(tokenLogPath)) {
-    return queryResult("context", { entries: [], totalTokens: 0, entryCount: 0 });
-  }
-  const content = fs.readFileSync(tokenLogPath, "utf8");
-  const rows = content.split("\n").filter((line) => {
-    return line.startsWith("| ") && !line.startsWith("| Datetime") && !line.startsWith("| ---");
-  });
-  const entries = rows.map((row) => {
-    const cells = row.split("|").slice(1, -1).map((c) => c.trim());
-    if (cells.length < 8) return null;
-    return {
-      datetimeStart: cells[0],
-      datetimeEnd: cells[1],
-      command: cells[2],
-      step: cells[3],
-      model: cells[4],
-      duration: cells[5],
-      notes: cells[6],
-      tokens: parseInt(cells[7]) || 0
-    };
-  }).filter(Boolean);
-  const totalTokens = entries.reduce((sum, e) => sum + (e.tokens || 0), 0);
-  return queryResult("context", { entries, totalTokens, entryCount: entries.length });
-}
-
-function queryBacklog(projectDir) {
-  const backlogPath = path.join(projectDir, ".gsd-t", "backlog.md");
-  if (!fs.existsSync(backlogPath)) {
-    return queryResult("backlog", { items: [], count: 0 });
-  }
-  const content = fs.readFileSync(backlogPath, "utf8");
-  const rows = content.split("\n").filter((line) => {
-    return line.startsWith("| ") && !line.startsWith("| #") && !line.startsWith("| ID") && !line.startsWith("| ---");
-  });
-  const items = rows.map((row) => {
-    const cells = row.split("|").slice(1, -1).map((c) => c.trim());
-    return cells.length >= 2 ? { id: cells[0], title: cells[1], status: cells[2] || "" } : null;
-  }).filter(Boolean);
-  return queryResult("backlog", { items, count: items.length });
-}
-
-function queryGraph(projectDir) {
-  const metaPath = path.join(projectDir, ".gsd-t", "graph-index", "meta.json");
-  if (!fs.existsSync(metaPath)) {
-    return queryResult("graph", { available: false });
-  }
-  try {
-    const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
-    return queryResult("graph", {
-      available: true,
-      provider: meta.provider || "native",
-      entityCount: meta.entityCount || 0,
-      relationshipCount: meta.relationshipCount || 0,
-      lastIndexed: meta.lastIndexed || null
-    });
-  } catch {
-    return queryResult("graph", { available: false, error: "meta.json parse error" });
-  }
-}
-
-function doHeadlessQuery(type) {
-  const projectDir = process.cwd();
-
-  if (!type || !VALID_QUERY_TYPES.includes(type)) {
-    const result = { error: "unknown query type", validTypes: VALID_QUERY_TYPES };
-    process.stdout.write(JSON.stringify(result) + "\n");
-    process.exit(3);
-    return;
-  }
-
-  let result;
-  switch (type) {
-    case "status":    result = queryStatus(projectDir); break;
-    case "domains":   result = queryDomains(projectDir); break;
-    case "contracts": result = queryContracts(projectDir); break;
-    case "debt":      result = queryDebt(projectDir); break;
-    case "context":   result = queryContext(projectDir); break;
-    case "backlog":   result = queryBacklog(projectDir); break;
-    case "graph":     result = queryGraph(projectDir); break;
-    default:
-      result = { error: "unknown query type", validTypes: VALID_QUERY_TYPES };
-  }
-
-  process.stdout.write(JSON.stringify(result) + "\n");
-}
-
-/**
- * Parse debug-loop flags from args array.
- * Extracts --max-iterations, --test-cmd, --fix-scope, --json, --log from args.
- */
-function parseDebugLoopFlags(args) {
-  const flags = { maxIterations: 20, testCmd: null, fixScope: null, json: false, log: false };
-  const positional = [];
-  for (const arg of args) {
-    if (arg.startsWith("--max-iterations=")) {
-      const n = parseInt(arg.slice("--max-iterations=".length), 10);
-      if (!isNaN(n) && n > 0) flags.maxIterations = n;
-    } else if (arg.startsWith("--test-cmd=")) {
-      flags.testCmd = arg.slice("--test-cmd=".length);
-    } else if (arg.startsWith("--fix-scope=")) {
-      flags.fixScope = arg.slice("--fix-scope=".length);
-    } else if (arg === "--json") {
-      flags.json = true;
-    } else if (arg === "--log") {
-      flags.log = true;
-    } else {
-      positional.push(arg);
-    }
-  }
-  return { flags, positional };
-}
-
-/**
- * Return the escalation model for a given iteration number.
- * Tiers: 1-5 → sonnet, 6-15 → opus, 16+ → null (stop)
- */
-function getEscalationModel(iteration) {
-  if (iteration >= 1 && iteration <= 5) return "sonnet";
-  if (iteration >= 6 && iteration <= 15) return "opus";
-  return null;
-}
-
-/**
- * Spawn a single `claude -p` session and return stdout as a string.
- * Returns null if the process fails.
- */
-function spawnClaudeSession(prompt, model) {
-  try {
-    // v3.12.14: propagate GSD_T_* env vars so the worker's heartbeat hook +
-    // event-writer entries are tagged with the parent command/phase/trace and
-    // this session's model. Without these, tool_call events from the debug
-    // worker appear as command=null/phase=null.
-    const env = Object.assign({}, process.env, {
-      GSD_T_COMMAND: process.env.GSD_T_COMMAND || "gsd-t-debug",
-      GSD_T_PHASE: process.env.GSD_T_PHASE || "debug",
-      GSD_T_MODEL: model || process.env.GSD_T_MODEL || null,
-      GSD_T_PROJECT_DIR: process.env.GSD_T_PROJECT_DIR || process.cwd(),
-    });
-    if (env.GSD_T_MODEL === null) delete env.GSD_T_MODEL;
-    if (process.env.GSD_T_TRACE_ID) env.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
-    // GSD-T-LINT: skip stream-json (reason: internal debug-loop summarizer; output is consumed as one buffered string by parseTestResult — no progress to stream)
-    return execFileSync("claude", ["-p", prompt, "--model", model], {
-      encoding: "utf8", timeout: 300000,
-      stdio: ["pipe", "pipe", "pipe"],
-      env,
-    });
-  } catch (e) {
-    return (e.stdout || "") + (e.stderr || "") || null;
-  }
-}
-
-/**
- * Parse test pass/fail from claude output.
- * Returns { passed: bool, summary: string }.
- */
-function parseTestResult(output) {
-  const out = (output || "").toLowerCase();
-  const passed =
-    /\ball tests? pass(ed|ing)?\b/.test(out) ||
-    /\ball \d+ tests? pass/.test(out) ||
-    /\bno (test )?failures?\b/.test(out) ||
-    /\btests? (all )?pass(ed)?\b/.test(out);
-  const failed =
-    /\bfail(ed|ing|ure)?\b/.test(out) ||
-    /\berror\b/.test(out) ||
-    /\bnot ok\b/.test(out);
-  const summary = (output || "").slice(0, 500).replace(/\n/g, " ").trim();
-  return { passed: passed && !failed, summary };
-}
-
-/**
- * Run ledger compaction: spawn haiku to summarize, then compact.
- */
-function runLedgerCompaction(projectDir, jsonMode) {
-  const entries = debugLedger.readLedger(projectDir);
-  const compactPrompt =
-    "Read this debug ledger. Produce a condensed summary of what has been tried, " +
-    "what failed, and what the evidence suggests. Be concise.\n\n" +
-    JSON.stringify(entries, null, 2);
-  let summary = "Compacted — see previous entries.";
-  try {
-    // v3.12.14: propagate GSD_T_* env for telemetry tagging.
-    const env = Object.assign({}, process.env, {
-      GSD_T_COMMAND: process.env.GSD_T_COMMAND || "gsd-t-debug",
-      GSD_T_PHASE: process.env.GSD_T_PHASE || "debug",
-      GSD_T_MODEL: "haiku",
-      GSD_T_PROJECT_DIR: process.env.GSD_T_PROJECT_DIR || projectDir,
-    });
-    if (process.env.GSD_T_TRACE_ID) env.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
-    // GSD-T-LINT: skip stream-json (reason: debug-loop ledger compaction — single-shot summarizer, output consumed as one trimmed string)
-    const out = execFileSync("claude", ["-p", compactPrompt, "--model", "haiku"], {
-      encoding: "utf8", timeout: 120000, stdio: ["pipe", "pipe", "pipe"],
-      env,
-    });
-    summary = (out || "").trim() || summary;
-  } catch (e) {
-    if (!jsonMode) warn("Compaction haiku session failed — using default summary");
-  }
-  debugLedger.compactLedger(projectDir, summary);
-}
-
-/**
- * Write a per-iteration log file under .gsd-t/.
- */
-function writeIterationLog(projectDir, ts, iteration, entry, rawOutput) {
-  const logDir = path.join(projectDir, ".gsd-t");
-  if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-  const fname = `headless-debug-${ts}-iter-${iteration}.log`;
-  const content = [
-    `Iteration: ${iteration}`,
-    `Timestamp: ${entry.timestamp}`,
-    `Model: ${entry.model}`,
-    `Result: ${entry.result}`,
-    `Fix: ${entry.fix}`,
-    `Learning: ${entry.learning}`,
-    `---`,
-    rawOutput || "",
-  ].join("\n");
-  fs.writeFileSync(path.join(logDir, fname), content);
-}
-
-/**
- * Full debug-loop: validate flags, check claude CLI, run iteration cycle.
- */
-function doHeadlessDebugLoop(flags) {
-  const opts = flags || {};
-  const jsonMode = opts.json || false;
-  const projectDir = process.cwd();
-
-  if (opts.maxIterations < 1) {
-    const msg = "--max-iterations must be >= 1";
-    if (jsonMode) process.stdout.write(JSON.stringify({ success: false, exitCode: 3, error: msg }) + "\n");
-    else error(msg);
-    process.exit(3);
-  }
-
-  try {
-    execFileSync("claude", ["--version"], { encoding: "utf8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"] });
-  } catch {
-    const msg = "claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code";
-    if (jsonMode) process.stdout.write(JSON.stringify({ success: false, exitCode: 3, error: msg }) + "\n");
-    else error(msg);
-    process.exit(3);
-  }
-
-  if (!jsonMode) {
-    heading("GSD-T Headless — Debug Loop");
-    info(`Max iterations: ${opts.maxIterations}`);
-    if (opts.testCmd) info(`Test command: ${opts.testCmd}`);
-    if (opts.fixScope) info(`Fix scope: ${opts.fixScope}`);
-    if (opts.log) info(`Logging: enabled`);
-    log("");
-  }
-
-  const ts = Date.now();
-
-  for (let iteration = 1; iteration <= opts.maxIterations; iteration++) {
-    const model = getEscalationModel(iteration);
-
-    // STOP tier: escalation stop
-    if (model === null) {
-      const entries = debugLedger.readLedger(projectDir);
-      const stats = debugLedger.getLedgerStats(projectDir);
-      const diagMsg = `ESCALATION STOP at iteration ${iteration}. ` +
-        `Entries: ${stats.entryCount}, Failures: ${stats.failCount}. ` +
-        `Failed hypotheses:\n${stats.failedHypotheses.map((h, i) => `  ${i + 1}. ${h}`).join("\n")}`;
-      if (jsonMode) {
-        process.stdout.write(JSON.stringify({ success: false, exitCode: 4, iteration, diagnostic: diagMsg, entries }) + "\n");
-      } else {
-        log("");
-        warn(diagMsg);
-      }
-      process.exit(4);
-    }
-
-    // Check compaction
-    const stats = debugLedger.getLedgerStats(projectDir);
-    if (stats.needsCompaction) {
-      if (!jsonMode) info("Ledger compaction triggered...");
-      try { runLedgerCompaction(projectDir, jsonMode); }
-      catch { process.exit(2); }
-    }
-
-    // Generate preamble and build prompt
-    const preamble = debugLedger.generateAntiRepetitionPreamble(projectDir);
-    const scopeHint = opts.fixScope ? `\nFix scope: ${opts.fixScope}` : "";
-    const testHint = opts.testCmd ? `\nRun tests with: ${opts.testCmd}` : "";
-    const prompt = [preamble, `Fix the failing test(s). Write your fix, then run the test suite. Report results.${scopeHint}${testHint}`]
-      .filter(Boolean).join("\n\n");
-
-    if (!jsonMode) info(`Iteration ${iteration}/${opts.maxIterations} [${model}]...`);
-
-    const iterStart = Date.now();
-    let rawOutput = null;
-    try { rawOutput = spawnClaudeSession(prompt, model); }
-    catch (e) {
-      if (jsonMode) process.stdout.write(JSON.stringify({ success: false, exitCode: 3, iteration, error: String(e) }) + "\n");
-      else error(`Process error at iteration ${iteration}: ${e.message}`);
-      process.exit(3);
-    }
-    const duration = Math.round((Date.now() - iterStart) / 1000);
-
-    const { passed, summary } = parseTestResult(rawOutput);
-    const result = passed ? "PASS" : "STILL_FAILS";
-
-    // Extract fix description from output (first 200 chars of output)
-    const fixDesc = (rawOutput || "").split("\n").find((l) => l.trim().length > 20) || "see output";
-    const entry = {
-      iteration, timestamp: new Date().toISOString(),
-      test: opts.testCmd || "unspecified", error: passed ? "" : summary,
-      hypothesis: `iteration-${iteration}`, fix: fixDesc.trim().slice(0, 200),
-      fixFiles: [], result, learning: summary.slice(0, 300),
-      model, duration,
-    };
-
-    try { debugLedger.appendEntry(projectDir, entry); }
-    catch (e) {
-      if (!jsonMode) warn(`Failed to append ledger entry: ${e.message}`);
-    }
-
-    if (opts.log) writeIterationLog(projectDir, ts, iteration, entry, rawOutput);
-
-    if (jsonMode) {
-      process.stdout.write(JSON.stringify({ success: passed, exitCode: passed ? 0 : 1, iteration, result, model, duration, summary }) + "\n");
-    } else {
-      info(`  Result: ${result}`);
-    }
-
-    if (passed) {
-      debugLedger.clearLedger(projectDir);
-      if (!jsonMode) log(`\n${GREEN}All tests pass — debug loop complete.${RESET}`);
-      process.exit(0);
-    }
-  }
-
-  // Max iterations reached
-  if (!jsonMode) warn(`Max iterations (${opts.maxIterations}) reached without all tests passing.`);
-  process.exit(1);
-}
-
-function doHeadless(args) {
-  const sub = args[0];
-  if (!sub || sub === "--help" || sub === "-h") {
-    showHeadlessHelp();
-    return;
-  }
-
-  if (sub === "--debug-loop") {
-    const { flags } = parseDebugLoopFlags(args.slice(1));
-    doHeadlessDebugLoop(flags);
-    return;
-  }
-
-  if (sub === "query") {
-    const type = args[1];
-    doHeadlessQuery(type);
-    return;
-  }
-
-  // headless exec: gsd-t headless <command> [cmdArgs...] [flags]
-  const { flags, positional } = parseHeadlessFlags(args.slice(1));
-  doHeadlessExec(sub, positional, flags);
-}
-
-function showHeadlessHelp() {
-  log(`\n${BOLD}GSD-T Headless Mode${RESET}\n`);
-  log(`${BOLD}Usage:${RESET}`);
-  log(`  ${CYAN}gsd-t headless${RESET} <command> [args] [--json] [--timeout=N] [--log]`);
-  log(`  ${CYAN}gsd-t headless query${RESET} <type>`);
-  log(`  ${CYAN}gsd-t headless --debug-loop${RESET} [--max-iterations=N] [--test-cmd=CMD] [--fix-scope=SCOPE] [--json] [--log]\n`);
-  log(`${BOLD}Debug-loop flags:${RESET}`);
-  log(`  ${CYAN}--max-iterations=N${RESET}  Hard ceiling on iterations (default: 20)`);
-  log(`  ${CYAN}--test-cmd=CMD${RESET}      Override test command`);
-  log(`  ${CYAN}--fix-scope=SCOPE${RESET}   Limit fix scope to specific files or test patterns`);
-  log(`  ${CYAN}--json${RESET}              Structured JSON output per iteration`);
-  log(`  ${CYAN}--log${RESET}               Write per-iteration logs to .gsd-t/\n`);
-  log(`${BOLD}Debug-loop escalation tiers:${RESET}`);
-  log(`  Iterations 1-5:   sonnet  (standard debug)`);
-  log(`  Iterations 6-15:  opus    (deeper reasoning)`);
-  log(`  Iterations 16-20: STOP    (exit code 4 — needs human)\n`);
-  log(`${BOLD}Debug-loop exit codes:${RESET}`);
-  log(`  0  all tests pass`);
-  log(`  1  max iterations reached`);
-  log(`  2  ledger compaction error`);
-  log(`  3  process error`);
-  log(`  4  escalation stop — needs human\n`);
-  log(`${BOLD}Exec flags:${RESET}`);
-  log(`  ${CYAN}--json${RESET}        Structured JSON output`);
-  log(`  ${CYAN}--timeout=N${RESET}   Kill after N seconds (default: 300)`);
-  log(`  ${CYAN}--log${RESET}         Write output to .gsd-t/headless-{timestamp}.log\n`);
-  log(`${BOLD}Exit codes:${RESET}`);
-  log(`  0  success`);
-  log(`  1  verify-fail`);
-  log(`  2  context-budget-exceeded`);
-  log(`  3  error`);
-  log(`  4  blocked-needs-human\n`);
-  log(`${BOLD}Query types:${RESET}`);
-  log(`  ${VALID_QUERY_TYPES.join(", ")}\n`);
-  log(`${BOLD}Examples:${RESET}`);
-  log(`  ${DIM}$${RESET} gsd-t headless verify --json`);
-  log(`  ${DIM}$${RESET} gsd-t headless execute --timeout=600 --log`);
-  log(`  ${DIM}$${RESET} gsd-t headless query status`);
-  log(`  ${DIM}$${RESET} gsd-t headless query domains\n`);
-}
-
-// ─── Metrics (removed in v3.12 — M38 meter reduction) ─────────────────────────
-
-function doMetrics(_args) {
-  log(`${DIM}metrics removed in v3.12 — context meter is no longer telemetry-instrumented${RESET}`);
-}
-
 
 function showHelp() {
   log(`\n${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code\n`);
   log(`${BOLD}Usage:${RESET}  npx @tekyzinc/gsd-t ${CYAN}<command>${RESET} [options]\n`);
   log(`${BOLD}Commands:${RESET}`);
-  log(`  ${CYAN}install${RESET}        Install slash commands + global CLAUDE.md`);
-  log(`  ${CYAN}update${RESET}         Update global commands + CLAUDE.md`);
-  log(`  ${CYAN}update-all${RESET}     Update globally + all registered project CLAUDE.md files`);
-  log(`  ${CYAN}init${RESET} [name]    Scaffold GSD-T project (auto-registers)`);
-  log(`  ${CYAN}register${RESET}       Register current directory as a GSD-T project`);
-  log(`  ${CYAN}status${RESET}         Show installation status + check for updates`);
-  log(`  ${CYAN}uninstall${RESET}      Remove GSD-T commands (keeps project files)`);
-  log(`  ${CYAN}doctor${RESET}         Diagnose common issues (use --prune to kill dashboard orphans)`);
-  log(`  ${CYAN}changelog${RESET}      Open changelog in the browser`);
-  log(`  ${CYAN}graph${RESET}          Code graph operations (index, status, query)`);
-  log(`  ${CYAN}headless${RESET}       Non-interactive execution via claude -p + fast state queries`);
-  log(`  ${CYAN}design-build${RESET}   Deterministic design→code pipeline (elements → widgets → pages)`);
-  log(`  ${CYAN}research-gate${RESET}         Classify a guessed claim as internal (grep) or external (web-research)`);
-  log(`  ${CYAN}architectural-trigger${RESET} Fire the arch-assumption trigger (divergence-sampling | extend-signal)`);
-  log(`  ${CYAN}loop-ledger${RESET}           Record a debug cycle, read exit-state, or clear re-examination flag`);
-  log(`  ${CYAN}help${RESET}                  Show this help\n`);
+  log(`  ${CYAN}install${RESET}             Install slash commands + global CLAUDE.md + hooks`);
+  log(`  ${CYAN}update${RESET}              Update global commands + CLAUDE.md`);
+  log(`  ${CYAN}update-all${RESET}          Update globally + every registered project`);
+  log(`  ${CYAN}init${RESET} [name]         Scaffold a GSD-T project (auto-registers)`);
+  log(`  ${CYAN}register${RESET}            Register current directory as a GSD-T project`);
+  log(`  ${CYAN}status${RESET}              Show installation status + check for updates`);
+  log(`  ${CYAN}uninstall${RESET}           Remove GSD-T commands and hooks (keeps project files)`);
+  log(`  ${CYAN}doctor${RESET}              Diagnose common issues (--install-playwright)`);
+  log(`  ${CYAN}changelog${RESET}           Open changelog in the browser`);
+  log(`  ${CYAN}graph${RESET}               Code graph (index, status, who-calls, who-imports, blast-radius, body, …)`);
+  log(`  ${CYAN}pick-worktree${RESET}       Print the worktree a session should start in`);
+  log(`  ${CYAN}setup-playwright${RESET}    Install Playwright into a project`);
+  log(`  ${CYAN}workflow-path${RESET}       Print the absolute path of a workflow (scan, debug)`);
+  log(`  ${CYAN}estimate-sheet${RESET}      Read / write / audit a Tekyz estimate sheet`);
+  log(`  ${CYAN}help${RESET}                Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t init my-saas-app`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t update\n`);
   log(`${BOLD}After installing, use in Claude Code:${RESET}`);
-  log(`  ${DIM}>${RESET} /gsd-t-project "Build a task management app"`);
-  log(`  ${DIM}>${RESET} /gsd-t-wave\n`);
+  log(`  ${DIM}>${RESET} /gsd-t-init-scan-setup`);
+  log(`  ${DIM}>${RESET} /gsd-t-debug "the failing test"\n`);
   log(`${DIM}Docs: https://github.com/Tekyz-Inc/get-stuff-done-teams${RESET}\n`);
 }
 
@@ -5705,13 +3010,11 @@ module.exports = {
   showInitTree,
   writeTemplateFile,
   insertGuardSection,
-  addHeartbeatHook,
   removeInstalledCommands,
   removeVersionFile,
   checkDoctorClaudeMd,
   checkDoctorSettings,
   checkDoctorEncoding,
-  checkDoctorDashboardOrphans,
   doDoctor,
   mergeGsdtSection,
   migrateToMarkers,
@@ -5724,49 +3027,21 @@ module.exports = {
   doGraphIndex,
   doGraphStatus,
   doGraphQuery,
-  // Headless mode
-  parseHeadlessFlags,
-  buildHeadlessCmd,
-  mapHeadlessExitCode,
-  headlessLogPath,
-  doHeadlessExec,
-  doHeadlessQuery,
-  doHeadless,
-  // Headless debug-loop
-  parseDebugLoopFlags,
-  getEscalationModel,
-  doHeadlessDebugLoop,
-  queryStatus,
-  queryDomains,
-  queryContracts,
-  queryDebt,
-  queryContext,
-  queryBacklog,
-  queryGraph,
-  VALID_QUERY_TYPES,
   PKG_VERSION,
   PKG_ROOT,
   PKG_COMMANDS,
-  // M27: Cross-project sync
-  syncGlobalRulesToProject,
-  syncGlobalRules,
-  exportUniversalRulesForNpm,
-  // M34: Context Meter installer integration
-  ensureGitignoreEntries,
-  installContextMeter,
-  configureContextMeterHooks,
-  removeContextMeterHook,
   removeRetiredHooks,
+  removeHooksByMarkers,
+  removeRetiredV6Files,
+  RETIRED_V6,
+  GSDT_HOOK_MARKERS,
+  configureDateGuardHook,
+  configureChangelogCheckHook,
+  configureChangelogPostEditHook,
   // M97/M98: intercept hook installers
   configureGraphInterceptHook,
   configureReadInterceptHook,
-  configureArchitectHook,
   removeInterceptHooks,
-  promptForApiKeyIfMissing,
-  resolveApiKeyEnvVar,
-  runTaskCounterRetirementMigration,
-  // M100: storage scaffolder seam
-  runLoggingScaffoldStep,
 };
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -5787,17 +3062,10 @@ if (require.main === module) {
       break;
     case "init": {
       let initProject = null;
-      let installHooks = false;
       for (let i = 1; i < args.length; i++) {
-        const a = args[i];
-        if (a === '--install-hooks') installHooks = true;
-        else if (!a.startsWith('-')) initProject = a;
+        if (!args[i].startsWith('-')) initProject = args[i];
       }
-      doInit(initProject)
-        .then(() => {
-          if (installHooks) installCaptureLintHook(process.cwd());
-        })
-        .catch((e) => { error(e.message || String(e)); process.exit(1); });
+      doInit(initProject).catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
     }
     // M111 — prints the worktree this session should start in, or nothing when
@@ -5827,21 +3095,12 @@ if (require.main === module) {
       doUninstall();
       break;
     case "doctor": {
-      const doctorOpts = { prune: false, installPlaywright: false, installHooks: false, installJourneyHook: false };
+      const doctorOpts = { installPlaywright: false };
       for (let i = 1; i < args.length; i++) {
-        if (args[i] === "--prune") doctorOpts.prune = true;
         if (args[i] === "--install-playwright") doctorOpts.installPlaywright = true;
-        if (args[i] === "--install-hooks") doctorOpts.installHooks = true;
-        if (args[i] === "--install-journey-hook") doctorOpts.installJourneyHook = true;
       }
       doDoctor(doctorOpts).catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
-    }
-    case "check-coverage": {
-      const cli = path.join(__dirname, "journey-coverage-cli.cjs");
-      const { spawnSync } = require("child_process");
-      const res = spawnSync(process.execPath, [cli, ...args.slice(1)], { stdio: "inherit" });
-      process.exit(res.status == null ? 1 : res.status);
     }
     case "setup-playwright": {
       // Single-project explicit installer. Thin wrapper around installPlaywright().
@@ -5885,32 +3144,6 @@ if (require.main === module) {
     case "graph":
       doGraph(args.slice(1));
       break;
-    case "migrate-logging": {
-      // M100 D1 wiring on d5's behalf — d1 is the SOLE editor of bin/gsd-t.js;
-      // d5 owns bin/gsd-t-migrate-logging.cjs (the module) and
-      // commands/gsd-t-migrate-logging.md (the command). See
-      // .gsd-t/contracts/logging-scaffold-seam-contract.md §Ownership boundary.
-      let migrateLogging;
-      try {
-        migrateLogging = require("./gsd-t-migrate-logging.cjs");
-      } catch (e) {
-        error(`migrate-logging module not found: ${e.message || e}`);
-        process.exit(1);
-      }
-      Promise.resolve(migrateLogging.run ? migrateLogging.run(args.slice(1)) : migrateLogging(args.slice(1)))
-        .catch((e) => { error(e.message || String(e)); process.exit(1); });
-      break;
-    }
-    case "headless":
-      doHeadless(args.slice(1));
-      break;
-    case "parallel": {
-      // M44 D2 — `gsd-t parallel` wraps M40 orchestrator with task-level
-      // parallelism + mode-aware gating math. Extends, does not replace.
-      const { runCli: runParallelCli } = require(path.join(__dirname, "gsd-t-parallel.cjs"));
-      const code = runParallelCli(args.slice(1), process.env);
-      process.exit(code);
-    }
     case "workflow-path": {
       // M69 — print the ABSOLUTE path to a GSD-T workflow script, resolved from
       // this CLI's own install root. Command files shell out to this instead of
@@ -5948,60 +3181,6 @@ if (require.main === module) {
       process.stdout.write(file + "\n");
       process.exit(0);
     }
-    case "preflight": {
-      // M55 D5 — `gsd-t preflight` thin dispatcher to bin/cli-preflight.cjs.
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "cli-preflight.cjs");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "brief": {
-      // M55 D5 — `gsd-t brief` thin dispatcher to bin/gsd-t-context-brief.cjs.
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-context-brief.cjs");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "verify-gate": {
-      // M55 D5 — `gsd-t verify-gate` thin dispatcher to bin/gsd-t-verify-gate.cjs.
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-verify-gate.cjs");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "verify-gate-judge": {
-      // M55 D5 — `gsd-t verify-gate-judge` thin dispatcher to bin/gsd-t-verify-gate-judge.cjs.
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-verify-gate-judge.cjs");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "build-coverage": {
-      // M57 D1 — `gsd-t build-coverage` thin dispatcher to bin/gsd-t-build-coverage.cjs.
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-build-coverage.cjs");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "ci-parity": {
-      // M57 D2 — `gsd-t ci-parity` thin dispatcher to bin/gsd-t-ci-parity.cjs.
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-ci-parity.cjs");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
     case "estimate-sheet": {
       // v5.20.10 — deterministic Tekyz estimate-sheet writer + audit
       // (`gsd-t estimate-sheet read|plan-check|write|audit --sheet <id>`).
@@ -6010,66 +3189,17 @@ if (require.main === module) {
       const res = spawnSync(process.execPath, [js, ...args.slice(1)], { stdio: "inherit" });
       process.exit(res.status == null ? 1 : res.status);
     }
-    case "test-data": {
-      // M58 D1 — `gsd-t test-data --list|--purge` thin dispatcher.
+    case "graph-availability": {
+      // `gsd-t graph-availability classify <reason> [detail]` — the ONE shared
+      // graph-failure classifier (ABSENT → build, BROKEN → halt). The scan and
+      // debug workflows use this when a project has no local bin copy.
       const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-test-data-ledger.cjs");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "competition-judge": {
-      // M82 D1 — `gsd-t competition-judge` thin dispatcher to the generate-and-judge
-      // selection oracle (objective partition judge + deterministic rubric selector).
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-competition-judge.cjs");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "traceability-gate": {
-      // M83 D1 — `gsd-t traceability-gate` plan-phase acceptance-traceability gate.
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-traceability-gate.cjs");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "model-tier-policy": {
-      // M85 — `gsd-t model-tier-policy` thin dispatcher to the tier-policy
-      // resolver (single source of truth for model-tier assignments).
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-model-tier-policy.cjs");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "model-profile": {
-      // M86 — `gsd-t model-profile` thin dispatcher to the profile config +
-      // resolver (standard/pro/premium tier-spend switch, per-project config).
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-model-profile.cjs");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "research-gate": {
-      // M89 — `gsd-t research-gate classify "<claim>"` thin dispatcher to the
-      // auto-research gate classifier (internal vs external routing; no LLM call).
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-research-gate.cjs");
-      if (!require("node:fs").existsSync(js)) {
-        error(`gsd-t-research-gate.cjs not found at ${js} — install or build M89-D1 first`);
+      const js = path.join(__dirname, "gsd-t-graph-availability.cjs");
+      if (!fs.existsSync(js)) {
+        error(`gsd-t-graph-availability.cjs not found at ${js} — reinstall GSD-T`);
         process.exit(1);
       }
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], { stdio: "inherit" });
       process.exit(res.status == null ? 1 : res.status);
     }
     case "install-check": {
@@ -6116,90 +3246,6 @@ if (require.main === module) {
         stdio: "inherit",
       });
       process.exit(res.status == null ? 1 : res.status);
-    }
-    case "architectural-trigger": {
-      // M90 D1 — `gsd-t architectural-trigger <subcommand>` thin dispatcher to
-      // the architectural-assumption trigger (divergence-sampling + extend-signal; §2).
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-architectural-trigger.cjs");
-      if (!require("node:fs").existsSync(js)) {
-        error(`gsd-t-architectural-trigger.cjs not found at ${js} — install or build M90-D1 first`);
-        process.exit(1);
-      }
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "loop-ledger": {
-      // M90 D2 — `gsd-t loop-ledger <subcommand>` thin dispatcher to the loop-ledger
-      // (non-convergence detection + halt; §3). Subcommands: append-cycle, read-exit-state,
-      // record-re-examination.
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-loop-ledger.cjs");
-      if (!require("node:fs").existsSync(js)) {
-        error(`gsd-t-loop-ledger.cjs not found at ${js} — install or build M90-D2 first`);
-        process.exit(1);
-      }
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "testplan-lint": {
-      // M115 (contract §5) — `gsd-t testplan-lint (--doc <f> | --dir <d>)` thin dispatcher
-      // to the A2 test-plan shape gate (owner: deterministic-gates). Sibling of
-      // `pseudocode-style` — same proven shape (0 clean / 4 violations / 64 bad input).
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-testplan-lint.cjs");
-      if (!require("node:fs").existsSync(js)) {
-        error(`gsd-t-testplan-lint.cjs not found at ${js} — reinstall GSD-T (contract test-plan-first-contract.md §5)`);
-        process.exit(1);
-      }
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "testplan-halt": {
-      // M115 (contract §5) — `gsd-t testplan-halt check --doc <f> --round <n>` thin
-      // dispatcher to the A5 non-convergence halt (owner: halt-convergence). Reuses
-      // bin/gsd-t-loop-ledger.cjs read-only for the repeated-symptom cap.
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-testplan-halt.cjs");
-      if (!require("node:fs").existsSync(js)) {
-        error(`gsd-t-testplan-halt.cjs not found at ${js} — reinstall GSD-T (contract test-plan-first-contract.md §5)`);
-        process.exit(1);
-      }
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "archive-domains": {
-      // Backlog #40 — `gsd-t archive-domains --domains a,b --archive <dir>` deterministic
-      // archive+sweep of a completed milestone's domain dirs (complete-milestone Step 7).
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-archive-domains.cjs");
-      if (!require("node:fs").existsSync(js)) {
-        error(`gsd-t-archive-domains.cjs not found at ${js} — install or build backlog #40 first`);
-        process.exit(1);
-      }
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "metrics":
-      doMetrics(args.slice(1));
-      break;
-    case "scan": {
-      const exportFlag = args.find(a => a.startsWith('--export='));
-      const exportFormat = exportFlag ? exportFlag.split('=')[1] : null;
-      if (exportFormat) {
-        log(`${CYAN}  ℹ${RESET} Export flag noted: will export to ${exportFormat} after scan completes`);
-      }
-      break;
     }
     case "help":
     case "--help":
