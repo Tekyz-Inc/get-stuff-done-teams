@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.1.16] - 2026-10-12
+
+### Changed — `sonnet` and `haiku` mean the newest models
+
+GSD-T's workflows ask for `sonnet` / `haiku`; Claude Code maps those names to versions, and a build released before Haiku 5.5 still maps `haiku` to Haiku 4.5.
+
+- `bin/gsd-t.js`: install / update set Claude Code's alias settings `ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-5-5` and `ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-5-5` in `~/.claude/settings.json`. Only a value that is absent or that GSD-T set before (recorded in `~/.claude/.gsd-t-model-pins.json`) is written — a user's own value is never overwritten — and nothing is set on Bedrock / Vertex / Foundry / a custom `ANTHROPIC_BASE_URL`. Bump `MODEL_PINS` when a new model ships.
+- `examples/settings.json`: the stale `ANTHROPIC_MODEL: claude-sonnet-4-6` replaced by the two alias settings.
+- `test/model-pins.test.js`: 4 tests.
+
 ## [6.1.15] - 2026-10-11
 
 ### Fixed — demo videos: guided voice setup, and no borrowed Google project

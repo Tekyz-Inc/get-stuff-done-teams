@@ -1319,12 +1319,60 @@ async function doInstall(opts = {}) {
   heading("Status Line");
   installStatusLine();
 
+  heading("Model Aliases");
+  installModelPins();
+
   heading("SCIP Indexers (Compiler-Accurate Code Graph — M95)");
   installScipIndexers();
 
   saveInstalledVersion();
 
   showInstallSummary(gsdtCommands.length, utilityCommands.length);
+}
+
+// ─── Model aliases ──────────────────────────────────────────────────────────
+// GSD-T's workflows ask for "sonnet" / "haiku"; Claude Code maps those aliases
+// to versions, and an older Claude Code build can still map them to an older
+// model. Point them at the newest release through Claude Code's own alias
+// settings. GSD-T only writes a value that is absent or one it set itself
+// (recorded in MODEL_PINS_FILE) — a user's own choice is never overwritten —
+// and leaves alias routing alone on Bedrock / Vertex / Foundry / a custom
+// endpoint, where model ids differ. Update MODEL_PINS when a new model ships.
+const MODEL_PINS = {
+  ANTHROPIC_DEFAULT_SONNET_MODEL: "claude-sonnet-5-5",
+  ANTHROPIC_DEFAULT_HAIKU_MODEL: "claude-haiku-5-5",
+};
+const MODEL_PINS_FILE = path.join(CLAUDE_DIR, ".gsd-t-model-pins.json");
+const THIRD_PARTY_ENV = ["CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "ANTHROPIC_BASE_URL"];
+
+function installModelPins() {
+  haltOnSymlinks(CLAUDE_DIR, [path.basename(MODEL_PINS_FILE)]);
+  const settings = fs.existsSync(SETTINGS_JSON) ? readSettingsObject(SETTINGS_JSON) : {};
+  const env = settings.env || {};
+  const thirdParty = THIRD_PARTY_ENV.find((k) => env[k] || process.env[k]);
+  if (thirdParty) {
+    info(`Model aliases left alone — ${thirdParty} is set (model ids differ off the Claude API)`);
+    return;
+  }
+  const ours = fs.existsSync(MODEL_PINS_FILE) ? JSON.parse(fs.readFileSync(MODEL_PINS_FILE, "utf8")) : {};
+  const set = {};
+  let changed = false;
+  for (const [key, model] of Object.entries(MODEL_PINS)) {
+    const current = env[key];
+    if (current !== undefined && current !== ours[key]) {
+      info(`${key} is your own (${current}) — left untouched`);
+      continue;
+    }
+    set[key] = model;
+    if (current !== model) { env[key] = model; changed = true; }
+  }
+  if (changed) {
+    settings.env = env;
+    writeSettingsObject(SETTINGS_JSON, settings);
+  }
+  fs.writeFileSync(MODEL_PINS_FILE, JSON.stringify(set, null, 2) + "\n");
+  const names = Object.values(set).join(", ");
+  if (names) (changed ? success : info)(`Model aliases → ${names}${changed ? "" : " (already set)"}`);
 }
 
 // ─── Status line ────────────────────────────────────────────────────────────
@@ -1422,6 +1470,7 @@ function refreshSameVersion() {
   installGlobalClaudeMd(true);
   retireV6Everything();
   installStatusLine();
+  installModelPins();
 }
 
 function reportHook(result, label) {
@@ -3154,6 +3203,8 @@ module.exports = {
   copyFile,
   copyBinToolsToProject,
   updateProjectWorktrees,
+  installModelPins,
+  MODEL_PINS,
   flagDirectives,
   PROJECT_BIN_TOOLS,
   _classifyGraphSpawnResult,

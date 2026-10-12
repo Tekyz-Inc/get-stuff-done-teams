@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v6.0.10 (2026-10-11): **M120 GSD-T v6 slim-down COMPLETE** — execution pipeline removed (59 → 18 commands, ~129K lines cut); kept graph, no-fallback, date guard, architect, new opt-in red team, debug halt, worktrees, env registry, Playwright rules, demo videos, estimates. Retired files are moved to dated backups, never deleted. Next: v6.1 — `gsd-t link-config-dir` (per-account Claude config dirs), faster scan, estimate-rescale rethink, solo story flow (pilot project to be chosen — not FlyLingo, which the dev team is building).
-## Date: 2026-10-11 14:56 PDT
-## Version: 6.1.15
+## Date: 2026-10-12 10:05 PDT
+## Version: 6.1.16
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-10-12 10:05: [chore] Newest Sonnet/Haiku everywhere GSD-T uses them (v6.1.16) — Haiku 5.5 released 2026-10-07 (claude-haiku-5-5, verified: anthropic.com/claude-haiku-5-5); workflows use aliases, so install pins Claude Code's ANTHROPIC_DEFAULT_SONNET_MODEL/HAIKU_MODEL (never over a user's own value, never off the Claude API). Client app code in 12 projects pins older IDs — reported, not changed (needs per-project migration). Suite 1151/1154 pass, 0 fail.
 - 2026-10-11 14:56: [fix] Demo-video voice setup for other users (v6.1.15) — the gcloud voice template hardcoded David's Google Cloud project as the quota project (other users: 403, or billing David). Now the user's own project (env or gcloud login quota project) or HALT with setup steps; new walkthrough-setup-check.mjs verified on both paths (fresh machine: 3 ✗ with fixes; David's login: all ✓ incl. live TTS call). Suite green.
 - 2026-10-11 14:45: [feature] Automatic directive cleanup for every GSD-T user (v6.1.14) — David chose fully automatic: update-all detects (deterministic scan) and flags; the next session in the project runs /gsd-t-tidy-directives pre-approved; edits backed up and left uncommitted. Detection is code; the rewrite is Claude's judgment because it edits the project's own prose. Suite green.
 - 2026-10-11 14:25: [feature] Demo-video requests enforced through the pipeline (v6.1.13) — David: any project asking for a demo video must use /gsd-t-demo-videos. Two layers: global CLAUDE.md rule + the every-prompt hook injects [GSD-T DEMO VIDEOS] when a prompt asks for a demo/walkthrough/tutorial video (13 sample prompts, 0 false hits). Suite 1140/1143 pass, 0 fail.
