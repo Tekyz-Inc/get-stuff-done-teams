@@ -75,7 +75,7 @@ Real work happens in a worktree: `~/Worktrees/GSD-T/<branch>/` (v6 was built in 
 
 | Event | Script | Purpose |
 |---|---|---|
-| UserPromptSubmit | `gsd-t-auto-route.js` | `[GSD-T NOW]` live clock + Reader Contract |
+| UserPromptSubmit | `gsd-t-auto-route.js` | Wrong-app guard + `[GSD-T NOW]` live clock + Reader Contract |
 | SessionStart | `gsd-t-update-check.js` | Version banner, auto-update |
 | SessionStart | `gsd-t-install-heal.js` | Restore missing project tools |
 | SessionStart | `gsd-t-changelog-check.js` | Log outside CLAUDE.md edits |

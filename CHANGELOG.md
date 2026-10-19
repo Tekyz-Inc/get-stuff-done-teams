@@ -2,6 +2,22 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.1.17] - 2026-10-19
+
+### Added — wrong-app guard
+
+A prompt typed into the wrong app's session is stopped before any work starts.
+
+- `scripts/gsd-t-auto-route.js` (the every-prompt hook): before anything else, finds the session's app in `~/.claude/.gsd-t-projects` (a worktree outside the app folder maps to its main repo) and asks Haiku which registered app the prompt is for, giving it each app's one-line description (CLAUDE.md Overview, README, or package.json). Another app → the prompt is blocked with a red 🔴 message, the folder to open a session in, and the prompt to paste there. Sibling repos of one product (backend / admin / mobile) count as different apps.
+- Start a prompt with `This App - This Session` to skip the check.
+- A failed check (timeout, error, an answer not on the list) blocks the prompt and names the failure — never a silent pass.
+- The model call runs on the Claude login (no API key), loads no settings hooks, tools or project files, and is marked so it never re-triggers the hook. Measured 2.4–8.0 s per prompt, typically about 3 s.
+- `test/wrong-app-guard.test.js`: 11 tests, including the real hook process with a stand-in `claude`.
+
+### Changed — demo videos read a value aloud only when it matters
+
+- `commands/gsd-t-demo-videos.md`: every field is still filled on camera, but the narration says the fields were filled ("fill in its city, time zone, phone and website") instead of reading each entry. A value is spoken only when later videos refer to it or it has business weight — the owner and the permissions and role that come with it, a dropdown pick that changes the outcome — and the line says why. New verify check 10 lists each spoken value and cuts any without a reason.
+
 ## [6.1.16] - 2026-10-12
 
 ### Changed — `sonnet` and `haiku` mean the newest models

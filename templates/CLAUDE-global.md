@@ -56,6 +56,10 @@ Reproduce before fixing. After **two** failed fix cycles on the same symptom, HA
 
 Any request for a demo, walkthrough or tutorial video of an app uses `/gsd-t-demo-videos` — its plan → reference video → batch flow, fixed voice, and record/mux/trim scripts and checks. Never record, narrate or edit one ad hoc. A prompt hook flags these requests.
 
+# Wrong-App Guard
+
+Every prompt is checked against the GSD-T project list. A request for a different app is blocked with a 🔴 message and the prompt to paste into that app's session. Start a prompt with `This App - This Session` to send it here anyway.
+
 # Environments Registry
 
 Before reaching any non-local environment (staging/prod DB, remote server, external service), read `## Environments` in `docs/infrastructure.md`. Hit → use the recorded command. Miss → HALT, ask the user, **record the row first** (`node bin/gsd-t-env-registry.cjs record …`), then use it. Never guess a connection string; never write a secret value — only the vault name and env-var NAME, referenced as `$VAR`. A recorded command must run as written (include every id it needs).

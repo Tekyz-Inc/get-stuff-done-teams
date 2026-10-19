@@ -40,7 +40,7 @@ v6 removed the phase pipeline (milestone → partition → plan → execute → 
 | `gsd-t-changelog-post-edit.js` | PostToolUse `Write\|Edit` | Reminds Claude to log its own `CLAUDE.md` edit |
 | `gsd-t-install-heal.js` | SessionStart | Restores missing project `bin/` tools; halts if it cannot |
 | `gsd-t-update-check.js` | SessionStart | Version banner + auto-update |
-| `gsd-t-auto-route.js` | UserPromptSubmit | Emits `[GSD-T NOW]` and the Reader Contract |
+| `gsd-t-auto-route.js` | UserPromptSubmit | Wrong-app guard (blocks a prompt meant for another registered app), then emits `[GSD-T NOW]` and the Reader Contract |
 
 The guard hooks run from the installed package path. `update-check` and `auto-route` are copied to `~/.claude/scripts/`. `gsd-t-fetch-version.js` and `npm-update-check.js` support the CLI's update notice.
 

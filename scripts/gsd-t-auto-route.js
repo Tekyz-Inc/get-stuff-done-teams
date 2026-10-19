@@ -10,7 +10,169 @@
  *     dated banner at the top of Claude's response. Fresh per turn so multi-day
  *     sessions and date-rollovers are reflected accurately.
  *   - [GSD-T READER CONTRACT] — the reply-style standard (M93).
+ *
+ * Wrong-app guard (runs first): asks Haiku which registered app the prompt is
+ * for; another app → block with a red message and the prompt to paste there.
+ * Plan: .gsd-t/pseudocode/PseudoCode-WrongAppGuard.md
  */
+
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { spawnSync } = require("child_process");
+
+// ─── Wrong-app guard ──────────────────────────────────────────────────────────
+
+const OVERRIDE_PREFIX = "This App - This Session";
+const OVERRIDE_RE = /^\s*this\s+app\s*[-–—]\s*this\s+session\b/i;
+const CHILD_ENV = "GSDT_APP_GUARD_CHILD"; // set on the guard's own model call
+const CHECK_TIMEOUT_MS = 20000;           // Claude Code kills prompt hooks at 30s
+const RED = "\x1b[31m";
+const RESET = "\x1b[0m";
+
+function isOverride(prompt) {
+  return OVERRIDE_RE.test(String(prompt));
+}
+
+// Registered apps: one absolute path per line. No registry → no apps.
+function readRegistry(home) {
+  const f = path.join(home, ".claude", ".gsd-t-projects");
+  if (!fs.existsSync(f)) return [];
+  return fs.readFileSync(f, "utf8").split("\n").map((s) => s.trim()).filter(Boolean);
+}
+
+// Longest registered folder that is dir or above it; null when none.
+function appContaining(dir, apps) {
+  const hits = apps.filter((a) => dir === a || dir.startsWith(a + path.sep));
+  if (hits.length === 0) return null;
+  return hits.sort((x, y) => y.length - x.length)[0];
+}
+
+// The main repo folder for a worktree (git's shared .git dir); null outside git.
+function mainRepoRootOf(cwd) {
+  const r = spawnSync("git", ["-C", cwd, "rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8" });
+  if (r.status !== 0) return null; // not a git repo — no main copy to look up
+  return path.dirname(r.stdout.trim());
+}
+
+// The app this session is in: nearest registered folder above cwd; for a
+// worktree outside the app folder, the main repo git says it belongs to.
+function findCurrentApp(cwd, apps, mainRepoRoot = mainRepoRootOf) {
+  const direct = appContaining(cwd, apps);
+  if (direct) return direct;
+  const root = mainRepoRoot(cwd);
+  return root ? appContaining(root, apps) : null;
+}
+
+function oneLine(text) {
+  return text.replace(/[#*`>_\[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 240);
+}
+
+// One-line description: CLAUDE.md "## Overview", then README's first paragraph,
+// then package.json "description". An app with none of these gets "".
+function appDescription(dir) {
+  const read = (f) => (fs.existsSync(path.join(dir, f)) ? fs.readFileSync(path.join(dir, f), "utf8") : "");
+  const overview = read("CLAUDE.md").match(/^## Overview[ \t]*\n([\s\S]*?)(?=\n## |(?![\s\S]))/m);
+  if (overview && overview[1].trim()) return oneLine(overview[1].trim().split(/\n\s*\n/)[0]);
+  const para = read("README.md").split(/\n\s*\n/).map((p) => p.trim())
+    .find((p) => p && !p.startsWith("#") && !p.startsWith("[![") && !p.startsWith("<"));
+  if (para) return oneLine(para);
+  const pkg = read("package.json").match(/"description"\s*:\s*"([^"]*)"/);
+  return pkg ? oneLine(pkg[1]) : "";
+}
+
+function classifierPrompt(current, apps, prompt) {
+  const list = apps.map((a) => {
+    const desc = appDescription(a);
+    return `- ${a} (${path.basename(a)})${desc ? ": " + desc : ""}`;
+  }).join("\n");
+  return [
+    "You decide which software project a developer's request is for.",
+    "The developer is in a coding session for the CURRENT app. Registered apps (folder, name, description):",
+    list,
+    `CURRENT app: ${current}`,
+    "Request (between the markers):",
+    "<<<",
+    prompt.slice(0, 4000),
+    ">>>",
+    "Decide by which app's code or files the requested work would change. Do not favor the current app: if another app's description fits the work better, name that app.",
+    "Apps of one product are separate apps — a backend, an admin panel and a mobile app are different apps; match the work to the one whose code it changes.",
+    'Answer "current" when the work belongs in the current app, when the request is a reply in an ongoing conversation (yes, continue, a number, a follow-up question), or when another app is mentioned only for reference or comparison.',
+    'Answer "unclear" when the request has no clear target app.',
+    'Reply with JSON only: {"app": "current"} or {"app": "unclear"} or {"app": "<exact folder path>"}',
+  ].join("\n");
+}
+
+// → null (this app / unclear) or the other app's folder. Anything else throws.
+function parseVerdict(text, apps, current) {
+  const m = String(text).match(/\{[^{}]*\}/);
+  if (!m) throw new Error(`model reply was not JSON: ${String(text).slice(0, 120)}`);
+  const app = JSON.parse(m[0]).app;
+  if (typeof app !== "string") throw new Error(`model reply has no app: ${m[0].slice(0, 120)}`);
+  if (["current", "unclear"].includes(app.toLowerCase()) || app === current) return null;
+  if (apps.includes(app)) return app;
+  throw new Error(`model named an app that is not registered: ${app.slice(0, 120)}`);
+}
+
+// Haiku on the subscription login: no settings hooks, no tools, no saved session.
+function askModel(text) {
+  const r = spawnSync("claude", [
+    "-p", "--model", "haiku", "--output-format", "stream-json", "--verbose",
+    "--setting-sources", "", "--tools", "", "--no-session-persistence",
+  ], {
+    input: text, cwd: os.tmpdir(), encoding: "utf8", timeout: CHECK_TIMEOUT_MS,
+    maxBuffer: 10 * 1024 * 1024, env: { ...process.env, [CHILD_ENV]: "1" },
+  });
+  if (r.error && r.error.code === "ETIMEDOUT") throw new Error(`model call timed out after ${CHECK_TIMEOUT_MS / 1000}s`);
+  if (r.error) throw new Error(`model call failed: ${r.error.message}`);
+  if (r.status !== 0) throw new Error(`model call exited ${r.status}: ${(r.stderr + r.stdout).trim().slice(-200)}`);
+  const frames = r.stdout.split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+  const result = frames.find((f) => f.type === "result");
+  if (!result) throw new Error("model call returned no result");
+  if (result.is_error) throw new Error(`model call errored: ${String(result.result).slice(0, 200)}`);
+  return result.result;
+}
+
+function blockMessage(current, target, prompt) {
+  return [
+    `${RED}🔴 WRONG APP — this prompt is for ${path.basename(target)}, not ${path.basename(current)}.${RESET}`,
+    "",
+    "Open a Claude session in:",
+    `  ${target}`,
+    "",
+    "Then paste this prompt:",
+    "",
+    prompt,
+    "",
+    `To send it here anyway, start it with: ${OVERRIDE_PREFIX}`,
+  ].join("\n");
+}
+
+function failMessage(err) {
+  return [
+    `${RED}🔴 APP CHECK FAILED — prompt not sent.${RESET}`,
+    err.message,
+    `To send it anyway, start it with: ${OVERRIDE_PREFIX}`,
+  ].join("\n");
+}
+
+// → null to pass the prompt on, or a block decision for Claude Code.
+// A failed check blocks (no fallback); the original prompt stays shown to copy.
+function wrongAppCheck(input, { home = os.homedir(), ask = askModel, mainRepoRoot = mainRepoRootOf } = {}) {
+  const prompt = typeof input.prompt === "string" ? input.prompt : "";
+  if (process.env[CHILD_ENV] || !prompt.trim() || isOverride(prompt) || !input.cwd) return null;
+  try {
+    const apps = readRegistry(home).filter((a) => fs.existsSync(a));
+    if (apps.length < 2) return null;
+    const current = findCurrentApp(input.cwd, apps, mainRepoRoot);
+    if (!current) return null;
+    const target = parseVerdict(ask(classifierPrompt(current, apps, prompt)), apps, current);
+    if (!target) return null;
+    return { decision: "block", reason: blockMessage(current, target, prompt), suppressOriginalPrompt: true };
+  } catch (e) {
+    return { decision: "block", reason: failMessage(e) };
+  }
+}
 
 
 // Reader Contract — emitted every turn so the standard is in front of the model
@@ -78,6 +240,22 @@ let input = "";
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (chunk) => { input += chunk; });
 process.stdin.on("end", () => {
+  let hookInput;
+  try {
+    hookInput = JSON.parse(input);
+  } catch (e) {
+    // Claude Code always sends JSON; if it ever doesn't, the checks cannot run — stop and say so.
+    process.stdout.write(JSON.stringify({ decision: "block", reason: failMessage(new Error(`prompt hook input was not JSON (${e.message})`)) }));
+    process.exit(0);
+  }
+
+  // Wrong-app guard first: a block shows only its message.
+  const block = wrongAppCheck(hookInput);
+  if (block) {
+    process.stdout.write(JSON.stringify(block));
+    process.exit(0);
+  }
+
   // Always emit live timestamp first — every turn, every project.
   // [GSD-T NOW] format is date-guard-invariant: NEVER alter it.
   process.stdout.write(`[GSD-T NOW] ${liveTimestamp()}\n`);
@@ -88,17 +266,13 @@ process.stdin.on("end", () => {
   // wordy; rewrite it tight before sending.
   process.stdout.write(READER_CONTRACT + "\n");
 
-  let prompt = "";
-  try {
-    prompt = JSON.parse(input).prompt || "";
-  } catch (e) {
-    // Claude Code always sends JSON; if it ever doesn't, say so — the check did not run.
-    process.stdout.write(`[GSD-T] prompt hook input was not JSON (${e.message}) — demo-video check did not run\n`);
-  }
-  const demo = demoVideoSignal(prompt);
+  const demo = demoVideoSignal(hookInput.prompt);
   if (demo) process.stdout.write(demo + "\n");
   process.exit(0);
 });
 }
 
-module.exports = { liveTimestamp, demoVideoSignal };
+module.exports = {
+  liveTimestamp, demoVideoSignal,
+  isOverride, findCurrentApp, appDescription, classifierPrompt, parseVerdict, blockMessage, wrongAppCheck,
+};

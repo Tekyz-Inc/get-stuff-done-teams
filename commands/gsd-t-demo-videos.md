@@ -272,9 +272,17 @@ Narration rules, each from a user correction:
   student" and "the course" are bugs — it is *Maya Ellison* and the *Private
   Pilot Certificate — Part 61*. Read the finished narration once looking only
   for this.
-- **Narrate the value being typed, not the field's purpose.** "Her first lesson
-  is Tuesday at nine, with James in the Cessna 172" — not "you would select a
-  date, an instructor and an aircraft here".
+- **Fill every field on camera; read a value aloud only when it matters.** The
+  viewer needs to see the form get filled, not hear each entry. Creating a
+  school: "we give the school its name, Sutter Flight Academy, and fill in its
+  city, time zone, phone and website" — not every city, zone and number read
+  out. Say a value when it has business weight: a name later videos refer back
+  to, a value that drives what happens next (the owner, and the permissions and
+  role that come with it), or the pick in a dropdown that changes the outcome.
+  Then say why it matters. Reading every field makes the video long for nothing.
+- **Never explain a field over an empty form.** "Her first lesson is Tuesday at
+  nine, with James in the Cessna 172" while those are entered — not "you would
+  select a date, an instructor and an aircraft here".
 - **Naming a whole strip highlights the strip; making a point about one control
   highlights that control; navigating by it moves the mouse and clicks it.**
 
@@ -461,6 +469,10 @@ The user should never be the one who finds these. Check, per video:
 9. **Every dropdown was opened and picked** — grep the spec for `highlight(`
    on a select; each one should be `choose()`. The step log records `choose`
    as its own action, so count them against the number of selects in the flow.
+10. **Values read aloud earn their place** — for each form, list the values the
+   narration speaks. Each one must be a name used again later or a value with a
+   stated business reason (owner, role, permission, a pick that changes the
+   outcome). Any other value read out is a line to cut to "fill in the …".
 
 Then show the user each video as it finishes, not in a batch at the end.
 
