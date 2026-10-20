@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.1.20] - 2026-10-20
+
+### Fixed — graph: a compiled file with nothing left unresolved counts as compiler-accurate
+
+ATOS-V2: 36 files the compiler covered (`main.tsx`, constants, type files, test specs) stayed at the approximate tier, so every who-calls answer said "38 file(s) parsed but not compiler-resolved".
+
+- `bin/gsd-t-graph-scip-upgrade.cjs`: a compiler-covered file with no unresolved calls to repo functions is compiler-accurate (the branch defaulted to approximate, against its own comment). A member call (`obj.run()`, `(x as any).run()`) is checked by its last name at that name's own position, so a call to a repo function the compiler could not link still keeps the file non-accurate. ATOS-V2: 401 of 403 files accurate; the 2 left are `.mjs` scripts the compiler never saw.
+- `test/m95-scip-call-resolution.test.js`: M95-3 updated (a call to a name no repo function has is not unknown); new M95-3b (an unlinked call to a repo function is).
+
 ## [6.1.19] - 2026-10-20
 
 ### Fixed — graph: files outside every tsconfig are compiled; stale "unparsed" files cleared; store compacted

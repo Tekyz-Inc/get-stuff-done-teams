@@ -475,8 +475,15 @@ function buildScipResolver(repoRoot, opts = {}) {
       const calleeName = dst.slice('UNRESOLVED#'.length);
       const funcId = nameToFuncId.get(calleeName);
       if (!funcId) { // still unresolved → stays floor
-        const seen = positions && Number.isInteger(edge.col) && positions.has(scipPositionKey(edge.line - 1, edge.col));
-        if (defNames.has(calleeName) && !seen) missed++;
+        // A member call is stored as its whole expression ("(x as any).run") at the
+        // column where the expression starts; the repo name it may reach is the last
+        // segment, which SCIP marks where that segment starts.
+        // [RULE] scip-covered-nothing-unresolved-is-accurate
+        const lastName = calleeName.split('.').pop();
+        const memberCol = Number.isInteger(edge.col) ? edge.col + calleeName.length - lastName.length : null;
+        const seen = positions && Number.isInteger(edge.col) &&
+          (positions.has(scipPositionKey(edge.line - 1, edge.col)) || positions.has(scipPositionKey(edge.line - 1, memberCol)));
+        if (defNames.has(lastName) && !seen) missed++;
         return edge;
       }
       resolved++;
@@ -621,7 +628,14 @@ function tryScipUpgrade(absPath, relPath, entities, edges, options) {
     }
     // else: no edges resolved (0/resolvable) → tree-sitter-floor (default)
   }
-  // else: no resolvable calls (all external/local) — stay tree-sitter-floor (default)
+  else {
+    // No resolvable calls: SCIP put a symbol on every call to a repo name (or the
+    // file calls only libraries and locals). Nothing is unknown → accurate.
+    // ATOS-V2, 2026-10-20: 36 SCIP-covered files (main.tsx, constants, types)
+    // sat at floor here and kept every who-calls answer "incomplete".
+    // [RULE] scip-covered-nothing-unresolved-is-accurate
+    tier = 'compiler-accurate';
+  }
 
   const upgraded = tier === 'compiler-accurate';
 

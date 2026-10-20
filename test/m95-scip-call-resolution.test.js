@@ -94,8 +94,35 @@ test('M95-3: tier honesty — a file whose calls stay unresolvable is floor, NOT
     for (const [fid, meta] of idx.funcEntities) {
       if (fid.startsWith('src/dyn.ts')) dynTier = meta.tier;
     }
-    assert.equal(dynTier, 'tree-sitter-floor',
-      `dyn.ts has only unresolvable calls → must be tree-sitter-floor, got ${dynTier} (the old relabel-lie)`);
+    // No repo function is named mysteryExternal, so this call cannot be a missing
+    // caller of anything in the repo: nothing is unknown → accurate.
+    // [RULE] scip-covered-nothing-unresolved-is-accurate (supersedes the v1 rule
+    // "only unresolvable calls → floor", which kept ATOS-V2's main.tsx, constant
+    // and type files at floor and every who-calls answer "incomplete").
+    assert.equal(dynTier, 'compiler-accurate', `dyn.ts calls no repo name → accurate, got ${dynTier}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('M95-3b: tier honesty — a call to a REPO function that SCIP could not link keeps the file floor', { skip: SCIP_PRESENT ? false : 'FAIL-LOUD: scip-typescript not installed — M95 requires it' }, () => {
+  const dir = mkRepo();
+  try {
+    // The repo defines mysteryExternal; the call goes through `any`, so the
+    // compiler cannot say whether it is this function → unknown, not absent.
+    fs.writeFileSync(path.join(dir, 'src', 'mystery.ts'), 'export function mysteryExternal(n: number) { return n; }\n');
+    fs.writeFileSync(path.join(dir, 'src', 'dyn.ts'),
+      'export function caller() {\n  (globalThis as any).mysteryExternal(42);\n}\n');
+
+    const db = path.join(dir, '.gsd-t', 'graph.db');
+    build_index(dir, { dbPath: db });
+    const idx = cli.loadStore(db).index;
+
+    let dynTier = null;
+    for (const [fid, meta] of idx.funcEntities) {
+      if (fid.startsWith('src/dyn.ts')) dynTier = meta.tier;
+    }
+    assert.notEqual(dynTier, 'compiler-accurate', `an unlinked call to a repo function must not read as accurate, got ${dynTier}`);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
