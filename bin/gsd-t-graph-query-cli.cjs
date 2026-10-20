@@ -336,7 +336,11 @@ function computeCoverage(skippedFiles, opts = {}) {
     complete: false,
     note: `result may be incomplete — ${notes.join('; ')}`,
   };
-  if (n) coverage.unparsedContributors = n;
+  if (n) {
+    coverage.unparsedContributors = n;
+    // Name them, so the reader can tell whether they matter.
+    coverage.unparsedFiles = Array.from(skippedFiles).sort().slice(0, 10);
+  }
   if (unresolved) coverage.unresolvedContributors = unresolved;
   return coverage;
 }

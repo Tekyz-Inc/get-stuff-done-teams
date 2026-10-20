@@ -544,7 +544,8 @@ function build_index(repoRoot, options) {
   let scipCtx = scip;
   if (!scipCtx) {
     const upg = require('./gsd-t-graph-scip-upgrade.cjs');
-    const resolver = upg.buildScipResolver(repoRoot);
+    // The file list lets the resolver cover files outside every tsconfig.
+    const resolver = upg.buildScipResolver(repoRoot, { files: files.map((f) => f.relPath) });
     scipCtx = {
       tryScipUpgrade: upg.tryScipUpgrade,
       resolver: resolver.ok ? resolver : null,
@@ -642,10 +643,23 @@ function build_index(repoRoot, options) {
     const meta = openStore(dbPath);
     meta.exec('CREATE TABLE IF NOT EXISTS skipped_files (file TEXT PRIMARY KEY, reason TEXT)');
     const insSkip = meta.prepare('INSERT OR REPLACE INTO skipped_files (file, reason) VALUES (?, ?)');
-    const tx = meta.transaction((rows) => { for (const r of rows) insSkip.run(r.file, r.reason); });
+    // A full build REPLACES the set. ATOS-V2, 2026-10-20: 8 files deleted long ago
+    // (old test bundles) stayed listed, so every answer said "8 file(s) unparsed".
+    // [RULE] full-build-replaces-skipped-set
+    const tx = meta.transaction((rows) => { meta.exec('DELETE FROM skipped_files'); for (const r of rows) insSkip.run(r.file, r.reason); });
     tx(skippedFiles);
     closeStore(meta);
   } catch { /* meta is best-effort; the result envelope still carries the set */ }
+
+  // Removing files frees pages but SQLite keeps the file size. ATOS-V2, 2026-10-20:
+  // 457 MB with 97% free pages after its build bundles were pruned. Compact when
+  // over a quarter of the store is free space. [RULE] vacuum-when-mostly-free
+  const freePages = db.pragma('freelist_count', { simple: true });
+  const totalPages = db.pragma('page_count', { simple: true });
+  if (totalPages > 0 && freePages / totalPages > 0.25) {
+    db.exec('VACUUM');
+    info(`Compacted the graph store (${freePages} of ${totalPages} pages were free)`);
+  }
 
   closeStore(db);
 

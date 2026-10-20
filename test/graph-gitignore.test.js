@@ -124,3 +124,36 @@ test('a path that names different real files from the root and from the caller\'
     assert.deepEqual(j.candidates.sort(), ['src/a.ts', 'web/src/a.ts']);
   } finally { rm(dir); }
 });
+
+test('coverage names the unparsed files', () => {
+  const { computeCoverage } = require('../bin/gsd-t-graph-query-cli.cjs');
+  const c = computeCoverage(new Set(['b.ts', 'a.ts']));
+  assert.equal(c.complete, false);
+  assert.deepEqual(c.unparsedFiles, ['a.ts', 'b.ts']);
+});
+
+test('a full build replaces the unparsed set and compacts a mostly-empty store', () => {
+  const dir = probe({ 'src/a.ts': 'export function a() { return 1; }\n' }, { git: true });
+  try {
+    execFileSync('node', [INDEXER], { cwd: dir, encoding: 'utf8', stdio: 'pipe' });
+    const dbPath = path.join(dir, '.gsd-t', 'graphDB', 'graph.db');
+    const Database = require('../bin/gsd-t-require-store.cjs').requireBetterSqlite();
+    const db = new Database(dbPath);
+    db.prepare('INSERT INTO skipped_files (file, reason) VALUES (?, ?)').run('gone/bundle.js', 'ENOENT');
+    // Bloat the store, then free it: what pruning 114K build-bundle nodes left behind.
+    db.exec('CREATE TABLE bloat (x BLOB)');
+    const ins = db.prepare('INSERT INTO bloat VALUES (?)');
+    for (let i = 0; i < 400; i++) ins.run(Buffer.alloc(16384));
+    db.exec('DROP TABLE bloat');
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    db.close();
+    const before = fs.statSync(dbPath).size;
+
+    execFileSync('node', [INDEXER], { cwd: dir, encoding: 'utf8', stdio: 'pipe' });
+    const after = new Database(dbPath, { readonly: true });
+    try {
+      assert.equal(after.prepare('SELECT COUNT(*) AS n FROM skipped_files').get().n, 0, 'stale unparsed row must be gone');
+    } finally { after.close(); }
+    assert.ok(fs.statSync(dbPath).size < before / 2, `store not compacted: ${before} → ${fs.statSync(dbPath).size}`);
+  } finally { rm(dir); }
+});

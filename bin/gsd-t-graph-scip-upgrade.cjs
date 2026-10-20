@@ -391,6 +391,43 @@ function buildScipResolver(repoRoot, opts = {}) {
         }
       } catch { /* this project degrades to floor; others still contribute */ }
     }
+    // Files no tsconfig includes — e2e specs, playwright configs, scripts. ATOS-V2,
+    // 2026-10-20: 181 such files stayed unresolved, so nearly every who-calls
+    // answer read "may be incomplete". One more run over just those files, from a
+    // generated tsconfig that lists them. [RULE] scip-covers-files-outside-every-tsconfig
+    if (Array.isArray(opts.files)) {
+      const tsFiles = opts.files.filter((f) => /\.(ts|tsx|js|jsx|mjs|cjs)$/i.test(f));
+      const leftovers = tsFiles.filter((f) => !scipDocs.has(f));
+      if (leftovers.length) {
+        const rel = path.posix.join('.gsd-t', 'graphDB', 'scip-leftover');
+        const dir = path.join(repoRoot, rel);
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify({
+          compilerOptions: {
+            allowJs: true, noEmit: true, skipLibCheck: true, jsx: 'react-jsx',
+            module: 'esnext', moduleResolution: 'bundler', target: 'es2022',
+          },
+          // Every source file is compiled, so a leftover's call into project code
+          // resolves to a real definition; only the leftovers' results are kept.
+          files: tsFiles.map((f) => path.posix.relative(rel, f)),
+        }, null, 2));
+        const run = runScipTypescript(dir, resolveScipPath('index-ts-leftover.scip', repoRoot));
+        if (!run.ok) {
+          warn(`files outside every tsconfig (${leftovers.length}) were not compiler-resolved: ${String(run.error).slice(0, 200)}`);
+        } else {
+          const read = readScipIndex(run.scipPath, rel);
+          if (read && read.ok) {
+            const keep = new Set(leftovers);
+            const only = (m) => new Map(Array.from(m).filter(([f]) => keep.has(f)));
+            read.fileRefs = only(read.fileRefs);
+            if (read.occurrencePositions) read.occurrencePositions = only(read.occurrencePositions);
+            if (read.docPaths) read.docPaths = new Set(Array.from(read.docPaths).filter((f) => keep.has(f)));
+            mergeRead(read);
+            tsProjects.push({ dir: '(files outside every tsconfig)', files: read.fileRefs.size });
+          }
+        }
+      }
+    }
     if (tsProjects.length) ranIndexers.push('typescript');
   }
   if (avail.python && langs.python) {

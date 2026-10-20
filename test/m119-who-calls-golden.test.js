@@ -280,9 +280,14 @@ test('golden: who-calls matches TypeScript findReferences for 5 symbols (real sc
         const wc = cli.queryWhoCalls(idx, g.identity);
         const matched = new Set(wc.nameMatched ? wc.nameMatched.callers : []);
         const compiler = wc.results.filter((c) => !matched.has(c));
+        // The golden answer is TypeScript with the project's tsconfig, which leaves
+        // out scripts/tool.ts. The graph compiles files outside every tsconfig in an
+        // extra pass, so that file's call is a compiler caller too.
+        // [RULE] scip-covers-files-outside-every-tsconfig
+        const expected = perFile(g.callSites, ':');
+        if (sym === 'resolveOrg') expected['scripts/tool.ts'] = 1;
         // Fixture has one call per caller per symbol, so callers-per-file == sites-per-file.
-        assert.deepEqual(perFile(compiler, '#'), perFile(g.callSites, ':'), `${sym}: compiler callers vs TypeScript`);
-        assert.equal(compiler.length, g.callSites.length, `${sym}: count`);
+        assert.deepEqual(perFile(compiler, '#'), expected, `${sym}: compiler callers vs TypeScript`);
       }
 
       // Route-level callers, one per registration (not one per file).
@@ -290,11 +295,12 @@ test('golden: who-calls matches TypeScript findReferences for 5 symbols (real sc
         'src/routes-a.ts#GET /a/:id@17', 'src/routes-a.ts#GET /a@10', 'src/routes-a.ts#POST /a@12',
         'src/routes-b.ts#GET /b@5', 'src/routes-b.ts#PUT /b@6',
       ]);
-      // The file TypeScript/SCIP never saw (outside tsconfig include) contributes a
-      // labelled name-matched caller, never a compiler one.
+      // The file outside tsconfig include is compiled by the extra pass: its call is
+      // a compiler-resolved caller, not a name match, and the file is accurate.
       const ro = cli.queryWhoCalls(idx, golden.resolveOrg.identity);
-      assert.deepEqual(ro.nameMatched.callers, ['scripts/tool.ts#cli@4']);
-      assert.equal(idx.fileTier.get('scripts/tool.ts'), 'tree-sitter-floor-SCIP-MISSING');
+      assert.ok(ro.results.includes('scripts/tool.ts#cli@4'));
+      assert.equal(ro.nameMatched, undefined);
+      assert.equal(idx.fileTier.get('scripts/tool.ts'), 'compiler-accurate');
       // The local that shadows formatName is not a caller (SCIP resolved it to the local).
       assert.ok(!cli.queryWhoCalls(idx, golden.formatName.identity).results.some((c) => c.includes('shadow')));
       // Every file SCIP indexed had every repo-name call seen → compiler-accurate.

@@ -159,7 +159,9 @@ function readScipIndex(scipPath, pathPrefix) {
   // Normalize: "", ".", "./", "server/" and "server" all mean the same thing.
   const rawPrefix = (pathPrefix || '').replace(/^\.\/+/, '').replace(/\/+$/, '');
   const prefix = (rawPrefix === '' || rawPrefix === '.') ? '' : rawPrefix + '/';
-  const reroot = prefix ? (p) => prefix + p : (p) => p;
+  // normalize: a project outside the files' folder (the leftover-files pass)
+  // writes paths with `../` that must collapse back to repo-relative ones.
+  const reroot = prefix ? (p) => path.posix.normalize(prefix + p) : (p) => p;
   const proto = loadScipProto();
   if (!proto) {
     return { ok: false, reason: 'scip-decoder-unavailable' };

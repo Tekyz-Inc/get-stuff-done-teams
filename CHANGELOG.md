@@ -2,6 +2,18 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.1.19] - 2026-10-20
+
+### Fixed — graph: files outside every tsconfig are compiled; stale "unparsed" files cleared; store compacted
+
+Follow-up from ATOS-V2 after v6.1.18.
+
+- `bin/gsd-t-graph-scip-upgrade.cjs`: files no tsconfig includes (e2e specs, Playwright configs, scripts) get one extra compiler pass from a generated tsconfig under `.gsd-t/graphDB/scip-leftover/`. It compiles every source file so a leftover's call into project code resolves, and keeps only the leftovers' results. ATOS-V2: unresolved files 181 → 2, so answers stop reading "may be incomplete" for test files.
+- `bin/gsd-t-scip-reader.cjs`: prefixed paths are normalized (the leftover pass writes `../` paths).
+- `bin/gsd-t-graph-index.cjs`: a full build replaces the unparsed-file list instead of adding to it (ATOS-V2 kept reporting 8 files deleted long ago), and compacts the store when over a quarter of it is free space (ATOS-V2: 457 MB → 15 MB).
+- `bin/gsd-t-graph-query-cli.cjs`: an incomplete answer names the unparsed files.
+- `test/graph-gitignore.test.js`: +2 tests; `test/m119-who-calls-golden.test.js`: the file outside tsconfig is now a compiler-resolved caller.
+
 ## [6.1.18] - 2026-10-20
 
 ### Fixed — the code graph skips git-ignored build output, and reads paths the way you wrote them
