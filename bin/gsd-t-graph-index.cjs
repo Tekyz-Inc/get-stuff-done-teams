@@ -198,7 +198,22 @@ function enumerateFiles(root) {
   const results = [];
   // Project exclude list (.gsd-t/graph-exclude.json) — ancillary trees such as
   // design/Figma exports that are not the application. Throws on a malformed file.
-  const { isExcluded } = require('./gsd-t-graph-exclude.cjs').loadGraphExcludes(root);
+  const excludes = require('./gsd-t-graph-exclude.cjs');
+  const { isExcluded } = excludes.loadGraphExcludes(root);
+  // In a git repo, list files through git so .gitignore applies (build output,
+  // test bundles). The skip list and project excludes still apply on top.
+  // [RULE] graph-respects-gitignore
+  const visible = excludes.listGitVisibleFiles(root);
+  if (visible) {
+    for (const relPath of visible) {
+      const ext = path.extname(relPath).toLowerCase();
+      if (!PARSED_EXTS.has(ext)) continue;
+      if (isExcluded(relPath)) continue;
+      if (relPath.split('/').slice(0, -1).some(shouldSkipDir)) continue;
+      results.push({ absPath: path.join(root, relPath), relPath, ext });
+    }
+    return results;
+  }
   function walk(dir) {
     let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); }

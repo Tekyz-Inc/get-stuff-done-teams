@@ -103,4 +103,37 @@ function loadGraphExcludes(projectRoot) {
   };
 }
 
-module.exports = { loadGraphExcludes, EXCLUDE_FILE, GSDT_TOOL_FILES, _toRegex: toRegex };
+/**
+ * Files git would show in this project — tracked plus untracked, minus what
+ * .gitignore (and .git/info/exclude, the global excludes file) leaves out.
+ * Repo-relative POSIX paths of files that exist on disk. Returns null when the
+ * folder is not inside a git work tree (the caller walks the tree instead).
+ *
+ * ATOS-V2, 2026-10-20: 114,245 of 117,788 graph nodes came from git-ignored test
+ * bundles (prototype/.e2e-build/, one ~3,300-node bundle per run). The walkers
+ * only knew a fixed list of folder names, so every ignored build folder with an
+ * unlisted name was indexed — and, rebuilt on every test run, re-indexed on
+ * every query. Both walkers use this list. [RULE] graph-respects-gitignore
+ *
+ * A git that is missing or fails inside a work tree HALTS (throws): walking
+ * instead would silently index the ignored trees again.
+ */
+function listGitVisibleFiles(projectRoot) {
+  const { spawnSync } = require('child_process');
+  const inside = spawnSync('git', ['-C', projectRoot, 'rev-parse', '--is-inside-work-tree'], { encoding: 'utf8' });
+  if (inside.error) throw new Error(`git could not be run (${inside.error.message}) — cannot tell which files .gitignore leaves out`);
+  if (inside.status !== 0 || inside.stdout.trim() !== 'true') return null; // not a git work tree
+  const r = spawnSync('git', ['-C', projectRoot, 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
+    encoding: 'utf8', maxBuffer: 512 * 1024 * 1024,
+  });
+  if (r.error) throw new Error(`git ls-files failed (${r.error.message})`);
+  if (r.status !== 0) throw new Error(`git ls-files exited ${r.status}: ${String(r.stderr).trim().slice(0, 300)}`);
+  return r.stdout.split('\0').filter((rel) => {
+    if (!rel) return false;
+    const abs = path.join(projectRoot, rel);
+    // --cached also lists files deleted from disk, and a submodule as one entry.
+    return fs.existsSync(abs) && fs.statSync(abs).isFile();
+  });
+}
+
+module.exports = { loadGraphExcludes, listGitVisibleFiles, EXCLUDE_FILE, GSDT_TOOL_FILES, _toRegex: toRegex };

@@ -2,6 +2,22 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.1.18] - 2026-10-20
+
+### Fixed — the code graph skips git-ignored build output, and reads paths the way you wrote them
+
+Found on ATOS-V2: 114,245 of 117,788 graph nodes (97%) came from git-ignored test bundles (`prototype/.e2e-build/`). Each test run rebuilt them, so the next query re-indexed them — slow, and every answer flagged incomplete by bundles deleted since. And `who-imports src/ui/Photo.tsx` returned an empty list as a normal answer; from the repo root the file is `prototype/src/ui/Photo.tsx`, with 11 importers.
+
+- `bin/gsd-t-graph-exclude.cjs`: `listGitVisibleFiles` — tracked + untracked files minus what `.gitignore` leaves out. Outside git the folder walk is unchanged; git failing inside a repo halts.
+- `bin/gsd-t-graph-index.cjs`, `bin/gsd-t-graph-freshness.cjs`: both list files through it (skip list and `graph-exclude.json` still apply). ATOS-V2: 395 files, no build output. A full `gsd-t graph index` prunes the junk already stored.
+- `bin/gsd-t-graph-query-cli.cjs`: a file path is read from the project root or from the caller's folder — one real file → used; two different real files → `ambiguous-path`. A file the graph doesn't have fails `not-in-graph` with "did you mean", for `who-imports` and `blast-radius`.
+- Every query already re-indexes files changed since the last one; proven again (an edit and a new file seen with no re-index).
+- `test/graph-gitignore.test.js`: 7 tests.
+
+### Changed — wrong-app guard: using a tool is not working on it
+
+- `scripts/gsd-t-auto-route.js`: "use the new GSD-T video pipeline" typed in an app session stays there; changing or fixing GSD-T itself still goes to the GSD-T session.
+
 ## [6.1.17] - 2026-10-19
 
 ### Added — wrong-app guard

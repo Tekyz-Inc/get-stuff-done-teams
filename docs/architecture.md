@@ -53,7 +53,7 @@ The guard hooks run from the installed package path. `update-check` and `auto-ro
 | Freshness (re-index content-hash-dirty files before answering) | `bin/gsd-t-graph-freshness.cjs` |
 | Query CLI (`who-calls`, `who-imports`, `blast-radius`, `body`, `who-uses`, `table`, `dead-code`, `dangling`, `cluster`, `test-impl`, `status`) | `bin/gsd-t-graph-query-cli.cjs` |
 | Store path resolution + telemetry sink | `bin/gsd-t-graph-store-resolver.cjs` |
-| Exclude list (`.gsd-t/graph-exclude.json`) | `bin/gsd-t-graph-exclude.cjs` |
+| Exclude list (`.gsd-t/graph-exclude.json`) + git-visible file list (`.gitignore` respected by indexer and freshness) | `bin/gsd-t-graph-exclude.cjs` |
 | Native module loading (project → global → dev, fail loud) | `bin/gsd-t-require-store.cjs` |
 | Availability probe for workflows | `bin/gsd-t-graph-availability.cjs` |
 | Usage rollup (`graph metrics`) | `bin/gsd-t-graph-metrics-rollup.cjs` |

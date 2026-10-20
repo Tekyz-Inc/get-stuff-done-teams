@@ -223,8 +223,17 @@ function compute_touched_files(db, projectRoot) {
   // Walk the current working tree
   // Same exclude list as the indexer, so an excluded file is never a phantom ADD
   // and a newly-excluded one drops out as a DELETE. [RULE] freshness-excludes-match-indexer-skipdirs
-  const { isExcluded } = require('./gsd-t-graph-exclude.cjs').loadGraphExcludes(projectRoot);
-  const liveFiles = walkTree(projectRoot)
+  // In a git repo the file list comes from git, as in the indexer, so a
+  // git-ignored build folder is never a phantom ADD. [RULE] graph-respects-gitignore
+  const excludes = require('./gsd-t-graph-exclude.cjs');
+  const { isExcluded } = excludes.loadGraphExcludes(projectRoot);
+  const visible = excludes.listGitVisibleFiles(projectRoot);
+  const candidates = visible
+    ? visible
+      .filter((rel) => TRACKED_EXTS.has(path.extname(rel)) && !rel.split('/').slice(0, -1).some(shouldExcludeDir))
+      .map((rel) => path.join(projectRoot, rel))
+    : walkTree(projectRoot);
+  const liveFiles = candidates
     .filter((abs) => !isExcluded(path.relative(projectRoot, abs)));
 
   const liveRelSet = new Set();

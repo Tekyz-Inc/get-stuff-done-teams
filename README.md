@@ -105,7 +105,7 @@ gsd-t graph table <table>              # columns + foreign keys
 gsd-t graph metrics                    # graph-vs-grep usage telemetry
 ```
 
-Exclude ancillary trees with `.gsd-t/graph-exclude.json`. Telemetry is on by default; `GSDT_GRAPH_TELEMETRY=0` turns it off.
+In a git repo the graph skips everything `.gitignore` leaves out (build output, test bundles). Exclude other ancillary trees with `.gsd-t/graph-exclude.json`. Asking about a file the graph doesn't have fails with a "did you mean" — never an empty answer. Telemetry is on by default; `GSDT_GRAPH_TELEMETRY=0` turns it off.
 
 ---
 

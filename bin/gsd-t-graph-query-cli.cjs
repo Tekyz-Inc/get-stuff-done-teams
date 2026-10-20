@@ -870,6 +870,43 @@ function queryWhoImports(index, target) {
   return { results, tier: index.tier, coverage };
 }
 
+// ─── A file target written from the project root or from the caller's folder ─
+
+function resolveFileTarget(index, target, projectRoot, cwd) {
+  const hash = target.indexOf("#");
+  const file = (hash === -1 ? target : target.slice(0, hash)).replace(/\\/g, "/").replace(/^\.\//, "");
+  const rest = hash === -1 ? "" : target.slice(hash);
+  if (!file) return { target };
+  const fromRoot = path.isAbsolute(file) ? path.relative(projectRoot, file).split(path.sep).join("/") : file;
+  const fromCwd = path.relative(projectRoot, path.resolve(cwd, file)).split(path.sep).join("/");
+  const hits = Array.from(new Set([fromRoot, fromCwd])).filter((f) => index.allFiles.has(f));
+  if (hits.length > 1) return { ambiguous: true, candidates: hits };
+  if (hits.length === 1) return { target: hits[0] + rest };
+  return { target };
+}
+
+// ─── A file target the graph does not have ───────────────────────────────────
+//
+// ATOS-V2, 2026-10-20: `who-imports src/ui/Photo.tsx` returned [] as a normal
+// answer; the file is `prototype/src/ui/Photo.tsx`, with 11 importers. A path
+// the graph has never seen must not read as "nothing imports this" — that is
+// what gets trusted right before a delete. Fail, and name the likely file.
+// Returns the failure envelope; the command runner emits it and exits 1.
+// [RULE] unknown-file-target-fails-never-empty
+
+function notInGraph(index, verb, target) {
+  const want = target.replace(/\\/g, "/").replace(/^\.\//, "");
+  const base = want.split("/").pop();
+  const all = Array.from(index.allFiles);
+  const suffix = all.filter((f) => f.endsWith("/" + want));
+  const didYouMean = (suffix.length ? suffix : all.filter((f) => f.split("/").pop() === base)).sort().slice(0, 5);
+  return {
+    ok: false, reason: "not-in-graph", verb, target, didYouMean,
+    detail: `no indexed file is named ${target} — paths are relative to the project root` +
+      (didYouMean.length ? `; did you mean ${didYouMean.join(", ")}?` : ""),
+  };
+}
+
 // ─── Unresolved call sites that name the target ──────────────────────────────
 //
 // When coverage is incomplete, the calls the graph could not resolve are still
@@ -1874,7 +1911,7 @@ module.exports = {
 if (require.main === module) {
   const args = process.argv.slice(2);
   const verb = args[0];
-  const target = args[1];
+  let target = args[1];
 
   // ─── Graph usage telemetry (M99, layer 1) ─────────────────────────────────
   // Every graph read funnels through emit(); append ONE JSON line per query via
@@ -1985,9 +2022,24 @@ if (require.main === module) {
 
   const index = storeResult.index;
 
+  // A file path may be written from the project root or from the folder the
+  // caller is in. ATOS-V2, 2026-10-20: a session working inside prototype/ asked
+  // for src/ui/Photo.tsx — right where it stood, wrong from the root. Read the
+  // path both ways; one real file → use it; two different real files → ask.
+  // [RULE] file-target-read-from-root-or-cwd
+  if (target && ["who-imports", "who-calls", "body", "blast-radius"].includes(verb)) {
+    const r = resolveFileTarget(index, target, _resolver.deriveProjectRoot(storePath), process.cwd());
+    if (r.ambiguous) {
+      emit({ ok: false, reason: "ambiguous-path", verb, target, candidates: r.candidates });
+      process.exit(2);
+    }
+    target = r.target;
+  }
+
   // ── Step 3: Dispatch verb ──
   if (verb === "who-imports") {
     if (!target) fail({ ok: false, reason: "missing-target", verb });
+    if (!index.allFiles.has(target) && !index.importGraph.has(target)) fail(notInGraph(index, verb, target));
     const { results, tier, coverage } = queryWhoImports(index, target);
     emit({ ok: true, verb, target, results, tier, coverage });
 
@@ -2075,6 +2127,7 @@ if (require.main === module) {
       emit({ ok: true, verb, target, results: br.results, table: br.table, referencingTables: br.referencingTables, users: br.users, tier: br.tier, coverage: br.coverage });
       process.exit(0);
     }
+    if (!target.includes("#") && !index.allFiles.has(target) && !index.funcEntities.has(target)) fail(notInGraph(index, verb, target));
     const { results, tier, coverage, nameMatched } = br;
     if (results.length === 0 && coverage && coverage.complete === false) {
       writeIncompleteAnswerMarker(_resolver.deriveProjectRoot(storePath), verb, target, coverage);

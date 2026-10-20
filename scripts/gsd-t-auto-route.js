@@ -96,6 +96,7 @@ function classifierPrompt(current, apps, prompt) {
     prompt.slice(0, 4000),
     ">>>",
     "Decide by which app's code or files the requested work would change. Do not favor the current app: if another app's description fits the work better, name that app.",
+    "Some apps are tools every app uses (GSD-T is the developer's workflow tooling: commands, hooks, the demo-video pipeline). A request to use, run or follow such a tool in the current app belongs to the current app; a request to change or fix the tool itself (its code, commands, hooks, pipeline or rules — including a complaint that the tool misbehaves) belongs to that tool's app.",
     "Apps of one product are separate apps — a backend, an admin panel and a mobile app are different apps; match the work to the one whose code it changes.",
     'Answer "current" when the work belongs in the current app, when the request is a reply in an ongoing conversation (yes, continue, a number, a follow-up question), or when another app is mentioned only for reference or comparison.',
     'Answer "unclear" when the request has no clear target app.',
