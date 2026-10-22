@@ -107,7 +107,9 @@ The microphone is only open while you hold the keys
 - [RULE] talk-turns-matched-by-echo — a copy can run turns of its own (the original session's queued notices arrive first); only the turn that follows the echo of our message is the answer. Its own turns are logged, never spoken, and the copy is told to leave the original's unfinished work alone.
 - [RULE] talk-restarts-twice-then-halts — every crash is logged with its full error and talk restarts. A restart has failed when the restarted talk crashes within a minute; after two failed restarts in a row it stops with a notification and a "crashed" status. Approved fallback `talk-supervisor-restart`.
 - [RULE] talk-copies-read-only — a copy gets only Read, Grep, Glob, WebSearch, WebFetch, no connected services, nothing saved; it cannot edit, run commands, start work or reach any session. Work reaches a session only through the paste the user sends. (ATOS-V2, 11:24–11:57: a copy committed, pushed and launched a build beside the real window.)
-- [RULE] talk-working-sounds — a soft up-and-down tone while the copy thinks, a low-medium-high pattern while it runs tools; both stop when it speaks or the keys are pressed.
+- [RULE] talk-working-sounds — subtle alternating dings from the moment the keys are released (and while the closing summary is written) until it speaks; a low-medium-high pattern while it runs tools; both stop when it speaks or the keys are pressed.
+- [RULE] talk-no-preamble — no header, date, version, recap, or explanation of how talk works unless asked; "done" gets only "Okay".
+- [RULE] talk-runs-the-installed-version — the start hook replaces a talk running an older version (6.2.14 shipped while 6.2.13 kept running).
 - [RULE] end-phrases-understood — "done" / "we're done" end and paste; "ignore" ends without pasting; a short closing-sounding remark is judged by Haiku with Claude's last reply (after a question, "that's good" means yes).
 
 ## What I confirmed with you

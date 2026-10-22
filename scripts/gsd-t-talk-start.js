@@ -32,10 +32,27 @@ function running(home) {
 function main() {
   const talkScript = process.argv[2];
   const home = os.homedir();
-  if (running(home)) return;
   if (!fs.existsSync(talkScript)) {
     process.stderr.write('GSD-T talk: ' + talkScript + ' is missing — run `gsd-t install`\n');
     process.exit(1);
+  }
+  if (running(home)) {
+    // A release takes effect at once: talk running an older version is replaced.
+    // [RULE] talk-runs-the-installed-version
+    const installed = JSON.parse(fs.readFileSync(path.join(path.dirname(talkScript), '..', 'package.json'), 'utf8')).version;
+    const handoff = path.join(home, '.claude', '.gsd-t-talk.json');
+    const runningVersion = fs.existsSync(handoff) ? JSON.parse(fs.readFileSync(handoff, 'utf8')).version : undefined;
+    if (runningVersion === installed) return;
+    const r = spawnSync(process.execPath, [talkScript, 'stop'], { encoding: 'utf8' });
+    if (r.status !== 0) {
+      process.stderr.write('GSD-T talk: could not stop the old talk (v' + runningVersion + '): ' + (r.stderr + r.stdout).trim() + '\n');
+      process.exit(1);
+    }
+    for (let i = 0; i < 50 && running(home); i++) spawnSync('sleep', ['0.1']);
+    if (running(home)) {
+      process.stderr.write('GSD-T talk: the old talk (v' + runningVersion + ') did not stop\n');
+      process.exit(1);
+    }
   }
   const dir = path.join(home, '.claude', 'gsd-t-talk');
   fs.mkdirSync(dir, { recursive: true });

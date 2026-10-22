@@ -468,7 +468,11 @@ test('talk: copies can only read and search — no edits, shell, workflows, mess
     assert.ok(args.includes('--strict-mcp-config'));
     assert.equal(args[args.indexOf('--mcp-config') + 1], '{"mcpServers":{}}');
     assert.ok(args.includes('--no-session-persistence'));
-    assert.match(args[args.indexOf('--append-system-prompt') + 1], /read-only copy/);
+    const prompt = args[args.indexOf('--append-system-prompt') + 1];
+    assert.match(prompt, /You can only read and search/);
+    assert.match(prompt, /Never explain this setup/);
+    assert.match(prompt, /No preamble of any kind/);
+    assert.doesNotMatch(prompt, /Do the work the user asks/);
   } finally {
     session.close();
     fs.rmSync(s.root, { recursive: true, force: true });
@@ -548,4 +552,34 @@ test('talk: a long remark is never treated as an ending, and nothing open means 
   assert.equal(parseEnd('{"end":"continue"}'), null);
   assert.equal(parseEnd('{"end":"ignore"}'), 'ignore');
   assert.throws(() => parseEnd('maybe'), /not JSON/);
+});
+
+test('talk: the handoff names the running version, so a release can replace an older talk', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    const h = JSON.parse(fs.readFileSync(path.join(s.home, '.claude', '.gsd-t-talk.json'), 'utf8'));
+    assert.equal(h.version, require('../package.json').version);
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: "done" gets only "Okay", with the thinking tone kept on while the summary is written', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    await post(session, '/say', { text: 'one thing' });
+    await waitFor(() => s.played.includes('The table is in the transcript.'));
+    const before = s.played.length;
+    const r = await post(session, '/say', { text: 'Done.' });
+    assert.equal(r.json.ended, 'pass');
+    await waitFor(() => s.played.length > before);
+    assert.deepEqual(s.played.slice(before), ['Okay.']);
+    assert.ok(s.cueLog.lastIndexOf('thinking') > s.cueLog.indexOf(null), 'the tone ran again for the summary');
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
 });

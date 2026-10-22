@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.15] - 2026-10-22
+
+### Fixed — 6.2.14 never ran: an older talk stayed running
+
+The release's restart step saw talk already running and left it, and the check read the file on disk instead of the running program — so the read-only lock, sounds and new endings were not live. The start hook now replaces a talk running an older version (the handoff file records the running version; `gsd-t talk status` and the log show it).
+
+### Changed — talk speaks only the answer
+
+- No preamble: no header, date, version or recap, and no explaining that it is a copy, read-only or separate from other windows unless asked. Removed a leftover instruction ("do the work as usual") that contradicted read-only.
+- "Done" (any ending) gets only "Okay", then the paste or ignore.
+- Thinking sound: subtle alternating dings (up, down, up, down) from the moment the keys are released — and while the closing summary is written — until it speaks.
+- `bin/gsd-t-talk.cjs`, `scripts/gsd-t-talk-start.js`, `test/talk.test.js` (27 tests).
+
 ## [6.2.14] - 2026-10-22
 
 ### Fixed — a talk copy could do real work beside the session (now read-only)

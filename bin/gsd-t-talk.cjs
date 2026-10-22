@@ -32,6 +32,7 @@ const http = require('http');
 const crypto = require('crypto');
 const { spawn, spawnSync, execFileSync } = require('child_process');
 
+const VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
 const RED = '\x1b[31m';
 const DIM_ON = '\x1b[2m';
 const RESET = '\x1b[0m';
@@ -45,9 +46,9 @@ const VOICE_STYLE = [
   'When reporting work: say what changed and what, if anything, the user must do. Leave out file names, code, commands and how you got there unless asked.',
   'Keep it to about seventy words. If there is more worth knowing, say so in one sentence and offer to go deeper.',
   'Never use tables, code blocks, URLs, file paths or markdown symbols.',
-  'Do the work the user asks for as usual — this only changes how you reply.',
-  'You are a spoken side conversation running on a read-only copy of the user\'s session. You can only read and search — you cannot edit files, run commands, start work or reach the session. Never resume or act on that session\'s unfinished work, background tasks or task notifications. When the user wants something done, agree what it is and tell them it goes to the session when they say "we\'re done, pass it on".',
-  'Do not write the date and version header line in this conversation; start with the answer.',
+  'You can only read and search. Never resume or act on the session\'s unfinished work, background tasks or notifications. When the user wants something done, agree what it is; it reaches the session through the summary at the end.',
+  'Answer only what was asked. Never explain this setup — that you are a copy, read-only, separate from other windows, or how this conversation works — unless the user asks about it.',
+  'No preamble of any kind: no header line, date, time, version, status recap or restating the question. Start with the answer.',
 ].join(' ');
 
 // A copy can read and search, nothing else: no edits, no shell, no workflows,
@@ -397,11 +398,12 @@ const CUE_RATE = 24000;
 
 function cueSamples(notes, volume) {
   const out = [];
-  for (const { f, ms } of notes) {
+  for (const { f, ms, ding } of notes) {
     const n = Math.round((CUE_RATE * ms) / 1000);
     const fade = Math.min(n / 4, CUE_RATE * 0.012);
     for (let i = 0; i < n; i++) {
-      const env = Math.min(1, i / fade, (n - i) / fade);
+      // A ding strikes and decays like a small bell; a plain note fades in and out.
+      const env = ding ? Math.min(1, i / (CUE_RATE * 0.004)) * Math.exp((-6 * i) / n) : Math.min(1, i / fade, (n - i) / fade);
       out.push(f ? volume * env * Math.sin((2 * Math.PI * f * i) / CUE_RATE) : 0);
     }
   }
@@ -423,14 +425,14 @@ function writeWav(file, samples) {
 function ensureCues(dir) {
   fs.mkdirSync(dir, { recursive: true });
   const cues = {
-    thinking: path.join(dir, 'thinking-v1.wav'),
+    thinking: path.join(dir, 'thinking-v2.wav'),
     tools: path.join(dir, 'tools-v1.wav'),
   };
   if (!fs.existsSync(cues.thinking)) {
-    writeWav(cues.thinking, cueSamples([
-      { f: 440, ms: 150 }, { f: 523, ms: 170 }, { f: 0, ms: 350 },
-      { f: 523, ms: 150 }, { f: 440, ms: 170 }, { f: 0, ms: 1300 },
-    ], 0.05));
+    // Subtle alternating dings, up, down, up, down: ding ding ding ding ding ding.
+    const ding = (f) => ({ f, ms: 140, ding: true });
+    const gap = { f: 0, ms: 160 };
+    writeWav(cues.thinking, cueSamples([ding(659), gap, ding(523), gap, ding(659), gap, ding(523), gap, ding(659), gap, ding(523), gap], 0.09));
   }
   if (!fs.existsSync(cues.tools)) {
     writeWav(cues.tools, cueSamples([
@@ -483,7 +485,7 @@ function createSpeaker(getVoice, player, onError, onPlay = () => {}) {
         onError(outcome.error);
         continue;
       }
-      onPlay();
+      if (!item.keepCue) onPlay();
       current = player.play(outcome.file);
       await current.done;
       current = null;
@@ -492,11 +494,11 @@ function createSpeaker(getVoice, player, onError, onPlay = () => {}) {
   }
 
   return {
-    say(sentence) {
+    say(sentence, { keepCue = false } = {}) {
       // Each sentence carries its own success or failure; a failed one is shown
       // red by drain and the next sentence still plays.
       const outcome = getVoice().synth(sentence).then((file) => ({ file }), (error) => ({ error }));
-      queue.push({ gen: generation, outcome });
+      queue.push({ gen: generation, outcome, keepCue });
       drain();
     },
     hush() {
@@ -771,9 +773,11 @@ async function startTalk({ home, claudeBin, model, makeVoice, player, cues, focu
 
   /** Answer one /say. Returns [status, body]. */
   async function say(text) {
+    cues.set('thinking'); // from the moment you release the keys until it speaks
     const pane = focus();
     const reg = sessionForPane(home, pane);
     if (!reg) {
+      cues.stop();
       speaker.say('No Claude session is running in this window.');
       return [409, { ok: false, reason: 'no Claude session is running in the focused tmux pane (' + pane + ')' }];
     }
@@ -781,19 +785,20 @@ async function startTalk({ home, claudeBin, model, makeVoice, player, cues, focu
     const isOpen = Boolean(open) && !open.closed;
     let intent = endIntent(text);
     if (intent === null && isOpen && mightEnd(text)) {
-      cues.set('thinking');
       intent = parseEnd(await judgeEnd(endPrompt(text, open.lastReply)));
-      cues.stop();
     }
     if (intent) {
       if (!isOpen) {
-        speaker.say('There is no conversation to end.');
+        cues.stop();
+        speaker.say('Okay.');
         return [200, { ok: true, ended: 'none' }];
       }
-      speaker.say(intent === 'pass' ? 'Summarizing for the session.' : 'Saved. Going quiet.');
+      // "Okay" and nothing else; the thinking tone runs while the summary is written.
+      speaker.say('Okay.', { keepCue: true });
       const summary = await open.end(intent);
       conversations.delete(reg.sessionId);
       log(open.app + ' · conversation ended (' + intent + ') → ' + open.relFile);
+      cues.stop();
       if (intent === 'ignore') return [200, { ok: true, ended: 'ignore' }];
       const paste = 'Claude Voice Session: ' + summary.replace(/\s+/g, ' ').trim() + ' Full transcript: ' + open.relFile;
       return [200, { ok: true, ended: 'pass', paste }];
@@ -839,7 +844,7 @@ async function startTalk({ home, claudeBin, model, makeVoice, player, cues, focu
   const port = server.address().port;
 
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify({ port, token, pid: process.pid, startedAt: new Date().toISOString() }) + '\n', { mode: 0o600 });
+  fs.writeFileSync(file, JSON.stringify({ port, token, pid: process.pid, version: VERSION, startedAt: new Date().toISOString() }) + '\n', { mode: 0o600 });
   fs.chmodSync(file, 0o600);
 
   function close() {
@@ -931,7 +936,8 @@ function parseArgs(argv) {
 function status(home) {
   const file = handoffPath(home);
   const pid = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).pid : null;
-  console.log(pid !== null && pidAlive(pid) ? 'talk is running (pid ' + pid + ')' : 'talk is not running');
+  const ver = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).version : undefined;
+  console.log(pid !== null && pidAlive(pid) ? 'talk v' + (ver === undefined ? '(unknown)' : ver) + ' is running (pid ' + pid + ')' : 'talk is not running');
   const st = path.join(talkDir(home), 'status.json');
   if (fs.existsSync(st)) {
     const j = JSON.parse(fs.readFileSync(st, 'utf8'));
@@ -969,8 +975,7 @@ function stop(home) {
 
 /** Every crash is appended here with its full error, for debugging. */
 function recordCrash(home, { reason, stderrTail, attempt }) {
-  const version = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
-  const entry = '=== ' + new Date().toISOString() + ' — talk crashed (' + reason + '), attempt ' + attempt + ', GSD-T v' + version + '\n' + stderrTail.trim() + '\n\n';
+  const entry = '=== ' + new Date().toISOString() + ' — talk crashed (' + reason + '), attempt ' + attempt + ', GSD-T v' + VERSION + '\n' + stderrTail.trim() + '\n\n';
   fs.appendFileSync(path.join(talkDir(home), 'crashes.log'), entry);
 }
 
@@ -1027,7 +1032,7 @@ async function main() {
     makeVoice: () => (opts.voice === 'kokoro' ? kokoroVoice(opts.speaker) : googleVoice(opts.speaker)),
     player: afplayPlayer(), cues: afplayCues(path.join(talkDir(home), 'cues')), focus: tmuxFocusedPane, log,
   });
-  log('talk ready on 127.0.0.1:' + session.port + ' — idle until Ctrl+Option+Space');
+  log('talk v' + VERSION + ' ready on 127.0.0.1:' + session.port + ' — idle until Ctrl+Option+Space');
   const end = () => {
     session.close();
     process.exit(0);
@@ -1046,5 +1051,5 @@ if (require.main === module) {
 module.exports = {
   createSpeechFilter, createSpeaker, startTalk, parseArgs, handoffPath, pidAlive,
   sayText, endIntent, mightEnd, endPrompt, parseEnd, stripHeader, recentSummaries, sessionForPane, liveSessions,
-  runSupervisor, talkRunning, MAX_RESTARTS, HEALTHY_MS, ensureCues, READ_ONLY_TOOLS,
+  runSupervisor, talkRunning, MAX_RESTARTS, HEALTHY_MS, ensureCues, READ_ONLY_TOOLS, VERSION,
 };
