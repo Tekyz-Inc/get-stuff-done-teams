@@ -78,7 +78,7 @@ Real work happens in a worktree: `~/Worktrees/GSD-T/<branch>/` (v6 was built in 
 |---|---|---|
 | UserPromptSubmit | `gsd-t-auto-route.js` | Wrong-app guard + `[GSD-T NOW]` live clock + Reader Contract |
 | SessionStart | `gsd-t-update-check.js` | Version banner, auto-update |
-| SessionStart | `gsd-t-talk-start.js` | Starts the shared talk program if not running (log: `~/.claude/gsd-t-talk/talk.log`) |
+| SessionStart | `gsd-t-talk-start.js` | Starts the shared talk program, supervised, if not running (log `~/.claude/gsd-t-talk/talk.log`, crashes `crashes.log`, give-up state `status.json`) |
 | SessionStart | `gsd-t-install-heal.js` | Restore missing project tools |
 | SessionStart | `gsd-t-changelog-check.js` | Log outside CLAUDE.md edits |
 | PreToolUse Bash\|Grep | `gsd-t-graph-search-guard.js` | Block structural code searches |

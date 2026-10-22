@@ -701,6 +701,56 @@ async function startTalk({ home, claudeBin, model, makeVoice, player, focus, log
   return { port, token, close };
 }
 
+// ── Supervisor: restart after a crash; give up when two restarts fail ──────
+// Approved fallback (.gsd-t/fallbacks.json → talk-supervisor-restart).
+// [RULE] talk-restarts-twice-then-halts
+const MAX_RESTARTS = 2;
+// A restart has failed only when the restarted worker crashes within a minute.
+// A worker that ran longer and then crashed is a fresh crash: the count starts over.
+const HEALTHY_MS = 60 * 1000;
+
+/**
+ * Run the talk worker; restart it after a crash at most MAX_RESTARTS times.
+ * startWorker() → { exited: Promise<{ code, signal, stderrTail }>, kill() }.
+ * Resolves when talk stops on purpose or gives up.
+ */
+function runSupervisor({ startWorker, log, onCrash, onGiveUp, now = Date.now }) {
+  let restarts = 0;
+  let stopping = false;
+  let worker = null;
+  let resolveDone;
+  const done = new Promise((r) => { resolveDone = r; });
+
+  function launch() {
+    const started = now();
+    worker = startWorker();
+    worker.exited.then(({ code, signal, stderrTail }) => {
+      if (stopping || code === 0) {
+        log('talk stopped');
+        return resolveDone('stopped');
+      }
+      if (now() - started >= HEALTHY_MS) restarts = 0;
+      const reason = signal ? 'killed by ' + signal : 'exit ' + code;
+      onCrash({ reason, stderrTail, attempt: restarts + 1 });
+      if (restarts < MAX_RESTARTS) {
+        restarts += 1;
+        log('restarting talk (' + restarts + ' of ' + MAX_RESTARTS + ')');
+        return launch();
+      }
+      onGiveUp({ reason, stderrTail });
+      return resolveDone('gave-up');
+    });
+  }
+  launch();
+  return {
+    done,
+    stop() {
+      stopping = true;
+      worker.kill();
+    },
+  };
+}
+
 /** The words in a /say body, or null when the body is not { "text": "<words>" }. */
 function sayText(body) {
   if (!/^\s*\{[\s\S]*\}\s*$/.test(body)) return null;
@@ -709,13 +759,14 @@ function sayText(body) {
   return parsed.text.trim();
 }
 
-const USAGE = 'usage: gsd-t talk [status | stop] [--voice kokoro|google] [--speaker <name>] [--model <name>]';
+const USAGE = 'usage: gsd-t talk [status | stop] [--supervise] [--voice kokoro|google] [--speaker <name>] [--model <name>]';
 
 function parseArgs(argv) {
-  const opts = { action: 'run', voice: 'kokoro', speaker: null, model: null };
+  const opts = { action: 'run', supervise: false, voice: 'kokoro', speaker: null, model: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === 'status' || a === 'stop') opts.action = a;
+    else if (a === '--supervise') opts.supervise = true;
     else if (a === '--voice') opts.voice = argv[++i];
     else if (a === '--speaker') opts.speaker = argv[++i];
     else if (a === '--model') opts.model = argv[++i];
@@ -730,19 +781,87 @@ function status(home) {
   const file = handoffPath(home);
   const pid = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')).pid : null;
   console.log(pid !== null && pidAlive(pid) ? 'talk is running (pid ' + pid + ')' : 'talk is not running');
+  const st = path.join(talkDir(home), 'status.json');
+  if (fs.existsSync(st)) {
+    const j = JSON.parse(fs.readFileSync(st, 'utf8'));
+    if (j.state === 'crashed') console.log(RED + 'talk crashed and could not restart (' + j.at + '): ' + j.reason + RESET + '\n  details: ' + j.crashLog);
+  }
   for (const s of liveSessions(home)) console.log('  pane ' + s.pane + '  ' + s.cwd + (s.configDir.endsWith('.claude') ? '' : '  (' + path.basename(s.configDir) + ')'));
   console.log('log: ' + path.join(talkDir(home), 'talk.log'));
 }
 
-function stop(home) {
-  const file = handoffPath(home);
-  if (!fs.existsSync(file)) {
-    console.log('talk is not running');
-    return;
+function supervisorFile(home) {
+  return path.join(talkDir(home), 'supervisor.json');
+}
+
+/** Is talk up — its supervisor or its worker? (The start hook asks this.) */
+function talkRunning(home) {
+  for (const f of [supervisorFile(home), handoffPath(home)]) {
+    if (fs.existsSync(f) && pidAlive(JSON.parse(fs.readFileSync(f, 'utf8')).pid)) return true;
   }
-  const pid = JSON.parse(fs.readFileSync(file, 'utf8')).pid;
-  if (pidAlive(pid)) process.kill(pid, 'SIGTERM');
-  console.log('talk stopped (pid ' + pid + ')');
+  return false;
+}
+
+function stop(home) {
+  // The supervisor first, so it does not restart the worker it sees exit.
+  let stopped = false;
+  for (const f of [supervisorFile(home), handoffPath(home)]) {
+    if (!fs.existsSync(f)) continue;
+    const pid = JSON.parse(fs.readFileSync(f, 'utf8')).pid;
+    if (pidAlive(pid)) {
+      process.kill(pid, 'SIGTERM');
+      stopped = true;
+    }
+  }
+  console.log(stopped ? 'talk stopped' : 'talk is not running');
+}
+
+/** Every crash is appended here with its full error, for debugging. */
+function recordCrash(home, { reason, stderrTail, attempt }) {
+  const version = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
+  const entry = '=== ' + new Date().toISOString() + ' — talk crashed (' + reason + '), attempt ' + attempt + ', GSD-T v' + version + '\n' + stderrTail.trim() + '\n\n';
+  fs.appendFileSync(path.join(talkDir(home), 'crashes.log'), entry);
+}
+
+function supervise(home, workerArgs) {
+  fs.mkdirSync(talkDir(home), { recursive: true });
+  const log = (msg) => process.stdout.write(new Date().toISOString() + ' ' + msg + '\n');
+  const statusFile = path.join(talkDir(home), 'status.json');
+  const crashLog = path.join(talkDir(home), 'crashes.log');
+  if (fs.existsSync(statusFile)) fs.unlinkSync(statusFile);
+  fs.writeFileSync(supervisorFile(home), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }) + '\n');
+
+  const sup = runSupervisor({
+    log,
+    startWorker() {
+      const child = spawn(process.execPath, [__filename, ...workerArgs], { stdio: ['ignore', 'inherit', 'pipe'] });
+      let tail = '';
+      child.stderr.setEncoding('utf8');
+      child.stderr.on('data', (d) => {
+        process.stderr.write(d);
+        tail = (tail + d).slice(-6000);
+      });
+      const exited = new Promise((resolve) => child.on('exit', (code, signal) => resolve({ code, signal, stderrTail: tail })));
+      return { exited, kill: () => child.kill('SIGTERM') };
+    },
+    onCrash(c) {
+      log(RED + 'talk crashed (' + c.reason + ') — details in ' + crashLog + RESET);
+      recordCrash(home, c);
+    },
+    onGiveUp({ reason }) {
+      const msg = 'GSD-T talk crashed and could not restart (' + reason + ').';
+      log(RED + msg + ' Details: ' + crashLog + RESET);
+      fs.writeFileSync(statusFile, JSON.stringify({ state: 'crashed', at: new Date().toISOString(), reason, crashLog }) + '\n');
+      const r = spawnSync('osascript', ['-e', 'display notification "Details: ~/.claude/gsd-t-talk/crashes.log" with title "GSD-T talk crashed" subtitle "It could not restart"']);
+      if (r.status !== 0) log(RED + 'could not show the crash notification: ' + String(r.stderr).trim() + RESET);
+    },
+  });
+  const end = () => sup.stop();
+  process.on('SIGINT', end);
+  process.on('SIGTERM', end);
+  return sup.done.then(() => {
+    if (fs.existsSync(supervisorFile(home)) && JSON.parse(fs.readFileSync(supervisorFile(home), 'utf8')).pid === process.pid) fs.unlinkSync(supervisorFile(home));
+  });
 }
 
 async function main() {
@@ -750,6 +869,7 @@ async function main() {
   const home = os.homedir();
   if (opts.action === 'status') return status(home);
   if (opts.action === 'stop') return stop(home);
+  if (opts.supervise) return supervise(home, process.argv.slice(2).filter((a) => a !== '--supervise'));
   const log = (msg) => process.stdout.write(new Date().toISOString() + ' ' + msg + '\n');
   const session = await startTalk({
     home, claudeBin: 'claude', model: opts.model,
@@ -775,4 +895,5 @@ if (require.main === module) {
 module.exports = {
   createSpeechFilter, createSpeaker, startTalk, parseArgs, handoffPath, pidAlive,
   sayText, endIntent, stripHeader, recentSummaries, sessionForPane, liveSessions,
+  runSupervisor, talkRunning, MAX_RESTARTS, HEALTHY_MS,
 };

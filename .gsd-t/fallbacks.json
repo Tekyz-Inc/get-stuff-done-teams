@@ -52,6 +52,17 @@
       "whatItDoesInstead": "Treats a non-file as nothing to read, so the reply passes through untouched.",
       "approvedBy": "david",
       "approvedAt": "2026-08-07"
+    },
+    {
+      "id": "talk-supervisor-restart",
+      "location": "bin/gsd-t-talk.cjs#runSupervisor",
+      "rule": "restart-after-crash",
+      "whatFails": "The shared talk program crashes (an unexpected event from a session copy, a voice or tmux failure) and every session loses talk until the next session start.",
+      "howLikely": "Seen on its first live use (2026-10-22, a copy's own turn crashed it).",
+      "whyNotHalt": "David asked for it: talk serves every session in the background, so one crash should not silently end voice for all of them.",
+      "whatItDoesInstead": "Logs every crash with its full error and restarts. A restart has failed when the restarted talk crashes within a minute; after two failed restarts in a row it stops for good, writes status \"crashed\", and shows a macOS notification saying talk crashed and cannot restart.",
+      "approvedBy": "david",
+      "approvedAt": "2026-10-22"
     }
   ]
 }

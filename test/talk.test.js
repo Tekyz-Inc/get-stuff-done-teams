@@ -381,9 +381,11 @@ test('talk: a turn the copy runs on its own is not taken as the answer, not spok
   const session = await s.start();
   try {
     await post(session, '/say', { text: 'Yeah.' });
-    await waitFor(() => s.played.includes('You asked: Yeah..') || s.played.includes('You asked: Yeah.'));
+    const dir = path.join(s.app, '.gsd-t', 'talk');
+    const read = () => fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0]), 'utf8');
+    await waitFor(() => /\*\*Claude:\*\*/.test(read()));
     assert.ok(!s.played.some((p) => /background workflow/.test(p)), 'the copy\'s own turn is not spoken');
-    const t = fs.readFileSync(path.join(s.app, '.gsd-t', 'talk', fs.readdirSync(path.join(s.app, '.gsd-t', 'talk'))[0]), 'utf8');
+    const t = read();
     assert.match(t, /\*\*Claude:\*\* You asked: Yeah\./);
     assert.doesNotMatch(t, /background workflow/);
   } finally {
@@ -391,4 +393,55 @@ test('talk: a turn the copy runs on its own is not taken as the answer, not spok
     session.close();
     fs.rmSync(s.root, { recursive: true, force: true });
   }
+});
+
+// David, 2026-10-22: "If talk crashes, it should restart automatically. If it fails
+// again, restart one more time. If it still fails, say talk crashed and can't restart,
+// and log the error." [RULE] talk-restarts-twice-then-halts
+function fakeWorkers(exits) {
+  const started = [];
+  return {
+    started,
+    startWorker() {
+      const exit = exits[started.length];
+      started.push(exit);
+      let kill;
+      const exited = new Promise((r) => { kill = () => r({ code: 0, signal: null, stderrTail: '' }); if (exit) setImmediate(() => r(exit)); });
+      return { exited, kill };
+    },
+  };
+}
+
+test('supervisor: when two restarts in a row fail, it gives up once with the error', async () => {
+  const { runSupervisor } = require('../bin/gsd-t-talk.cjs');
+  const crash = { code: 1, signal: null, stderrTail: 'TypeError: boom' };
+  const w = fakeWorkers([crash, crash, crash, crash]);
+  const crashes = [];
+  const gaveUp = [];
+  const sup = runSupervisor({ startWorker: w.startWorker, log: () => {}, onCrash: (c) => crashes.push(c), onGiveUp: (g) => gaveUp.push(g) });
+  assert.equal(await sup.done, 'gave-up');
+  assert.equal(w.started.length, 3, 'first run + two restarts');
+  assert.deepEqual(crashes.map((c) => c.attempt), [1, 2, 3]);
+  assert.equal(crashes[0].stderrTail, 'TypeError: boom');
+  assert.deepEqual(gaveUp, [{ reason: 'exit 1', stderrTail: 'TypeError: boom' }]);
+});
+
+test('supervisor: a clean stop is not a crash; a crash after a minute of running is a fresh crash', async () => {
+  const { runSupervisor, HEALTHY_MS } = require('../bin/gsd-t-talk.cjs');
+  const stopped = fakeWorkers([{ code: 0, signal: null, stderrTail: '' }]);
+  const s1 = runSupervisor({ startWorker: stopped.startWorker, log: () => {}, onCrash: () => assert.fail('not a crash'), onGiveUp: () => assert.fail('no give-up') });
+  assert.equal(await s1.done, 'stopped');
+
+  // Crash, crash, then a crash after a long healthy run: the count starts over, so no give-up yet.
+  let t = 0;
+  const crash = { code: 1, signal: null, stderrTail: 'x' };
+  const w = fakeWorkers([crash, crash, crash, { code: 0, signal: null, stderrTail: '' }]);
+  const startWorker = () => {
+    const h = w.startWorker();
+    if (w.started.length === 3) t += HEALTHY_MS; // the second restart came up and ran a minute
+    return h;
+  };
+  const s2 = runSupervisor({ startWorker, log: () => {}, onCrash: () => {}, onGiveUp: () => assert.fail('count should have reset'), now: () => t });
+  assert.equal(await s2.done, 'stopped');
+  assert.equal(w.started.length, 4);
 });

@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.13] - 2026-10-22
+
+### Added — talk restarts itself after a crash
+
+Talk serves every session in the background, so one crash used to end voice for all of them until the next session start. Now a supervisor runs it: every crash is logged with its full error and talk restarts. A restart has failed when the restarted talk crashes within a minute; after two failed restarts in a row it stops for good, shows a macOS notification ("GSD-T talk crashed — it could not restart"), and sets `~/.claude/gsd-t-talk/status.json` to `crashed`. Approved fallback `talk-supervisor-restart`. Live-tested: killed three times → restarted twice, then stopped with the notice.
+
+- `bin/gsd-t-talk.cjs`: `--supervise` (`runSupervisor`), `crashes.log`, `status.json`; `gsd-t talk status` shows a crashed state; `stop` stops the supervisor first.
+- `scripts/gsd-t-talk-start.js`: starts talk supervised; "running" means supervisor or worker alive.
+- `test/talk.test.js`: two failed restarts → one give-up with the error; a clean stop is not a crash; a crash after a minute of running starts the count over.
+
 ## [6.2.12] - 2026-10-22
 
 ### Fixed — talk crashed when a session copy ran a turn of its own

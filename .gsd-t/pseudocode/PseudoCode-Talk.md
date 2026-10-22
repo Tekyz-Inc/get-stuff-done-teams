@@ -105,6 +105,7 @@ The microphone is only open while you hold the keys
 - [RULE] no-fallback-voice — a failed voice is reported; it never swaps to a different voice on its own.
 - [RULE] speak-for-decisions — the answer or decision first; at most three options with trade-offs; a recommendation; about seventy words; no narration of the work.
 - [RULE] talk-turns-matched-by-echo — a copy can run turns of its own (the original session's queued notices arrive first); only the turn that follows the echo of our message is the answer. Its own turns are logged, never spoken, and the copy is told to leave the original's unfinished work alone.
+- [RULE] talk-restarts-twice-then-halts — every crash is logged with its full error and talk restarts. A restart has failed when the restarted talk crashes within a minute; after two failed restarts in a row it stops with a notification and a "crashed" status. Approved fallback `talk-supervisor-restart`.
 - [RULE] end-phrases-matched-in-code — "we're done" plus "pass it on" or "ignore", tolerant of dictation spellings; anything else is not an ending.
 
 ## What I confirmed with you

@@ -156,6 +156,7 @@ Hold Ctrl+Option+Space in the dictation app (WindowsVoiceTranscription) and talk
 - **Transcript:** every exchange is written as it happens to `.gsd-t/talk/<date>-<session>.md` in that project.
 - **Ending:** "We're done, pass it on" saves a summary and pastes `Claude Voice Session: <summary> Full transcript: <file>` into the session for you to send. "We're done, ignore" saves and goes quiet.
 - **Voice:** Kokoro on this Mac by default (needs `uv`; model downloads once to `~/.claude/gsd-t-voice/`), or the demo-video Google voice with `gsd-t talk --voice google`. `gsd-t talk status` lists the sessions it can see; `gsd-t talk stop` ends the program; log: `~/.claude/gsd-t-talk/talk.log`.
+- **Crashes:** talk restarts itself after any crash. If a restart fails (it crashes again within a minute), it tries once more; if that fails too, it stops, shows a macOS notification, and sets `~/.claude/gsd-t-talk/status.json` to `crashed`; every crash's full error is in `~/.claude/gsd-t-talk/crashes.log`. The next session start tries again.
 
 ---
 
