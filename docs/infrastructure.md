@@ -82,6 +82,9 @@ Real work happens in a worktree: `~/Worktrees/GSD-T/<branch>/` (v6 was built in 
 | SessionStart | `gsd-t-install-heal.js` | Restore missing project tools |
 | SessionStart | `gsd-t-changelog-check.js` | Log outside CLAUDE.md edits |
 | PreToolUse Bash\|Grep | `gsd-t-graph-search-guard.js` | Block structural code searches |
+| PreToolUse Bash | `gsd-t-build-speed-guard.js` | Block unchanged re-runs of failed Playwright runs, whole-config re-runs before a narrower pass, long foreground waits |
+| PostToolUse Bash | `gsd-t-e2e-record.js` | Record a Playwright run's outcome (`~/.claude/gsd-t-e2e/`) |
+| PostToolUseFailure Bash | `gsd-t-e2e-failure-record.js` | Record a failed (non-zero exit) Playwright run |
 | PreToolUse Write\|Edit | `gsd-t-fallback-guard.js` | Block unapproved fallbacks |
 | PreToolUse Write\|Edit | `gsd-t-date-guard.js` | Block stale timestamps |
 | PostToolUse Grep | `gsd-t-graph-intercept.js` | Answer structural greps from the graph |

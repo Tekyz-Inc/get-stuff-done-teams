@@ -66,6 +66,9 @@ export default defineConfig({
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',
     trace: 'on-first-retry',
+    // Fail fast: a missing element fails in 10 s, not at the 30 s test limit.
+    actionTimeout: 10_000,
+    navigationTimeout: 15_000,
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },

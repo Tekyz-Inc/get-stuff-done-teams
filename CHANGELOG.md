@@ -2,6 +2,25 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.18] - 2026-10-22
+
+### Added — build-speed guard: no blind test re-runs, no long foreground waits
+
+Measured on the two long ATOS-V2 builds (57 active hours): most time went to waiting on helper agents, and inside them one build ran Playwright 1,392 times — 31% failed, 430 re-runs straight after a failure — plus about 8 agent-hours in foreground sleep loops. A new PreToolUse Bash guard blocks:
+
+- re-running a Playwright run that failed when no project file has changed since (test output and `.gsd-t/` logs don't count as a change);
+- re-running a whole config after it failed, until a narrower run (named specs, `--grep`, `--last-failed`) passes;
+- a foreground loop or sleep that waits more than a minute (run it in the background).
+
+Outcomes come from Playwright's own summary line, recorded after the run by two small hooks (PostToolUse for exit 0 — most failures are piped through `tail` — and PostToolUseFailure). A run whose summary was not seen records nothing and is never blocked. New projects' Playwright config also gets a 10 s action and 15 s page-load limit, so a missing element fails fast instead of at the 30 s test limit.
+
+- `scripts/gsd-t-build-speed-guard.js`, `scripts/gsd-t-e2e-record.js`, `scripts/gsd-t-e2e-failure-record.js`: the guard and recorders.
+- `bin/gsd-t.js`: markers, `configureBuildSpeedGuardHooks`, install registration.
+- `bin/playwright-bootstrap.cjs`: `actionTimeout` / `navigationTimeout` in the template.
+- `commands/cpua.md`: Step 6 runs in the background.
+- `test/build-speed-guard.test.js`: 9 tests driving the real hooks.
+- Plan: `.gsd-t/pseudocode/PseudoCode-BuildSpeed.md`.
+
 ## [6.2.17] - 2026-10-22
 
 ### Changed — red team trimmed: fewer tokens, same serious bugs

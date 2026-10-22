@@ -114,6 +114,8 @@ Verify the output shows `+ @tekyzinc/gsd-t@{NEW_VERSION}`. If publish fails:
 
 ## Step 6: Update global install + propagate to projects
 
+Run this whole block as ONE Bash call with `run_in_background: true` — the tarball wait takes about 5 minutes, and the build-speed guard blocks a foreground wait loop over a minute. You are notified when it ends; then read its output.
+
 ```bash
 G="$(npm root -g)/@tekyzinc/gsd-t"
 # 1. Install by TARBALL URL, not by version spec. Right after `npm publish`, npm keeps

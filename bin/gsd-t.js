@@ -468,11 +468,28 @@ const CHANGELOG_POST_EDIT_MARKER = "gsd-t-changelog-post-edit";
 const CHANGELOG_POST_EDIT_COMMAND =
   'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-changelog-post-edit.js"';
 
+// ─── Build-speed guard (PreToolUse Bash) + its two recorders ────────────────
+// Blocks an unchanged re-run of a failed Playwright run, a whole-config re-run
+// before a narrower run passes, and long foreground sleep loops. The recorders
+// read Playwright's summary after a run: PostToolUse for exit 0 (most failures
+// are piped through `tail`), PostToolUseFailure for a non-zero exit. One script
+// per event, because a marker is registered on exactly one event.
+const BUILD_SPEED_GUARD_MARKER = "gsd-t-build-speed-guard";
+const BUILD_SPEED_GUARD_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-build-speed-guard.js"';
+const E2E_RECORD_MARKER = "gsd-t-e2e-record";
+const E2E_RECORD_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-e2e-record.js"';
+const E2E_RECORD_FAILED_MARKER = "gsd-t-e2e-failure-record";
+const E2E_RECORD_FAILED_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-e2e-failure-record.js"';
+
 // Every hook GSD-T registers today. Uninstall removes exactly these.
 const GSDT_HOOK_MARKERS = [
   GRAPH_INTERCEPT_HOOK_MARKER, READ_INTERCEPT_HOOK_MARKER, FALLBACK_HOOK_MARKER,
   GRAPH_SEARCH_HOOK_MARKER, GRAPH_USE_REPORT_MARKER, INSTALL_HEAL_MARKER,
   DATE_GUARD_MARKER, CHANGELOG_CHECK_MARKER, CHANGELOG_POST_EDIT_MARKER,
+  BUILD_SPEED_GUARD_MARKER, E2E_RECORD_MARKER, E2E_RECORD_FAILED_MARKER,
   "gsd-t-update-check", "gsd-t-auto-route", "gsd-t-talk-start",
 ];
 
@@ -643,6 +660,14 @@ function configureGraphSearchGuardHook(settingsPath) {
     settingsPath, GRAPH_SEARCH_HOOK_MARKER, GRAPH_SEARCH_HOOK_COMMAND,
     "graph search guard", "Bash|Grep"
   );
+}
+
+function configureBuildSpeedGuardHooks(settingsPath) {
+  return [
+    configurePreToolUseHook(settingsPath, BUILD_SPEED_GUARD_MARKER, BUILD_SPEED_GUARD_COMMAND, "build-speed guard", "Bash"),
+    configureToolHook(settingsPath, "PostToolUse", E2E_RECORD_MARKER, E2E_RECORD_COMMAND, "e2e outcome recorder", "Bash"),
+    configureToolHook(settingsPath, "PostToolUseFailure", E2E_RECORD_FAILED_MARKER, E2E_RECORD_FAILED_COMMAND, "e2e failure recorder", "Bash"),
+  ];
 }
 
 // M117 — register the Stop-time graph use report.
@@ -1333,6 +1358,10 @@ async function doInstall(opts = {}) {
   reportHook(configureFallbackGuardHook(SETTINGS_JSON), "Fallback guard (denies a write that adds an unapproved fallback — M106)");
   reportHook(configureDateGuardHook(SETTINGS_JSON), "Date guard (blocks a timestamp that drifts from the live clock)");
   reportHook(configureGraphSearchGuardHook(SETTINGS_JSON), "Graph search guard (blocks a structural code search, names the graph query — M117)");
+  const [speedGuard, e2eRecord, e2eRecordFailed] = configureBuildSpeedGuardHooks(SETTINGS_JSON);
+  reportHook(speedGuard, "Build-speed guard (blocks unchanged re-runs of failed Playwright tests and long foreground waits)");
+  reportHook(e2eRecord, "E2E outcome recorder (reads Playwright's summary after a run)");
+  reportHook(e2eRecordFailed, "E2E failure recorder (reads Playwright's summary after a failed run)");
   reportHook(configureGraphUseReportHook(SETTINGS_JSON), "Graph use report (flags a turn that did structural work without asking the graph — M117)");
   reportHook(configureChangelogPostEditHook(SETTINGS_JSON), "CLAUDE.md changelog post-edit hook (M110)");
   // SessionStart entries are put FIRST, so register install-heal last: it then
@@ -3290,6 +3319,7 @@ module.exports = {
   _retireShippedFile: retireShippedFile,
   GSDT_HOOK_MARKERS,
   configureDateGuardHook,
+  configureBuildSpeedGuardHooks,
   configureChangelogCheckHook,
   configureChangelogPostEditHook,
   // M97/M98: intercept hook installers

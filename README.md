@@ -76,6 +76,7 @@ Planning, building and testing have no command — Claude does them directly, un
 | Hook | When | What it does |
 |---|---|---|
 | **Graph search guard** | before Bash / Grep | Blocks a search that asks a structural code question and names the `gsd-t graph` query to run instead. Missing graph also blocks (with `gsd-t graph index`). Searches over `.md`, `.json`, `.sql`, config and prose run normally. Opt out per project only by writing `.gsd-t/graph-search-gate.json` `{"enabled": false}`. |
+| **Build-speed guard** | before Bash, plus after Bash to record | Blocks re-running a Playwright run that failed when no project file has changed since (read the error and screenshot first); after a whole-config failure, blocks the next whole-config run until a narrower one (named specs, `--last-failed`) passes; blocks foreground sleep loops longer than a minute (run them in the background). Outcomes come from Playwright's own summary line; a run whose summary was not seen is never blocked. State: `~/.claude/gsd-t-e2e/`. |
 | **Graph intercept** | after Grep | Answers a structural grep from the graph and replaces the output. |
 | **Read intercept** | after Read | When a read lands inside one indexed function, appends a pointer to its `graph body` slice. Never shrinks the output. |
 | **Graph use report** | end of turn | Reports a turn that did structural work without asking the graph. Never blocks. |

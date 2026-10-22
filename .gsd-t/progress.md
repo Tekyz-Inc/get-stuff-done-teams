@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v6.0.10 (2026-10-11): **M120 GSD-T v6 slim-down COMPLETE** — execution pipeline removed (59 → 18 commands, ~129K lines cut); kept graph, no-fallback, date guard, architect, new opt-in red team, debug halt, worktrees, env registry, Playwright rules, demo videos, estimates. Retired files are moved to dated backups, never deleted. Next: v6.1 — `gsd-t link-config-dir` (per-account Claude config dirs), faster scan, estimate-rescale rethink, solo story flow (pilot project to be chosen — not FlyLingo, which the dev team is building).
-## Date: 2026-10-22 15:51 PDT
-## Version: 6.2.17
+## Date: 2026-10-22 16:41 PDT
+## Version: 6.2.18
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-10-22 16:41 PDT: [feature] Build-speed guard (v6.2.18) — measured build-time breakdown (ATOS-V2: 1,392 Playwright runs, 31% failed, 430 immediate re-runs; ~8 agent-h of sleep loops) led David to approve all three fixes: block unchanged re-runs of failed Playwright runs and whole-config re-runs before a narrower pass, block foreground waits over a minute, fast-fail timeouts in the Playwright template. Outcomes from Playwright summary lines; unseen outcome never blocks.
 - 2026-10-22 15:51 PDT: [refactor] Red team trimmed (v6.2.17) — main session runs suites and picks fitting categories; later rounds attack only the fix. Same-target comparison vs the Oct 10 round-1 run: −35% cache re-reads, same 2 HIGH bugs, +1 MEDIUM the old run missed, −1 MEDIUM it found. David approved release.
 - 2026-10-22 14:41 PDT: [fix] Scan stops when the project has no code yet; setup tests push access with git, not gh (v6.2.16) — AccountingAutomation got a full scan with only a requirements doc, and setup reported an expired gh token as a push blocker while git push worked. slice-budget --has-code counts any-language code; scan returns nothing-to-scan first.
 - 2026-10-20 10:51: [fix] SCIP-covered files with nothing unresolved are compiler-accurate (v6.1.20) — ATOS-V2: 36 SCIP-covered files (main.tsx, constants, types, specs) sat at tree-sitter-floor because the "no resolvable calls" branch defaulted to floor (its own comment said accurate), so every who-calls read "38 files not compiler-resolved". Fixed; and the miss count now matches a member call's last name at the member's own column, so a call to a repo function through `any` still keeps a file non-accurate (new test M95-3b; M95-3 updated — a call to a name no repo function has is not a miss — ⚠ Divergence from the v1 "only unresolvable calls → floor" rule). Did NOT take the report's "skip floor files that can't call the target" idea — an alias call (const f = target; f()) would be missed. ATOS-V2 copy: 401 accurate + 2 SCIP-missing .mjs. Suite 1172/1175, 0 fail.
