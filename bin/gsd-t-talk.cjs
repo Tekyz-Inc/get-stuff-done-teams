@@ -33,6 +33,7 @@ const crypto = require('crypto');
 const { spawn, spawnSync, execFileSync } = require('child_process');
 
 const RED = '\x1b[31m';
+const DIM_ON = '\x1b[2m';
 const RESET = '\x1b[0m';
 
 // Spoken answers are shaped for quick decisions, not read-outs of the session.
@@ -45,6 +46,7 @@ const VOICE_STYLE = [
   'Keep it to about seventy words. If there is more worth knowing, say so in one sentence and offer to go deeper.',
   'Never use tables, code blocks, URLs, file paths or markdown symbols.',
   'Do the work the user asks for as usual — this only changes how you reply.',
+  'You are a spoken side conversation running on a copy of the user\'s session. Do not resume, continue or act on that session\'s unfinished work, background tasks or task notifications unless the user asks you to; leave them to the session itself.',
 ].join(' ');
 
 const SUMMARY_REQUEST = 'The spoken conversation is ending. Write a summary for the main session: the decisions made and the points that matter, in plain sentences, under 120 words. Start directly with the content — no header line, no greeting.';
@@ -367,10 +369,14 @@ function createSpeaker(getVoice, player, onError) {
 }
 
 // ── Claude: a copy of your session, kept running for the conversation ──────
-function startClaude({ cwd, claudeBin, model, session, configDir, home, extraPrompt, onText, onTool, onTurnEnd, onExit }) {
+function startClaude({ cwd, claudeBin, model, session, configDir, home, extraPrompt, onText, onTool, onTurnEnd, onBackground, onExit }) {
   const prompt = extraPrompt ? VOICE_STYLE + '\n\n' + extraPrompt : VOICE_STYLE;
+  // --replay-user-messages echoes each message we send. A copy of a session can
+  // also run turns of its own (the original's queued task notifications arrive
+  // first), so a turn is ours only from the echo of our message to its result.
+  // [RULE] talk-turns-matched-by-echo
   const args = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json',
-    '--verbose', '--include-partial-messages', '--append-system-prompt', prompt];
+    '--verbose', '--include-partial-messages', '--replay-user-messages', '--append-system-prompt', prompt];
   if (model) args.push('--model', model);
   // A copy of the session you are in: it knows the conversation so far, and
   // writing to the copy never touches the original. A resumed session also
@@ -389,6 +395,8 @@ function startClaude({ cwd, claudeBin, model, session, configDir, home, extraPro
   let stderrTail = '';
   let sawText = false;
   let closing = false;
+  const sent = [];      // texts we sent, waiting for their echo
+  let ours = false;     // inside a turn that answers one of our messages
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', (d) => { stderrTail = (stderrTail + d).slice(-2000); });
   child.stdout.setEncoding('utf8');
@@ -401,18 +409,34 @@ function startClaude({ cwd, claudeBin, model, session, configDir, home, extraPro
       nl = buf.indexOf('\n');
       if (!raw) continue;
       const ev = JSON.parse(raw);
-      if (ev.type === 'stream_event' && ev.event) {
+      if (ev.type === 'user' && ev.isReplay) {
+        const c = ev.message && ev.message.content;
+        const text = Array.isArray(c) ? c.filter((x) => x.type === 'text').map((x) => x.text).join('') : String(c);
+        if (sent.length && text === sent[0]) {
+          sent.shift();
+          ours = true;
+        }
+      } else if (ev.type === 'stream_event' && ev.event) {
         const e = ev.event;
-        if (e.type === 'content_block_start' && e.content_block && e.content_block.type === 'text' && sawText) onText('\n');
+        if (e.type === 'content_block_start' && e.content_block && e.content_block.type === 'text' && sawText && ours) onText('\n');
         if (e.type === 'content_block_delta' && e.delta && e.delta.type === 'text_delta') {
-          sawText = true;
-          onText(e.delta.text);
+          if (ours) {
+            sawText = true;
+            onText(e.delta.text);
+          } else onBackground('text');
         }
       } else if (ev.type === 'assistant' && ev.message && Array.isArray(ev.message.content)) {
-        for (const c of ev.message.content) if (c.type === 'tool_use') onTool(c.name);
+        for (const c of ev.message.content) {
+          if (c.type !== 'tool_use') continue;
+          if (ours) onTool(c.name);
+          else onBackground(c.name);
+        }
       } else if (ev.type === 'result') {
         sawText = false;
-        onTurnEnd(ev.is_error ? String(ev.result) : null);
+        if (ours) {
+          ours = false;
+          onTurnEnd(ev.is_error ? String(ev.result) : null);
+        } else onBackground('turn ended');
       }
     }
   });
@@ -423,6 +447,7 @@ function startClaude({ cwd, claudeBin, model, session, configDir, home, extraPro
   });
   return {
     send(text) {
+      sent.push(text);
       child.stdin.write(JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'text', text }] } }) + '\n');
     },
     close() {
@@ -499,6 +524,10 @@ function createConversation({ reg, home, claudeBin, model, speaker, log }) {
     onText(t) {
       turnText += t;
       if (!current.silent) filter.push(t);
+    },
+    onBackground(what) {
+      // A turn the copy ran on its own (e.g. the original's queued notices): logged, never spoken.
+      log(DIM_ON + app + ' · (not yours) ' + what + RESET);
     },
     onTurnEnd(err) {
       if (!current.silent) filter.end();

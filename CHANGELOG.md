@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.12] - 2026-10-22
+
+### Fixed — talk crashed when a session copy ran a turn of its own
+
+First live use, in ATOS-V2: the copy received the original session's queued task notice (a background workflow had stopped) and ran it as a turn before answering. Talk took that turn's empty result as the answer, then crashed when the copy's tool work produced text with no turn open — and the dictation app reported "Talk is not running".
+
+- `bin/gsd-t-talk.cjs`: copies run with `--replay-user-messages`; a turn is ours only from the echo of our message to its result. A copy's own turns are logged ("not yours"), never spoken or written as the answer. The copy is told to leave the original session's unfinished work, background tasks and notices alone.
+- `test/talk.test.js`: the stub echoes messages like real Claude; new test — a copy's own turn first is not taken as the answer, not spoken, no crash.
+
 ## [6.2.11] - 2026-10-22
 
 ### Fixed — wrong-app guard blocked follow-ups that named another app

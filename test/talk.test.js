@@ -106,6 +106,14 @@ process.stdin.on('data', (d) => {
     const msg = JSON.parse(buf.slice(0, nl));
     buf = buf.slice(nl + 1);
     const asked = msg.message.content[0].text;
+    // The original session's queued notice runs as a turn of its own, before ours.
+    if (process.env.TALK_TEST_BACKGROUND && !global.didBackground) {
+      global.didBackground = true;
+      delta('Checking that background workflow.');
+      emit({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash' }] } });
+      emit({ type: 'result', is_error: false, result: '' });
+    }
+    emit({ type: 'user', isReplay: true, message: { role: 'user', content: [{ type: 'text', text: asked }] } });
     setTimeout(() => {
       if (/spoken conversation is ending/.test(asked)) {
         delta('We chose option two.');
@@ -365,4 +373,22 @@ test('talk: a record for an ended process, a non-interactive one, or talk\'s own
   fs.writeFileSync(path.join(dir, process.ppid + '.json'), JSON.stringify({ pid: process.ppid, sessionId: 'copy', cwd: '/x', kind: 'interactive', entrypoint: 'sdk-cli', tmux: 'p:@1.%3' }));
   assert.deepEqual(liveSessions(root), []);
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('talk: a turn the copy runs on its own is not taken as the answer, not spoken, and does not crash talk', async () => {
+  const s = setup();
+  process.env.TALK_TEST_BACKGROUND = '1';
+  const session = await s.start();
+  try {
+    await post(session, '/say', { text: 'Yeah.' });
+    await waitFor(() => s.played.includes('You asked: Yeah..') || s.played.includes('You asked: Yeah.'));
+    assert.ok(!s.played.some((p) => /background workflow/.test(p)), 'the copy\'s own turn is not spoken');
+    const t = fs.readFileSync(path.join(s.app, '.gsd-t', 'talk', fs.readdirSync(path.join(s.app, '.gsd-t', 'talk'))[0]), 'utf8');
+    assert.match(t, /\*\*Claude:\*\* You asked: Yeah\./);
+    assert.doesNotMatch(t, /background workflow/);
+  } finally {
+    delete process.env.TALK_TEST_BACKGROUND;
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
 });
