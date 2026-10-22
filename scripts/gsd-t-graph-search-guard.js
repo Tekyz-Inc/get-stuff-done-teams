@@ -336,7 +336,7 @@ function buildStructuralReason(found, cls) {
     "",
     "  gsd-t graph " + verb + " " + symbol,
     "",
-    "Other verbs: who-imports, who-calls, defines, blast-radius, body.",
+    "Other verbs: who-imports, who-calls, body (where defined), blast-radius.",
     "A database table (Drizzle)? gsd-t graph who-uses " + symbol + "  /  gsd-t graph table " + symbol,
     "",
     "If this really is a text search - a phrase in prose, a key in config, a string in a",

@@ -84,6 +84,7 @@ Planning, building and testing have no command — Claude does them directly, un
 | **CLAUDE.md changelog** | session start + after Write / Edit | Logs outside edits to `CLAUDE.md` and reminds Claude to log its own, in `CLAUDE.md updates.md`. |
 | **Install self-heal** | session start | Restores missing project `bin/` tools before work starts; halts loudly if it can't. |
 | **Update check** | session start | Prints the version banner; auto-installs a newer release. |
+| **Talk start** | session start | Starts the shared talk program if it is not running (idle until Ctrl+Option+Space). |
 | **Wrong-app guard** | every prompt | Asks Haiku (on your Claude login, ~3 s) which app in the GSD-T project list the prompt is for. Another app → blocks it with a 🔴 message, the folder to open, and the prompt to paste there. Start a prompt with `This App - This Session` to skip the check. A failed check blocks and says why. |
 | **Live clock + Reader Contract** | every prompt | Injects `[GSD-T NOW]` (the time source for banners and log lines) and the reply-style standard. |
 
@@ -145,6 +146,17 @@ Any request for a demo or walkthrough video is routed to this pipeline: a global
 
 `/gsd-t-estimate` and `/gsd-t-estimate-rescale` write Tekyz estimate Google Sheets through a deterministic writer, `gsd-t estimate-sheet` (`read`, `plan-check`, `write`, `audit`, and repair verbs such as `teammix` and `format`). The model supplies judgment only (sizes, team FTE, stack lines); formulas, roster, months and styling are computed, written, then audited by reading back. Any violation halts. Rules: `templates/estimate-sheet-spec.md`, `templates/estimate-config.json`.
 
+## Talk
+
+Hold Ctrl+Option+Space in the dictation app (WindowsVoiceTranscription) and talk with the Claude session in the tab you're facing; release to send. Pressing the keys also cuts Claude off mid-sentence. Nothing to start: one shared talk program, started with the first GSD-T session, stays idle until you speak.
+
+- **Which session:** the one in tmux's active pane — the tab you are looking at — read from Claude Code's own session records (every account folder, `~/.claude*`), so sessions already running work too. No session there → it says so.
+- **What it knows:** your first words start a copy of that session (`--fork-session`), so it knows your conversation; the session itself is untouched. It also gets the summaries of the project's recent talk conversations.
+- **What you hear:** answers shaped for quick decisions — the answer first, at most three options with their trade-offs, a recommendation. Tables and code go to the transcript, not the speakers. The mic is only open while the keys are held, so speakers work without headphones.
+- **Transcript:** every exchange is written as it happens to `.gsd-t/talk/<date>-<session>.md` in that project.
+- **Ending:** "We're done, pass it on" saves a summary and pastes `Claude Voice Session: <summary> Full transcript: <file>` into the session for you to send. "We're done, ignore" saves and goes quiet.
+- **Voice:** Kokoro on this Mac by default (needs `uv`; model downloads once to `~/.claude/gsd-t-voice/`), or the demo-video Google voice with `gsd-t talk --voice google`. `gsd-t talk status` lists the sessions it can see; `gsd-t talk stop` ends the program; log: `~/.claude/gsd-t-talk/talk.log`.
+
 ---
 
 ## CLI
@@ -166,6 +178,7 @@ gsd-t directives-scan    List directive files that still name retired GSD-T comm
 gsd-t setup-playwright   Install Playwright into a project
 gsd-t workflow-path      Print the absolute path of a workflow (scan, debug)
 gsd-t estimate-sheet     Read / write / audit a Tekyz estimate sheet
+gsd-t talk               Spoken conversations with your sessions (status, stop)
 gsd-t help               Show this help
 ```
 

@@ -473,7 +473,7 @@ const GSDT_HOOK_MARKERS = [
   GRAPH_INTERCEPT_HOOK_MARKER, READ_INTERCEPT_HOOK_MARKER, FALLBACK_HOOK_MARKER,
   GRAPH_SEARCH_HOOK_MARKER, GRAPH_USE_REPORT_MARKER, INSTALL_HEAL_MARKER,
   DATE_GUARD_MARKER, CHANGELOG_CHECK_MARKER, CHANGELOG_POST_EDIT_MARKER,
-  "gsd-t-update-check", "gsd-t-auto-route",
+  "gsd-t-update-check", "gsd-t-auto-route", "gsd-t-talk-start",
 ];
 
 // ─── v6 slim-down: what GSD-T installed before and no longer ships ───────────
@@ -1047,6 +1047,29 @@ function configureAutoRouteHook(scriptPath) {
   reportHook(configureEventHook(SETTINGS_JSON, "UserPromptSubmit", "gsd-t-auto-route", cmd, "auto-route"), "Auto-route hook");
 }
 
+// ─── Talk Start Hook ─────────────────────────────────────────────────────────
+// SessionStart: starts the shared talk program (bin/gsd-t-talk.cjs) when it is
+// not running. It stays idle until Ctrl+Option+Space.
+
+const TALK_START_SCRIPT = "gsd-t-talk-start.js";
+
+function installTalkStart() {
+  ensureDir(SCRIPTS_DIR, CLAUDE_DIR);
+  const src = path.join(PKG_SCRIPTS, TALK_START_SCRIPT);
+  const dest = path.join(SCRIPTS_DIR, TALK_START_SCRIPT);
+  if (!fs.existsSync(src)) {
+    error("Talk start script missing from the package: " + src);
+    process.exit(1);
+  }
+  const srcContent = fs.readFileSync(src, "utf8");
+  const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
+  if (normalizeEol(srcContent) !== normalizeEol(destContent)) copyFile(src, dest, TALK_START_SCRIPT);
+  else info("Talk start script unchanged");
+  const talk = path.join(PKG_ROOT, "bin", "gsd-t-talk.cjs");
+  const cmd = `node "${dest.replace(/\\/g, "\\\\")}" "${talk.replace(/\\/g, "\\\\")}"`;
+  reportHook(configureEventHook(SETTINGS_JSON, "SessionStart", "gsd-t-talk-start", cmd, "talk-start"), "Talk start hook");
+}
+
 // ─── Global Bin Tools (~/.claude/bin/) ───────────────────────────────────────
 // Tools that must work outside any project (on PATH, or resolved by a hook from
 // ~/.claude/bin). Distinct from PROJECT_BIN_TOOLS, which copy into each
@@ -1294,6 +1317,9 @@ async function doInstall(opts = {}) {
 
   heading("Live Clock + Reader Contract (UserPromptSubmit)");
   installAutoRoute();
+
+  heading("Talk (Session Start)");
+  installTalkStart();
 
   heading("Shared Templates");
   installSharedTemplates();
@@ -3176,6 +3202,7 @@ function showHelp() {
   log(`  ${CYAN}setup-playwright${RESET}    Install Playwright into a project`);
   log(`  ${CYAN}workflow-path${RESET}       Print the absolute path of a workflow (scan, debug)`);
   log(`  ${CYAN}estimate-sheet${RESET}      Read / write / audit a Tekyz estimate sheet`);
+  log(`  ${CYAN}talk${RESET}                Spoken conversations with your sessions (status, stop)`);
   log(`  ${CYAN}help${RESET}                Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
@@ -3311,6 +3338,13 @@ if (require.main === module) {
         process.exit(typeof e.status === "number" ? e.status : 1);
       }
       break;
+    }
+    // A spoken conversation with this app's Claude; the dictation app is the
+    // microphone (see bin/gsd-t-talk.cjs). Runs until Ctrl+C.
+    case "talk": {
+      const talk = path.join(PKG_ROOT, "bin", "gsd-t-talk.cjs");
+      const res = require("child_process").spawnSync(process.execPath, [talk, ...args.slice(1)], { stdio: "inherit" });
+      process.exit(res.status === null ? 1 : res.status);
     }
     // Share this GSD-T setup with a second Claude Code config dir
     // (CLAUDE_CONFIG_DIR — one login per dir, e.g. a team account).

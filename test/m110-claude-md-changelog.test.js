@@ -146,3 +146,36 @@ describe('M110: CLAUDE.md changelog', () => {
     });
   });
 });
+
+// The tool ships into every project's bin/. There, `../package.json` is the
+// PROJECT's (or absent) — the GSD-T version must come from the installed
+// version file, never the project's package. [RULE] changelog-version-from-gsdt-not-project
+describe('M110: version stamp from a project copy', () => {
+  const os = require('os');
+  function inProjectCopy(projectPkg) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'm110-copy-'));
+    const home = path.join(root, 'home');
+    fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(home, '.claude', '.gsd-t-version'), '9.9.99\n');
+    const proj = path.join(root, 'proj');
+    fs.mkdirSync(path.join(proj, 'bin'), { recursive: true });
+    fs.copyFileSync(CLI, path.join(proj, 'bin', 'gsd-t-claude-md-changelog.cjs'));
+    if (projectPkg) fs.writeFileSync(path.join(proj, 'package.json'), JSON.stringify(projectPkg));
+    const out = execSync(`node bin/gsd-t-claude-md-changelog.cjs append . rewritten "from copy"`,
+      { encoding: 'utf8', cwd: proj, env: { ...process.env, HOME: home } });
+    const log = fs.readFileSync(path.join(proj, 'CLAUDE.md updates.md'), 'utf8');
+    fs.rmSync(root, { recursive: true, force: true });
+    return { out, log };
+  }
+
+  it('works in a project with no package.json (a new, docs-only project)', () => {
+    const { log } = inProjectCopy(null);
+    assert.ok(log.includes('GSD-T v9.9.99'), log);
+  });
+
+  it('never stamps the project\'s own version as the GSD-T version', () => {
+    const { log } = inProjectCopy({ name: 'some-app', version: '1.2.3' });
+    assert.ok(log.includes('GSD-T v9.9.99'), log);
+    assert.ok(log.includes('project v1.2.3'), log);
+  });
+});

@@ -138,9 +138,9 @@ Execute the full init workflow (same as `/gsd-t-init`):
 
 **If `.gsd-t/` already exists**: Skip **ONLY the dir-structure creation** that already exists — it's already done. **This skip does NOT extend to Step 4 (scan) or Step 5 (CLAUDE.md), which ALWAYS run.** Always ensure `settings.local` (step 5 above) and the registry entry regardless of whether init dir-creation was skipped.
 
-## Step 3.5: Graph Indexing Note
+## Step 3.5: Build the Graph
 
-If the project has source code, the **graph index is built automatically inside the scan's Graph-Wiring phase (Step 4)** — the scan builds the index if it is absent, then queries it. The store lives at `.gsd-t/graphDB/` (consolidated) — the graph provides code-level queries (callers, callees, domain ownership, dead-code detection) that enhance all subsequent GSD-T commands. **No separate indexing step is needed — the scan handles it.** (You can also build/refresh the index on demand with `gsd-t graph index`, but the scan does it for you.)
+**Always run `gsd-t graph index`, even when the project has no code yet** (a requirements doc only). An empty project indexes in under a second to an empty graph; every query afterwards picks up new files on its own, so the graph is live from the first line of code. Then confirm `gsd-t graph status` shows `✓ Graph index`. Anything else → HALT and report it; never scan or build without the graph. The store lives at `.gsd-t/graphDB/`. The scan's Graph-Wiring phase (Step 4) then queries it.
 
 ## Step 4: Deep Codebase Scan (gsd-t-scan)
 

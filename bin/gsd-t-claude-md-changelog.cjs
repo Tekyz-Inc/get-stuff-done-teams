@@ -24,6 +24,7 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const CHANGELOG_FILENAME = 'CLAUDE.md updates.md';
@@ -49,16 +50,25 @@ function halt(message, exitCode) {
   process.exit(exitCode);
 }
 
+// Run from the package, `../package.json` is GSD-T's own. Run from a project's
+// copied bin/, it is the PROJECT's package.json (or none) — so the installed
+// version file is the source there. [RULE] changelog-version-from-gsdt-not-project
 function getGsdtVersion() {
   const pkgPath = path.join(__dirname, '..', 'package.json');
-  if (!fs.existsSync(pkgPath)) {
-    halt('GSD-T package.json not found: ' + pkgPath, 64);
+  if (fs.existsSync(pkgPath)) {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    if (pkg.name === '@tekyzinc/gsd-t') {
+      if (!pkg.version) halt('GSD-T package.json missing version field', 64);
+      return pkg.version;
+    }
   }
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-  if (!pkg.version) {
-    halt('GSD-T package.json missing version field', 64);
+  const versionFile = path.join(os.homedir(), '.claude', '.gsd-t-version');
+  if (!fs.existsSync(versionFile)) {
+    halt('GSD-T version not found: ' + versionFile + ' is missing — run `gsd-t install`', 64);
   }
-  return pkg.version;
+  const version = fs.readFileSync(versionFile, 'utf8').trim();
+  if (!version) halt('GSD-T version file is empty: ' + versionFile, 64);
+  return version;
 }
 
 function getProjectVersion(projectDir) {

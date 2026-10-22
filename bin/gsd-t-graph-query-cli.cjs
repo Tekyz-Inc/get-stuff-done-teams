@@ -805,6 +805,9 @@ function loadFreshnessModule() {
  * @returns {{ ok: boolean, reason?: string }}
  */
 function runFreshnessCheck(storePath) {
+  // No store resolved → never indexed. Reading `.endsWith` of null here used to
+  // report a fresh project as "graph-broken". [RULE] never-indexed-is-absent-not-broken
+  if (!storePath) return { ok: false, reason: "graph-absent" };
   const freshnessModule = loadFreshnessModule();
   if (!freshnessModule) {
     // D4 not yet built / unloadable — this is BROKEN infra (a missing require), not an

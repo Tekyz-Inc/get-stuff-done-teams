@@ -226,7 +226,7 @@ function classifySearch(input) {
       verdict: 'structural',
       reason: 'locating a code file by name',
       symbol: pattern.replace(/^\*/, '').replace(/\*$/, ''),
-      verb: 'defines',
+      verb: 'body',
     };
   }
 
@@ -259,7 +259,7 @@ function classifySearch(input) {
         verdict: 'structural',
         reason: 'asking where something is defined',
         symbol: extractSymbol(pattern),
-        verb: 'defines',
+        verb: 'body',
       };
     }
   }

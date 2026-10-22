@@ -116,7 +116,7 @@ The scan Workflow updates ALL of these deterministically (no manual follow-on):
 - `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`, `docs/requirements.md`, `README.md` — living docs, **merged not overwritten** (document phase). These keep their fixed names (GSD-T reads them by hardcoded path).
 - **`share/` — team-shareable, repo-name-labeled COPIES (#47):** the LAST scan step copies the living docs + scan reports into `share/` with the project's repo name suffixed (`share/architecture-<repo>.md`, `share/techdebt-<repo>.md`, …). Originals untouched. This solves "which file is for which project?" when sharing across repos — your team reads from `share/`. Regenerated each scan.
 
-The document phase + render commit these via git on the feature branch (no push). The lead agent should still add a `.gsd-t/progress.md` Decision Log entry with the scan summary stats.
+The scan does not commit — its documents stay uncommitted for the user to review and commit with everything else. The lead agent should still add a `.gsd-t/progress.md` Decision Log entry with the scan summary stats.
 
 ## Next Up
 

@@ -250,17 +250,6 @@ const DOC_RESULT_SCHEMA = {
   },
 };
 
-const RENDER_SCHEMA = {
-  type: "object",
-  required: ["status"],
-  additionalProperties: false,
-  properties: {
-    status:     { type: "string", enum: ["rendered", "RENDERED", "Rendered", "skipped", "SKIPPED", "Skipped", "failed", "FAILED", "Failed"] },
-    outputPath: { type: "string" },
-    notes:      { type: "string" },
-  },
-};
-
 // M94-D6: Graph-wiring schemas (additive — consumed only when graphMode === "wired").
 // The structural slice the D5 CLI returns; injected into scanSlice finder agents.
 // [RULE] scan-injects-structural-slice / [RULE] scan-slice-consumed
@@ -2070,16 +2059,9 @@ const shareAgent = await agent(
 ).catch(() => null);
 log(`share/ export: ${typeof shareAgent === "string" ? shareAgent.trim().slice(0, 40) : "done"} → ${projectDir}/share/`);
 
-// Commit the docs + dimension files + plain-english + share/ via a small agent (Bash git).
-const commitAgent = await agent(
-  [
-    `Commit the GSD-T scan's generated documents in \`${projectDir}\` via Bash git, IF it is a git repo (else report skipped).`,
-    `Stage: \`.gsd-t/scan\`, \`.gsd-t/techdebt.md\`, \`.gsd-t/techdebt_in_plain_english.md\`, \`share\`, \`docs\`, \`README.md\` (do NOT stage \`.gsd-t/scan/.doc-backup\` if present; \`.gsd-t/scan/archive\` MAY be staged — the dated history is worth keeping). Commit message: "scan: deep document cross-population (${docsOk.length} docs) + dimension files + share/ export". Do NOT push. Return JSON per the schema (status "rendered" if committed, "skipped" if not a git repo / nothing to commit, "failed" on error; outputPath optional).`,
-    SHAPE_RULE,
-  ].join("\n"),
-  { label: "commit-docs", phase: "Document", schema: RENDER_SCHEMA, model: "haiku" }
-).catch((e) => ({ status: "failed", notes: String(e && e.message) }));
-log(`docs commit: ${commitAgent && commitAgent.status}`);
+// The scan does NOT commit: its documents stay uncommitted for the user to review
+// and commit with everything else ("commit only when asked"). On a new repo a scan
+// commit became the first commit, holding only scan files.
 
 // NOTE (M71): the HTML render stage was REMOVED. The deterministic bin/scan-report.js
 // renderer resolves its output path relative to the package dir (where the renderer
@@ -2102,7 +2084,6 @@ return {
   archivePath: synthesis.archivePath || null,
   docsWritten: docsOk.length,
   docsFailed: docsFailed.map((d) => d.doc),
-  docsCommitted: commitAgent && commitAgent.status,
   // M80: plain-english completeness is surfaced, not silent. plainEnglishComplete=false
   // means the companion doc is truncated (writer dropped entries) — the caller should flag it.
   plainEnglishEntries: peActual,

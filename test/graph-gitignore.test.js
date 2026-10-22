@@ -157,3 +157,15 @@ test('a full build replaces the unparsed set and compacts a mostly-empty store',
     assert.ok(fs.statSync(dbPath).size < before / 2, `store not compacted: ${before} → ${fs.statSync(dbPath).size}`);
   } finally { rm(dir); }
 });
+
+test('a project never indexed reports graph-absent, not graph-broken', () => {
+  const dir = fs.mkdtempSync(path.join(path.dirname(REPO), '.gsdt-absent-'));
+  try {
+    execFileSync('git', ['init', '-q'], { cwd: dir });
+    fs.writeFileSync(path.join(dir, 'Requirements.md'), '# Reqs\n');
+    fs.mkdirSync(path.join(dir, '.gsd-t', 'graphDB', 'logs'), { recursive: true });
+    const r = spawnSync('node', [QUERY, 'who-calls', 'foo'], { cwd: dir, encoding: 'utf8' });
+    const env = JSON.parse(r.stdout.trim().split('\n').pop());
+    assert.equal(env.reason, 'graph-absent', r.stdout + r.stderr);
+  } finally { rm(dir); }
+});

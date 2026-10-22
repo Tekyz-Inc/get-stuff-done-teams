@@ -1,0 +1,368 @@
+'use strict';
+
+/**
+ * gsd-t talk — one shared program; the session you face is found by its
+ * terminal; each conversation is a copy of that session, written to the
+ * project's .gsd-t/talk/ as it happens; "we're done, pass it on / ignore" end
+ * it. Driven with real HTTP requests, a stub `claude` and a fake voice.
+ */
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const { createSpeechFilter, startTalk, parseArgs, sayText, endIntent, recentSummaries } = require('../bin/gsd-t-talk.cjs');
+
+// The GSD-T reply header, stamped from the live clock like a real reply.
+function liveHeader() {
+  const d = new Date();
+  const day = d.toLocaleDateString('en-US', { weekday: 'short' });
+  const mon = d.toLocaleDateString('en-US', { month: 'short' });
+  const hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  return `${day}: ${mon} ${d.getDate()}, ${d.getFullYear()} ${hm} PDT — GSD-T v6.1.20 — CURRENT`;
+}
+
+function sentences(text) {
+  const out = [];
+  const f = createSpeechFilter((s) => out.push(s));
+  // Feed in small pieces, the way Claude streams.
+  for (let i = 0; i < text.length; i += 7) f.push(text.slice(i, i + 7));
+  f.end();
+  return out;
+}
+
+test('speech filter: header line, tables and code are not spoken', () => {
+  const said = sentences([
+    liveHeader(),
+    '',
+    'Sign-up has **three** steps. First you enter an email.',
+    '',
+    '| Step | What |',
+    '|---|---|',
+    '| 1 | email |',
+    '',
+    '- Then a `code` arrives.',
+    '```js',
+    'const x = 1;',
+    '```',
+    'Done.',
+  ].join('\n'));
+  assert.deepEqual(said, [
+    'Sign-up has three steps.',
+    'First you enter an email.',
+    'The table is in the transcript.',
+    'Then a code arrives.',
+    'The code is in the transcript.',
+    'Done.',
+  ]);
+});
+
+test('speech filter: a finished sentence is spoken before its line ends', () => {
+  const out = [];
+  const f = createSpeechFilter((s) => out.push(s));
+  f.push('This is the first sentence. And the second is still');
+  assert.deepEqual(out, ['This is the first sentence.']);
+  f.push(' coming.\n');
+  assert.deepEqual(out, ['This is the first sentence.', 'And the second is still coming.']);
+});
+
+test('endIntent: the two closing phrases, tolerant of dictation spelling', () => {
+  assert.equal(endIntent("We're done. Pass it on."), 'pass');
+  assert.equal(endIntent('Okay, we are done, pass it on'), 'pass');
+  assert.equal(endIntent('were done, passed on'), 'pass');
+  assert.equal(endIntent("We’re done. Ignore."), 'ignore');
+  assert.equal(endIntent("We're done."), 'unclear');
+  assert.equal(endIntent('Can you pass it on to the backend?'), null);
+  assert.equal(endIntent('Ignore the lint warnings'), null);
+});
+
+test('parseArgs: kokoro by default; status/stop; anything unknown halts', () => {
+  assert.equal(parseArgs([]).voice, 'kokoro');
+  assert.equal(parseArgs(['status']).action, 'status');
+  assert.equal(parseArgs(['--voice', 'google']).speaker, 'en-US-Chirp3-HD-Algieba');
+  assert.throws(() => parseArgs(['--voice', 'robot']), /kokoro or google/);
+  assert.throws(() => parseArgs(['--loud']), /unknown option/);
+});
+
+test('sayText: only { "text": "<words>" } with words', () => {
+  assert.equal(sayText('{"text":"  hello  "}'), 'hello');
+  assert.equal(sayText('{"text":"   "}'), null);
+  assert.equal(sayText('"hello"'), null);
+});
+
+// A stand-in for `claude --print --input-format stream-json --resume <id> --fork-session`:
+// answers each message with the header, two sentences and a table, then a result.
+const STUB_CLAUDE = `#!/usr/bin/env node
+require('fs').appendFileSync(process.env.TALK_TEST_ARGS, JSON.stringify(process.argv.slice(2).concat(['CONFIG=' + (process.env.CLAUDE_CONFIG_DIR || '')])) + '\\n');
+let buf = '';
+const emit = (o) => process.stdout.write(JSON.stringify(o) + '\\n');
+const delta = (t) => emit({ type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: t } } });
+process.stdin.on('data', (d) => {
+  buf += d;
+  let nl;
+  while ((nl = buf.indexOf('\\n')) !== -1) {
+    const msg = JSON.parse(buf.slice(0, nl));
+    buf = buf.slice(nl + 1);
+    const asked = msg.message.content[0].text;
+    setTimeout(() => {
+      if (/spoken conversation is ending/.test(asked)) {
+        delta('We chose option two.');
+      } else {
+        delta(process.env.TALK_TEST_HEADER + '\\n\\n');
+        delta('You asked: ' + asked + '. Here is more.\\n');
+        delta('| a | b |\\n');
+      }
+      emit({ type: 'result', is_error: false, result: 'ok' });
+    }, 50);
+  }
+});
+`;
+
+const PANE = '%90';
+
+function setup() {
+  process.env.TALK_TEST_HEADER = liveHeader();
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-t-talk-test-'));
+  const home = path.join(root, 'home');
+  const app = path.join(root, 'MyApp');
+  fs.mkdirSync(app, { recursive: true });
+  // Claude Code's own record of a live session in pane %90; this test process stands in for its claude.
+  const sessions = path.join(home, '.claude', 'sessions');
+  fs.mkdirSync(sessions, { recursive: true });
+  fs.writeFileSync(path.join(sessions, process.pid + '.json'), JSON.stringify({ pid: process.pid, sessionId: 'abcd1234-session', cwd: app, kind: 'interactive', entrypoint: 'cli', tmux: 'projects:@9.' + PANE }));
+  const claudeBin = path.join(root, 'claude-stub.js');
+  fs.writeFileSync(claudeBin, STUB_CLAUDE, { mode: 0o755 });
+  process.env.TALK_TEST_ARGS = path.join(root, 'args.jsonl');
+  const played = [];
+  const stopped = [];
+  const voice = { name: 'fake', ready: Promise.resolve(), synth: async (t) => t, close() {} };
+  const player = {
+    play(text) {
+      played.push(text);
+      let finish;
+      const done = new Promise((r) => { finish = r; });
+      const timer = setTimeout(finish, 30);
+      return { done, stop() { stopped.push(text); clearTimeout(timer); finish(); } };
+    },
+  };
+  let focused = PANE;
+  const start = () => startTalk({
+    home, claudeBin, makeVoice: () => voice, player, focus: () => focused, log: () => {},
+  });
+  return { root, home, app, played, stopped, start, focusOn: (t) => { focused = t; } };
+}
+
+async function post(session, route, body, token) {
+  const res = await fetch(`http://127.0.0.1:${session.port}${route}`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + (token === undefined ? session.token : token), 'content-type': 'application/json' },
+    body: body === undefined ? '' : JSON.stringify(body),
+  });
+  return { status: res.status, json: await res.json() };
+}
+
+async function waitFor(pred) {
+  const end = Date.now() + 3000;
+  while (!pred()) {
+    if (Date.now() > end) throw new Error('timed out waiting');
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}
+
+function transcript(s) {
+  const dir = path.join(s.app, '.gsd-t', 'talk');
+  const files = fs.readdirSync(dir);
+  assert.equal(files.length, 1);
+  return { name: files[0], text: fs.readFileSync(path.join(dir, files[0]), 'utf8') };
+}
+
+test('talk: words go to a copy of the focused session; prose spoken; transcript written as it happens', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    const handoffFile = path.join(s.home, '.claude', '.gsd-t-talk.json');
+    assert.equal(JSON.parse(fs.readFileSync(handoffFile, 'utf8')).port, session.port);
+    assert.equal(fs.statSync(handoffFile).mode & 0o777, 0o600);
+
+    const r = await post(session, '/say', { text: 'how does sign-up work' });
+    assert.deepEqual(r.json, { ok: true, queued: false });
+    await waitFor(() => s.played.length === 3);
+    assert.deepEqual(s.played, ['You asked: how does sign-up work.', 'Here is more.', 'The table is in the transcript.']);
+
+    const args = JSON.parse(fs.readFileSync(process.env.TALK_TEST_ARGS, 'utf8').trim());
+    assert.deepEqual(args.slice(args.indexOf('--resume')), ['--resume', 'abcd1234-session', '--fork-session', 'CONFIG=']);
+
+    const t = transcript(s);
+    assert.match(t.name, /^\d{4}-\d{2}-\d{2}-\d{4}-abcd1234\.md$/);
+    assert.match(t.text, /\*\*You:\*\* how does sign-up work/);
+    assert.match(t.text, /\*\*Claude:\*\* You asked: how does sign-up work\. Here is more\./);
+    assert.doesNotMatch(t.text, /GSD-T v6/, 'the header line is not saved');
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: no session in the focused window is refused out loud', async () => {
+  const s = setup();
+  s.focusOn('%91');
+  const session = await s.start();
+  try {
+    const r = await post(session, '/say', { text: 'hello' });
+    assert.equal(r.status, 409);
+    assert.match(r.json.reason, /%91/);
+    await waitFor(() => s.played.includes('No Claude session is running in this window.'));
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: "we\'re done, pass it on" saves a summary and returns the paste', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    await post(session, '/say', { text: 'which option' });
+    const r = await post(session, '/say', { text: "We're done. Pass it on." });
+    assert.equal(r.json.ended, 'pass');
+    const t = transcript(s);
+    assert.equal(r.json.paste, 'Claude Voice Session: We chose option two. Full transcript: .gsd-t/talk/' + t.name);
+    assert.match(t.text, /## Summary\n\nWe chose option two\.\n\nOutcome: passed on to the session/);
+    assert.deepEqual(recentSummaries(s.app, 5), [{ name: t.name, summary: 'We chose option two.' }]);
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: "we\'re done, ignore" saves only; "we\'re done" alone asks which', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    await post(session, '/say', { text: 'a question' });
+    const asked = await post(session, '/say', { text: "We're done." });
+    assert.equal(asked.json.asked, 'pass it on or ignore');
+    const r = await post(session, '/say', { text: "We're done, ignore." });
+    assert.deepEqual(r.json, { ok: true, ended: 'ignore' });
+    assert.match(transcript(s).text, /Outcome: ignored \(saved only\)/);
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: the next conversation is given the earlier summaries', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    await post(session, '/say', { text: 'first talk' });
+    await post(session, '/say', { text: "We're done, ignore." });
+    fs.writeFileSync(process.env.TALK_TEST_ARGS, '');
+    await post(session, '/say', { text: 'second talk' });
+    await waitFor(() => fs.readFileSync(process.env.TALK_TEST_ARGS, 'utf8').length > 0);
+    const args = JSON.parse(fs.readFileSync(process.env.TALK_TEST_ARGS, 'utf8').trim());
+    const prompt = args[args.indexOf('--append-system-prompt') + 1];
+    assert.match(prompt, /Earlier spoken conversations in this project/);
+    assert.match(prompt, /We chose option two\./);
+    // Both conversations kept, even though they started in the same minute.
+    assert.equal(fs.readdirSync(path.join(s.app, '.gsd-t', 'talk')).length, 2);
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: wrong key, empty words and unknown path are refused', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    assert.equal((await post(session, '/say', { text: 'hi' }, 'nope')).status, 401);
+    assert.equal((await post(session, '/hush', undefined, '')).status, 401);
+    assert.equal((await post(session, '/say', { text: '  ' })).status, 400);
+    assert.equal((await post(session, '/other', {})).status, 404);
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: hush stops the voice and drops the rest of that answer', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    await post(session, '/say', { text: 'first' });
+    await waitFor(() => s.played.length === 1);
+    assert.equal((await post(session, '/hush')).status, 200);
+    assert.deepEqual(s.stopped, ['You asked: first.']);
+    await new Promise((r) => setTimeout(r, 200));
+    assert.equal(s.played.length, 1, 'nothing more of the hushed answer is spoken');
+
+    await post(session, '/say', { text: 'second' });
+    await waitFor(() => s.played.includes('You asked: second.'));
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: words sent while Claude is busy wait their turn', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    assert.equal((await post(session, '/say', { text: 'one' })).json.queued, false);
+    assert.equal((await post(session, '/say', { text: 'two' })).json.queued, true);
+    await waitFor(() => s.played.includes('You asked: two.'));
+    assert.ok(s.played.indexOf('You asked: one.') < s.played.indexOf('You asked: two.'));
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: a second program halts while one runs; a stale handoff is replaced; closing removes it', async () => {
+  const s = setup();
+  const handoff = path.join(s.home, '.claude', '.gsd-t-talk.json');
+  fs.writeFileSync(handoff, JSON.stringify({ port: 1, token: 'x', pid: process.ppid }));
+  await assert.rejects(s.start(), /already running/);
+  fs.writeFileSync(handoff, JSON.stringify({ port: 1, token: 'x', pid: 999999 }));
+  const session = await s.start();
+  assert.equal(JSON.parse(fs.readFileSync(handoff, 'utf8')).pid, process.pid);
+  session.close();
+  assert.equal(fs.existsSync(handoff), false);
+  fs.rmSync(s.root, { recursive: true, force: true });
+});
+
+test('talk: a session under a second account folder is found, and its copy runs under that account', async () => {
+  const s = setup();
+  // Move the record from ~/.claude to ~/.claude-hilo.
+  const from = path.join(s.home, '.claude', 'sessions', process.pid + '.json');
+  const hilo = path.join(s.home, '.claude-hilo', 'sessions');
+  fs.mkdirSync(hilo, { recursive: true });
+  fs.renameSync(from, path.join(hilo, process.pid + '.json'));
+  const session = await s.start();
+  try {
+    await post(session, '/say', { text: 'hello hilo' });
+    await waitFor(() => s.played.includes('You asked: hello hilo.'));
+    const args = JSON.parse(fs.readFileSync(process.env.TALK_TEST_ARGS, 'utf8').trim());
+    assert.equal(args[args.length - 1], 'CONFIG=' + path.join(s.home, '.claude-hilo'));
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: a record for an ended process, a non-interactive one, or talk\'s own copy is ignored', () => {
+  const { liveSessions } = require('../bin/gsd-t-talk.cjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-t-talk-rec-'));
+  const dir = path.join(root, '.claude', 'sessions');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, '999999.json'), JSON.stringify({ pid: 999999, sessionId: 'dead', cwd: '/x', kind: 'interactive', tmux: 'p:@1.%1' }));
+  fs.writeFileSync(path.join(dir, process.pid + '.json'), JSON.stringify({ pid: process.pid, sessionId: 'printed', cwd: '/x', kind: 'print', tmux: 'p:@1.%2' }));
+  fs.writeFileSync(path.join(dir, process.pid + '.abc.key'), 'not a record');
+  // talk's own copy of a session: same pane, scripted entry point.
+  fs.writeFileSync(path.join(dir, process.ppid + '.json'), JSON.stringify({ pid: process.ppid, sessionId: 'copy', cwd: '/x', kind: 'interactive', entrypoint: 'sdk-cli', tmux: 'p:@1.%3' }));
+  assert.deepEqual(liveSessions(root), []);
+  fs.rmSync(root, { recursive: true, force: true });
+});

@@ -2,6 +2,30 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.10] - 2026-10-22
+
+### Added — GSD-T talk: spoken conversations with the session in the tab you face
+
+Hold Ctrl+Option+Space in the dictation app (WindowsVoiceTranscription) to speak — or to cut Claude off — and release to send; answers come through the speakers, shaped for quick decisions. The mic is only open while the keys are held, so no headphones. One shared talk program starts with the first GSD-T session and stays idle until you speak. The session is the one in tmux's active pane, read from Claude Code's own session records in every account folder, so sessions already running work too. Each conversation is a copy of that session (`--fork-session`) that also gets the project's last five talk summaries; every exchange is written to `<project>/.gsd-t/talk/<date>-<session>.md` as it happens. "We're done, pass it on" saves a summary and returns `Claude Voice Session: <summary> Full transcript: <file>` for the dictation app to paste; "We're done, ignore" saves only.
+
+- `bin/gsd-t-talk.cjs`: the talk program (local keyed door: `/hush`, `/say`), `gsd-t talk status | stop`.
+- `bin/gsd-t-talk-kokoro.py`: Kokoro voice worker (`uv`); `--voice google` for the demo-video voice. A failed voice is reported, never swapped.
+- `scripts/gsd-t-talk-start.js`: SessionStart hook — starts talk when it is not running.
+- `bin/gsd-t.js`: `talk` subcommand; installs the hook (marker `gsd-t-talk-start`).
+- `test/talk.test.js`: 16 tests — speech filter, closing phrases, routing by pane (incl. a second account folder and talk's own copies), transcripts never overwritten, hush, queueing, keys.
+- Plan: `.gsd-t/pseudocode/PseudoCode-Talk.md` (includes the dictation-app contract).
+
+### Fixed — new-project setup
+
+- `bin/gsd-t-claude-md-changelog.cjs`: the GSD-T version came from `../package.json` — in a project's copy that is the project's own file (missing in a new project → the log failed; present → it stamped the project's version as GSD-T's). Now read from `~/.claude/.gsd-t-version` outside the package.
+- `bin/gsd-t-graph-query-cli.cjs`: a never-indexed project reported `graph-broken`; now `graph-absent`.
+- `commands/gsd-t-init-scan-setup.md`: setup always builds the graph, even with no code yet.
+- `bin/gsd-t-code-search-classifier.cjs`, `scripts/gsd-t-graph-search-guard.js`: the search guard suggested `gsd-t graph defines`, which does not exist; it now suggests `body`.
+
+### Changed — the scan no longer commits
+
+`templates/workflows/gsd-t-scan.workflow.js`: the scan's own commit step is removed — its documents stay uncommitted for you to review and commit ("commit only when asked"). On a new repo it had made the first commit hold only scan files.
+
 ## [6.1.20] - 2026-10-20
 
 ### Fixed — graph: a compiled file with nothing left unresolved counts as compiler-accurate

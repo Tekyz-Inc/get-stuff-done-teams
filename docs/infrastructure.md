@@ -23,6 +23,7 @@
 | Update every project + its worktrees | `gsd-t update-all` (worktrees with an open session are skipped) |
 | Workflow path | `gsd-t workflow-path scan \| debug` |
 | Estimate sheet | `gsd-t estimate-sheet <verb> --sheet <id\|url>` |
+| Talk (spoken conversation) | Starts on its own with the first session. `gsd-t talk status \| stop`; `gsd-t talk [--voice kokoro\|google]` runs it in the foreground. Needs `uv` and tmux; handoff file `~/.claude/.gsd-t-talk.json` |
 | PseudoCode style | `gsd-t pseudocode-style --doc <f> \| --dir <d>` |
 | Install check | `gsd-t install-check --project <dir> [--check]` |
 | Unit tests | `npm test` |
@@ -77,6 +78,7 @@ Real work happens in a worktree: `~/Worktrees/GSD-T/<branch>/` (v6 was built in 
 |---|---|---|
 | UserPromptSubmit | `gsd-t-auto-route.js` | Wrong-app guard + `[GSD-T NOW]` live clock + Reader Contract |
 | SessionStart | `gsd-t-update-check.js` | Version banner, auto-update |
+| SessionStart | `gsd-t-talk-start.js` | Starts the shared talk program if not running (log: `~/.claude/gsd-t-talk/talk.log`) |
 | SessionStart | `gsd-t-install-heal.js` | Restore missing project tools |
 | SessionStart | `gsd-t-changelog-check.js` | Log outside CLAUDE.md edits |
 | PreToolUse Bash\|Grep | `gsd-t-graph-search-guard.js` | Block structural code searches |

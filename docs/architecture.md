@@ -19,7 +19,7 @@ v6 removed the phase pipeline (milestone → partition → plan → execute → 
 ### CLI (`bin/gsd-t.js`)
 
 - Node built-ins only in the CLI itself; the graph needs `better-sqlite3` and `tree-sitter` (+ TypeScript / Python grammars), declared as package dependencies. `install` also installs the SCIP indexers.
-- Subcommands: `install`, `update`, `update-all`, `init`, `register`, `status`, `uninstall`, `doctor`, `changelog`, `graph`, `pick-worktree`, `setup-playwright`, `workflow-path`, `estimate-sheet`, plus the tool routes `install-check`, `slice-budget`, `pseudocode-style`, `graph-availability`.
+- Subcommands: `install`, `update`, `update-all`, `init`, `register`, `status`, `uninstall`, `doctor`, `changelog`, `graph`, `pick-worktree`, `setup-playwright`, `workflow-path`, `estimate-sheet`, `talk`, plus the tool routes `install-check`, `slice-budget`, `pseudocode-style`, `graph-availability`.
 - `PROJECT_BIN_TOOLS` lists what is copied into every project's `bin/`. `bin/gsd-t-install-check.cjs` parses that array from the source text, so it must keep the `const PROJECT_BIN_TOOLS = [ … ];` shape.
 
 ### Commands (`commands/`)
@@ -83,6 +83,10 @@ Only `gsd-t-scan.workflow.js` and `gsd-t-debug.workflow.js` remain. Command file
 ### Environments registry
 
 `bin/gsd-t-env-registry.cjs` (record / lookup / detect / add-permission / ensure `.env` ignored) writes the `## Environments` table in a project's `docs/infrastructure.md` through the shared marker-block writer `bin/gsd-t-doc-marker.cjs`. Rows are upserted by `(scope, kind)`. Columns hold the map only — vault name, env-var name, `$VAR`-referencing commands; a literal secret is rejected. Contract: `.gsd-t/contracts/env-registry-contract.md`.
+
+### Talk
+
+`bin/gsd-t-talk.cjs` — one shared talk program for all sessions, started detached by the SessionStart hook `scripts/gsd-t-talk-start.js`. A local HTTP door on 127.0.0.1 (bearer token, found via `~/.claude/.gsd-t-talk.json`, mode 600) takes `POST /hush` (stop speech, drop the rest of the answer — Claude's work continues; warms the voice) and `POST /say {text}`. A say is routed to the session in tmux's active pane: `tmux display-message -p '#{pane_id}'` matched against Claude Code's own session records (`~/.claude*/sessions/<pid>.json`, `kind: interactive`, `tmux: <session>:@<window>.<pane>`, live pid); none there → 409, spoken. The copy runs under that record's account folder (`CLAUDE_CONFIG_DIR`). The first say starts `claude --print --input-format stream-json --resume <session> --fork-session` with a decision-shaped appended system prompt plus the project's last five talk summaries; later says queue behind a busy turn. Every exchange is appended to `<project>/.gsd-t/talk/<date>-<session>[-n].md`. "We're done, pass it on / ignore" (matched in code) asks the copy for a summary, appends it with the outcome, closes the copy; pass returns `paste` for the dictation app to paste. A speech filter skips the GSD-T header line, tables and code; a speaker queue synthesizes ahead and plays in order (`afplay`). Voices: `bin/gsd-t-talk-kokoro.py` (Kokoro via `uv run`, loaded on first use) or Google Cloud TTS. A failed voice is logged red; it never switches voices. Plan: `.gsd-t/pseudocode/PseudoCode-Talk.md`.
 
 ### Estimate sheet writer
 
