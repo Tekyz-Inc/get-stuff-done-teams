@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.17] - 2026-10-22
+
+### Changed — red team trimmed: fewer tokens, same serious bugs
+
+Each red-team turn re-reads the whole conversation, so cost follows turns. The main session now runs the full suites and passes the result in, picks only the attack categories that fit the change (naming the skipped ones), and later rounds attack only the fix. Measured on the same target (the v6 installer change, commit 8153ec1), one run each: cache re-reads 6.4M → 4.1M (−35%), new input 169K → 135K, 6.5 → 4.4 min. Both runs found the same two HIGH bugs; the trimmed run also found `update-all` exiting 0 on a failed project (the old process needed round 3 for it) and missed one MEDIUM (symlinked folder escaping the cleanup root).
+
+- `commands/gsd-t-red-team.md`: suites and category choice move to Step 1; the agent no longer re-runs suites; fix-only later rounds; report under 400 words.
+
 ## [6.2.16] - 2026-10-22
 
 ### Fixed — scan stops when a project has no code yet
