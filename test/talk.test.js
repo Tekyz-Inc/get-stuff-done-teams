@@ -100,7 +100,7 @@ test('sayText: only { "text": "<words>" } with words', () => {
 // A stand-in for `claude --print --input-format stream-json --resume <id> --fork-session`:
 // answers each message with the header, two sentences and a table, then a result.
 const STUB_CLAUDE = `#!/usr/bin/env node
-require('fs').appendFileSync(process.env.TALK_TEST_ARGS, JSON.stringify(process.argv.slice(2).concat(['CONFIG=' + (process.env.CLAUDE_CONFIG_DIR || '')])) + '\\n');
+require('fs').appendFileSync(process.env.TALK_TEST_ARGS, JSON.stringify(['COPY=' + (process.env.GSDT_TALK_COPY || '')].concat(process.argv.slice(2)).concat(['CONFIG=' + (process.env.CLAUDE_CONFIG_DIR || '')])) + '\\n');
 let buf = '';
 const emit = (o) => process.stdout.write(JSON.stringify(o) + '\\n');
 const delta = (t) => emit({ type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: t } } });
@@ -468,6 +468,7 @@ test('talk: copies can only read and search — no edits, shell, workflows, mess
     assert.ok(args.includes('--strict-mcp-config'));
     assert.equal(args[args.indexOf('--mcp-config') + 1], '{"mcpServers":{}}');
     assert.ok(args.includes('--no-session-persistence'));
+    assert.equal(args[0], 'COPY=1', 'the copy is marked so its start hook leaves talk alone');
     const prompt = args[args.indexOf('--append-system-prompt') + 1];
     assert.match(prompt, /You can only read and search/);
     assert.match(prompt, /Never explain this setup/);
@@ -582,4 +583,19 @@ test('talk: "done" gets only "Okay", with the thinking tone kept on while the su
     session.close();
     fs.rmSync(s.root, { recursive: true, force: true });
   }
+});
+
+test('talk start hook: inside a talk copy it does nothing, even with an older talk running', () => {
+  const { spawnSync } = require('node:child_process');
+  const hook = path.join(__dirname, '..', 'scripts', 'gsd-t-talk-start.js');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'talk-copy-'));
+  fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
+  fs.writeFileSync(path.join(home, '.claude', '.gsd-t-talk.json'), JSON.stringify({ pid: process.pid, version: '0.0.1' }));
+  const run = (extra) => spawnSync(process.execPath, [hook, path.join(home, 'missing-talk.cjs')], { encoding: 'utf8', env: { ...process.env, HOME: home, ...extra } });
+  const copy = run({ GSDT_TALK_COPY: '1' });
+  assert.equal(copy.status, 0, copy.stderr);
+  assert.equal(copy.stderr, '');
+  const normal = run({ GSDT_TALK_COPY: '' });
+  assert.equal(normal.status, 1, 'outside a copy the same call reaches the real checks');
+  fs.rmSync(home, { recursive: true, force: true });
 });

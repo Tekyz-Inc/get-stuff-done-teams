@@ -531,6 +531,10 @@ function startClaude({ cwd, claudeBin, model, session, configDir, home, extraPro
   // Not in any tmux pane: a copy must never claim the pane of the session it copies.
   delete env.TMUX;
   delete env.TMUX_PANE;
+  // The copy runs the session-start hooks too; this tells talk's own start hook
+  // to leave talk alone (after an upgrade it restarted talk mid-answer).
+  // [RULE] talk-copy-never-restarts-talk
+  env.GSDT_TALK_COPY = '1';
   if (configDir === path.join(home, '.claude')) delete env.CLAUDE_CONFIG_DIR;
   else env.CLAUDE_CONFIG_DIR = configDir;
   const child = spawn(claudeBin, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });

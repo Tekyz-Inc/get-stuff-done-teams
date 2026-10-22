@@ -30,6 +30,9 @@ function running(home) {
 }
 
 function main() {
+  // A copy talk launched to answer you runs this hook too. Restarting talk from
+  // there killed the conversation it was answering. [RULE] talk-copy-never-restarts-talk
+  if (process.env.GSDT_TALK_COPY === '1') return;
   const talkScript = process.argv[2];
   const home = os.homedir();
   if (!fs.existsSync(talkScript)) {

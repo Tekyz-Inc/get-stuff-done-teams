@@ -110,6 +110,7 @@ The microphone is only open while you hold the keys
 - [RULE] talk-working-sounds — subtle alternating dings from the moment the keys are released (and while the closing summary is written) until it speaks; a low-medium-high pattern while it runs tools; both stop when it speaks or the keys are pressed.
 - [RULE] talk-no-preamble — no header, date, version, recap, or explanation of how talk works unless asked; "done" gets only "Okay".
 - [RULE] talk-runs-the-installed-version — the start hook replaces a talk running an older version (6.2.14 shipped while 6.2.13 kept running).
+- [RULE] talk-copy-never-restarts-talk — a copy runs the session-start hooks too; it carries a marker and talk's start hook does nothing there (6.2.18: the first copy after an upgrade restarted talk and dropped the answer).
 - [RULE] end-phrases-understood — "done" / "we're done" end and paste; "ignore" ends without pasting; a short closing-sounding remark is judged by Haiku with Claude's last reply (after a question, "that's good" means yes).
 
 ## What I confirmed with you

@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.19] - 2026-10-22
+
+### Fixed — talk went silent after an upgrade
+
+The copy of the session that talk launches to answer you runs the session-start hooks, including talk's own start hook. Right after 6.2.18 was installed, that hook saw talk on 6.2.17 and restarted it — killing the conversation it was answering, so you heard the thinking tones and then nothing. Copies now carry `GSDT_TALK_COPY=1` and the start hook does nothing there.
+
+- `bin/gsd-t-talk.cjs`: marks the copy's environment.
+- `scripts/gsd-t-talk-start.js`: returns at once inside a copy.
+- `test/talk.test.js`: the copy is marked; the hook does nothing inside one.
+
 ## [6.2.18] - 2026-10-22
 
 ### Added — build-speed guard: no blind test re-runs, no long foreground waits
