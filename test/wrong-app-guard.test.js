@@ -135,3 +135,41 @@ test('hook: the model call failing blocks with the error', () => {
   assert.strictEqual(j.decision, 'block');
   assert.match(j.reason, /APP CHECK FAILED[\s\S]*exited 1/);
 });
+
+// ATOS/GSD-T session, 2026-10-22: "take a look at WindowsVoiceTranscription — what if
+// I use that app as the voice input?" was blocked three times mid-way through
+// designing GSD-T talk. Judged alone it reads as WVT work; the conversation shows
+// it is a follow-up. [RULE] wrong-app-judged-in-context
+test('the classifier sees the recent conversation from the session transcript', () => {
+  const { recentConversation } = require('../scripts/gsd-t-auto-route.js');
+  const f = fixture();
+  try {
+    const transcript = path.join(f.root, 'session.jsonl');
+    const line = (type, content) => JSON.stringify({ type, message: { role: type, content } });
+    const lines = [line('user', 'old message that falls outside the window')];
+    for (let i = 1; i <= 6; i++) lines.push(line(i % 2 ? 'user' : 'assistant', i % 2 ? `question ${i}` : [{ type: 'text', text: `answer ${i}` }, { type: 'tool_use', name: 'Bash' }]));
+    lines.push(line('user', '<system-reminder>noise</system-reminder>'));
+    lines.push(JSON.stringify({ type: 'system', subtype: 'x' }));
+    fs.writeFileSync(transcript, lines.join('\n') + '\n');
+    const conv = recentConversation(transcript);
+    assert.strictEqual(conv.split('\n').length, 6);
+    assert.ok(!conv.includes('old message'), 'only the last six exchanges');
+    assert.ok(conv.startsWith('Developer: question 1'));
+    assert.ok(conv.includes('Assistant: answer 2'));
+    assert.ok(!conv.includes('noise'));
+    assert.strictEqual(recentConversation(path.join(f.root, 'missing.jsonl')), '', 'a new session has no conversation yet');
+
+    let asked = '';
+    wrongAppCheck({ prompt: 'what about the backend?', cwd: f.appA, transcript_path: transcript },
+      { home: f.home, ask: (t) => { asked = t; return '{"app":"current"}'; }, mainRepoRoot: noGit });
+    assert.ok(asked.includes('Recent conversation in this session'));
+    assert.ok(asked.includes('Assistant: answer 6'));
+  } finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+});
+
+test('verdict: an app named by its folder name is accepted', () => {
+  const apps = ['/p/newman', '/p/WindowsVoiceTranscription'];
+  assert.strictEqual(parseVerdict('{"app":"WindowsVoiceTranscription"}', apps, '/p/newman'), '/p/WindowsVoiceTranscription');
+  assert.strictEqual(parseVerdict('{"app":"newman"}', apps, '/p/newman'), null, 'its own name is this app');
+  assert.throws(() => parseVerdict('{"app":"Nonexistent"}', apps, '/p/newman'), /not registered/);
+});

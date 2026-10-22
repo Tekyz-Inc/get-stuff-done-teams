@@ -85,7 +85,7 @@ Planning, building and testing have no command — Claude does them directly, un
 | **Install self-heal** | session start | Restores missing project `bin/` tools before work starts; halts loudly if it can't. |
 | **Update check** | session start | Prints the version banner; auto-installs a newer release. |
 | **Talk start** | session start | Starts the shared talk program if it is not running (idle until Ctrl+Option+Space). |
-| **Wrong-app guard** | every prompt | Asks Haiku (on your Claude login, ~3 s) which app in the GSD-T project list the prompt is for. Another app → blocks it with a 🔴 message, the folder to open, and the prompt to paste there. Start a prompt with `This App - This Session` to skip the check. A failed check blocks and says why. |
+| **Wrong-app guard** | every prompt | Asks Haiku (on your Claude login, ~3 s) which app in the GSD-T project list the prompt is for, judged with the session's last six exchanges — a follow-up that names another app stays here. Another app → blocks it with a 🔴 message, the folder to open, and the prompt to paste there. Start a prompt with `This App - This Session` to skip the check. A failed check blocks and says why. |
 | **Live clock + Reader Contract** | every prompt | Injects `[GSD-T NOW]` (the time source for banners and log lines) and the reply-style standard. |
 
 ---

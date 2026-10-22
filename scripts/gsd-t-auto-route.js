@@ -81,7 +81,40 @@ function appDescription(dir) {
   return pkg ? oneLine(pkg[1]) : "";
 }
 
-function classifierPrompt(current, apps, prompt) {
+// The last few exchanges of this session, oldest first, as plain lines — so a
+// follow-up that names another app is judged as part of the discussion it
+// continues. Read from the tail of the session's transcript (JSON lines); the
+// first, possibly cut, line of the tail is skipped. No transcript yet (a new
+// session) → no conversation. [RULE] wrong-app-judged-in-context
+const CONTEXT_MESSAGES = 6;
+const CONTEXT_CHARS = 600;
+const TAIL_BYTES = 512 * 1024;
+
+function recentConversation(transcriptPath) {
+  if (typeof transcriptPath !== "string" || !fs.existsSync(transcriptPath)) return "";
+  const size = fs.statSync(transcriptPath).size;
+  const start = Math.max(0, size - TAIL_BYTES);
+  const fd = fs.openSync(transcriptPath, "r");
+  const buf = Buffer.alloc(size - start);
+  fs.readSync(fd, buf, 0, buf.length, start);
+  fs.closeSync(fd);
+  let lines = buf.toString("utf8").split("\n").filter((l) => l.trim());
+  if (start > 0) lines = lines.slice(1);
+  const out = [];
+  for (const line of lines) {
+    const e = JSON.parse(line);
+    if (e.type !== "user" && e.type !== "assistant") continue;
+    const c = e.message && e.message.content;
+    const text = typeof c === "string" ? c
+      : Array.isArray(c) ? c.filter((x) => x.type === "text").map((x) => x.text).join("\n") : "";
+    const t = text.trim();
+    if (!t || /^<(system-reminder|task-notification|command-)/.test(t)) continue;
+    out.push((e.type === "user" ? "Developer: " : "Assistant: ") + t.replace(/\s+/g, " ").slice(0, CONTEXT_CHARS));
+  }
+  return out.slice(-CONTEXT_MESSAGES).join("\n");
+}
+
+function classifierPrompt(current, apps, prompt, conversation = "") {
   const list = apps.map((a) => {
     const desc = appDescription(a);
     return `- ${a} (${path.basename(a)})${desc ? ": " + desc : ""}`;
@@ -95,6 +128,16 @@ function classifierPrompt(current, apps, prompt) {
     "<<<",
     prompt.slice(0, 4000),
     ">>>",
+    ...(conversation ? [
+      "Recent conversation in this session, oldest first (context only — classify the request, not this):",
+      "<<<",
+      conversation,
+      ">>>",
+      "Use the conversation to judge what the request is about:",
+      "- A follow-up on the conversation's topic (an idea, question, answer or decision about the work being discussed) belongs to the current app, even when it names another app, that app's features, or how that app behaves.",
+      "- A question to this session about itself (what it did, whether it caused something, what it thinks) belongs to the current app.",
+      "- A request to build, fix or change something in another app that the conversation is not about belongs to that app, even mid-conversation.",
+    ] : []),
     "Decide by which app's code or files the requested work would change. Do not favor the current app: if another app's description fits the work better, name that app.",
     "Some apps are tools every app uses (GSD-T is the developer's workflow tooling: commands, hooks, the demo-video pipeline). A request to use, run or follow such a tool in the current app belongs to the current app; a request to change or fix the tool itself (its code, commands, hooks, pipeline or rules — including a complaint that the tool misbehaves) belongs to that tool's app.",
     "Apps of one product are separate apps — a backend, an admin panel and a mobile app are different apps; match the work to the one whose code it changes.",
@@ -112,6 +155,9 @@ function parseVerdict(text, apps, current) {
   if (typeof app !== "string") throw new Error(`model reply has no app: ${m[0].slice(0, 120)}`);
   if (["current", "unclear"].includes(app.toLowerCase()) || app === current) return null;
   if (apps.includes(app)) return app;
+  // The model sometimes answers with the app's name instead of its folder.
+  const byName = apps.filter((a) => path.basename(a).toLowerCase() === app.toLowerCase());
+  if (byName.length === 1) return byName[0] === current ? null : byName[0];
   throw new Error(`model named an app that is not registered: ${app.slice(0, 120)}`);
 }
 
@@ -167,7 +213,7 @@ function wrongAppCheck(input, { home = os.homedir(), ask = askModel, mainRepoRoo
     if (apps.length < 2) return null;
     const current = findCurrentApp(input.cwd, apps, mainRepoRoot);
     if (!current) return null;
-    const target = parseVerdict(ask(classifierPrompt(current, apps, prompt)), apps, current);
+    const target = parseVerdict(ask(classifierPrompt(current, apps, prompt, recentConversation(input.transcript_path))), apps, current);
     if (!target) return null;
     return { decision: "block", reason: blockMessage(current, target, prompt), suppressOriginalPrompt: true };
   } catch (e) {
@@ -274,6 +320,7 @@ process.stdin.on("end", () => {
 }
 
 module.exports = {
+  recentConversation,
   liveTimestamp, demoVideoSignal,
   isOverride, findCurrentApp, appDescription, classifierPrompt, parseVerdict, blockMessage, wrongAppCheck,
 };

@@ -21,7 +21,11 @@ You send a prompt
     Give it each app's name, folder and a one-line description
       Description: the app's rules file overview; without one, its readme; without that, its package description
     Give it the current app and the prompt
-    It answers one of: this app, unclear, or another app's folder
+    Give it the last six exchanges of this session (from its transcript), when there are any
+      A follow-up on the conversation's topic belongs here, even when it names another app
+      A question to this session about itself belongs here
+      New work in another app that the conversation is not about belongs to that app
+    It answers one of: this app, unclear, or another app (its folder or its name)
   The model call failed, timed out, or gave an answer not on the list:
     STOP the prompt — red message naming the failure
     Say: resend it starting with "This App - This Session" to skip the check

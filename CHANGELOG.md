@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.11] - 2026-10-22
+
+### Fixed — wrong-app guard blocked follow-ups that named another app
+
+The guard showed Haiku only the one prompt. Mid-way through designing GSD-T talk, "take a look at WindowsVoiceTranscription — what if I use that app as the voice input?" read as WVT work and was blocked; three prompts in one session had to be re-sent with the override. Replayed 3 runs each: today's guard blocked all 4 of that session's re-sent prompts every time; with the conversation it passed them 11 of 12 runs and still blocked 4 genuinely wrong-app requests 12 of 12. Latency unchanged (~2.5–4 s).
+
+- `scripts/gsd-t-auto-route.js`: the classifier gets the session's last six exchanges (tail of `transcript_path`, text only, 600 chars each) and three rules — a follow-up on the conversation's topic belongs here even when it names another app; a question to this session about itself belongs here; new work in another app the conversation is not about belongs to that app. An answer naming the app's folder name (not its path) is accepted — it used to fail the check and block with an error.
+- `test/wrong-app-guard.test.js`: conversation extraction (last six, text only, noise skipped, none for a new session) reaches the classifier; a folder-name answer is accepted.
+
 ## [6.2.10] - 2026-10-22
 
 ### Added — GSD-T talk: spoken conversations with the session in the tab you face
