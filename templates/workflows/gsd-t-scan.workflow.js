@@ -450,6 +450,33 @@ async function persistWiringMode(mode) {
 // Preflight: an agent checks branch + whether a prior register exists, via Bash.
 // (No fs in the body — that was the bug.)
 phase("Preflight");
+
+// A project with no code yet (requirements doc, GSD-T's own files) has nothing
+// to scan — stop before any other agent runs. The count is the slice-budget
+// tool's, not an agent's judgment; an unreadable answer halts.
+// [RULE] scan-stops-when-no-code
+const codeCheck = await agent(
+  [
+    `Check whether the project at \`${projectDir}\` has any code yet. Steps:`,
+    `1. If \`${projectDir}/bin/gsd-t-slice-budget.cjs\` exists, run EXACTLY: \`node ${projectDir}/bin/gsd-t-slice-budget.cjs --has-code --project '${projectDir}'\` (via="local"). Otherwise run EXACTLY: \`gsd-t slice-budget --has-code --project '${projectDir}'\` (via="global"). Do NOT redirect stderr.`,
+    `2. The command prints ONE JSON envelope. Set ok = (exit code 0 AND the envelope's "ok" === true). Copy "hasCode", "codeFiles" and "sample" through EXACTLY.`,
+    `3. Otherwise set ok=false and put the first ~200 chars of stdout/stderr in "reason".`,
+    `Do NOT do any other work.`,
+  ].join("\n"),
+  {
+    label: "has-code", phase: "Preflight", model: "haiku",
+    schema: { type: "object", required: ["ok"], additionalProperties: true, properties: { ok: { type: "boolean" }, hasCode: { type: "boolean" }, codeFiles: { type: "number" }, reason: { type: "string" } } },
+  }
+);
+if (!codeCheck || codeCheck.ok !== true || typeof codeCheck.hasCode !== "boolean") {
+  log("✗ could not tell whether the project has code — halting. " + JSON.stringify(codeCheck));
+  return { status: "failed", reason: "has-code-check-failed", detail: codeCheck };
+}
+if (codeCheck.hasCode === false) {
+  log("Nothing to scan — the project has no code yet. Run the scan once code exists.");
+  return { status: "nothing-to-scan" };
+}
+
 const pre = await agent(
   [
     `You are the preflight check for a GSD-T deep scan of the project at \`${projectDir}\`.`,

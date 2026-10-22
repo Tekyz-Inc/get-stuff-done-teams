@@ -102,7 +102,8 @@ The Workflow returns:
 ```
 
 - `status === "complete"`: the deep register is written; present the summary (counts + top critical items).
-- `status === "failed"`: read `reason` — `preflight-failed`, `no-slices` (probe produced an empty slice list), `slice-budget-failed` (the slice plan could not be measured — scan halted before any finder ran), or `synthesis-failed` (register not written).
+- `status === "nothing-to-scan"`: the project has no code yet (only documents and GSD-T's own files). Say so in one line and stop — nothing was written.
+- `status === "failed"`: read `reason` — `has-code-check-failed` (could not count the project's code), `preflight-failed`, `no-slices` (probe produced an empty slice list), `slice-budget-failed` (the slice plan could not be measured — scan halted before any finder ran), or `synthesis-failed` (register not written).
 
 Present a summary: headline volume totals, findings by severity, the top critical items, and the archive path. 
 

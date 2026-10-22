@@ -97,6 +97,7 @@ All subsequent steps run from inside the project directory.
        git remote add origin {url}
        ```
    - **Remote exists** → Log it and continue
+   - **Push access is git's, not `gh`'s.** git pushes with its own saved login (the macOS keychain), which keeps working when `gh`'s token has expired. Never report a push blocker from `gh auth status`; test with `git push --dry-run origin HEAD`. Only that failing is a blocker. `gh` matters only for creating a repo that has no remote yet.
 3. **Pull existing code from remote** (if any):
    - Run `git fetch origin` to get remote refs
    - If the remote has commits and local is empty (or behind), run `git pull origin main` (or the default branch)
@@ -155,6 +156,8 @@ The packaged Workflow runs **8 phases**: Preflight → Probe → **Graph-Wiring*
 5. Plain-English writes the non-technical companion.
 
 The Workflow's fan-out scales with codebase volume automatically — no team-mode toggle.
+
+**A project with no code yet** (only documents and GSD-T's own files) returns `status: "nothing-to-scan"` before any scan agent runs. Say "Nothing to scan yet" and skip Step 4a; continue with Step 5.
 
 **ALWAYS run the scan on every invocation, even on a fully-onboarded project.** Existing `techdebt.md` is archived to `techdebt_YYYY-MM-DD.md` and the scan regenerates it (TD numbering continues). **NEVER skip the scan because `.gsd-t/` or `scan/*.md` already exist — stale scan docs are the exact failure this command prevents.** Archiving is designed behavior, NOT a destructive action, and does NOT require user approval.
 

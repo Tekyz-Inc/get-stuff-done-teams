@@ -30,6 +30,9 @@
  *
  *   <json> is the probe's slice list: [{ key, paths: [...], ... }]
  *
+ *   node gsd-t-slice-budget.cjs --has-code [--project <dir>]
+ *     → { ok, hasCode, codeFiles, sample } — false means nothing to scan yet
+ *
  * ─── Exit codes ─────────────────────────────────────────────────────────────
  *   0  a plan was produced (possibly unchanged)
  *   64 bad input — unreadable project, malformed slice list
@@ -272,11 +275,56 @@ function plan(projectDir, slices, min, max) {
   };
 }
 
+// ─── Has the project any code yet? ──────────────────────────────────────────
+//
+// A brand-new project (a requirements doc, GSD-T's own files) has nothing to
+// scan; the full scan ran there anyway (AccountingAutomation, 2026-10-22).
+// Any language counts: a file is code unless it is a document, media, config
+// or GSD-T's own. An unknown kind of file counts as code, so a wrong guess
+// runs the scan — it never skips a real project.
+// [RULE] scan-stops-when-no-code
+const NOT_CODE_EXTS = new Set([
+  '.md', '.markdown', '.mdx', '.txt', '.rtf', '.pdf', '.doc', '.docx', '.odt', '.pages',
+  '.xls', '.xlsx', '.csv', '.tsv', '.numbers', '.ppt', '.pptx', '.key',
+  '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', '.heic', '.psd', '.fig', '.sketch',
+  '.mp4', '.mov', '.webm', '.mp3', '.wav', '.m4a', '.zip', '.nnote',
+  '.json', '.jsonc', '.yaml', '.yml', '.toml', '.ini', '.lock', '.log',
+]);
+const NOT_CODE_DIRS = /^(\.gsd-t|\.claude|\.github|docs)\//i;
+const NOT_CODE_NAMES = /^(license|licence|notice|authors|codeowners)(\.|$)/i;
+
+function walkFiles(dir, root, out) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory()) {
+      if (!SKIP_DIRS.has(e.name)) walkFiles(path.join(dir, e.name), root, out);
+    } else if (e.isFile()) {
+      out.push(path.relative(root, path.join(dir, e.name)).split(path.sep).join('/'));
+    }
+  }
+  return out;
+}
+
+function hasCode(projectDir) {
+  const { loadGraphExcludes, listGitVisibleFiles } = require('./gsd-t-graph-exclude.cjs');
+  const excludes = loadGraphExcludes(projectDir);
+  const listed = listGitVisibleFiles(projectDir);
+  const files = listed === null ? walkFiles(projectDir, projectDir, []) : listed;
+  const code = files.filter((rel) => {
+    const name = path.posix.basename(rel);
+    if (name.startsWith('.')) return false;
+    if (NOT_CODE_DIRS.test(rel) || NOT_CODE_NAMES.test(name)) return false;
+    if (NOT_CODE_EXTS.has(path.posix.extname(name).toLowerCase())) return false;
+    return !excludes.isExcluded(rel);
+  });
+  return { ok: true, exitCode: EXIT_OK, hasCode: code.length > 0, codeFiles: code.length, sample: code.slice(0, 5) };
+}
+
 function parseArgs(argv) {
   const args = { project: process.cwd(), min: DEFAULT_MIN, max: DEFAULT_MAX };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--project') args.project = argv[++i];
+    if (a === '--has-code') args.hasCode = true;
+    else if (a === '--project') args.project = argv[++i];
     else if (a === '--slices') args.slices = argv[++i];
     else if (a === '--slices-file') args.slicesFile = argv[++i];
     else if (a === '--min') args.min = parseInt(argv[++i], 10);
@@ -294,6 +342,11 @@ function main() {
 
   const projectDir = path.resolve(args.project);
   if (!fs.existsSync(projectDir)) fail(`project directory not found: ${projectDir}`);
+
+  if (args.hasCode) {
+    process.stdout.write(JSON.stringify(hasCode(projectDir), null, 2) + '\n');
+    process.exit(EXIT_OK);
+  }
 
   // Each budget rule checked on its own, so the message names the one that broke.
   if (!Number.isFinite(args.min)) fail(`--min must be a number, got ${args.min}`);
@@ -327,4 +380,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { plan, splitSlice, measurePath, countLines, DEFAULT_MIN, DEFAULT_MAX };
+module.exports = { plan, splitSlice, measurePath, countLines, hasCode, DEFAULT_MIN, DEFAULT_MAX };

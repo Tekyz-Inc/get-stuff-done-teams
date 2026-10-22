@@ -189,3 +189,30 @@ test('M112: an empty slice list is refused, not treated as nothing to do', () =>
     assert.match(String(e.stdout), /must not be empty/);
   } finally { rm(dir); }
 });
+
+// ─── --has-code: a project with no code yet has nothing to scan ──────────────
+// [RULE] scan-stops-when-no-code
+
+test('has-code: documents, config and GSD-T tools are not code', () => {
+  const dir = probe({
+    'Reqs.md': 3, 'README.md': 1, 'tsconfig.json': 1, 'docs/plan.md': 1,
+    '.gsd-t/progress.md': 1, 'bin/gsd-t-slice-budget.cjs': 1, 'LICENSE': 1,
+  });
+  const r = lib.hasCode(dir);
+  assert.equal(r.hasCode, false);
+  assert.equal(r.codeFiles, 0);
+});
+
+test('has-code: any language counts as code, not only what the graph parses', () => {
+  const dir = probe({ 'Reqs.md': 3, 'main.go': 10 });
+  const r = lib.hasCode(dir);
+  assert.equal(r.hasCode, true);
+  assert.deepEqual(r.sample, ['main.go']);
+});
+
+test('has-code: the CLI prints the envelope and exits 0', () => {
+  const dir = probe({ 'Reqs.md': 3 });
+  const out = JSON.parse(execFileSync(process.execPath, [TOOL, '--has-code', '--project', dir], { encoding: 'utf8' }));
+  assert.equal(out.ok, true);
+  assert.equal(out.hasCode, false);
+});

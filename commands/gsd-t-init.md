@@ -56,6 +56,7 @@ gh auth status
     Log: "Created GitHub repo: {user}/{project-name} (private)"
 - If `gh` is not available or not authenticated:
   Log: "GitHub CLI not available — skipping repo creation. Create manually and run: `git remote add origin {url}`"
+- This is about creating the repo only. Pushing uses git's own saved login (macOS keychain), which works even when `gh`'s token has expired — never call pushing blocked because of `gh auth status`; test with `git push --dry-run origin HEAD`.
 
 ### 0e. Continue with init
 

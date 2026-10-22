@@ -67,6 +67,7 @@ Requirements for the v6 package. Requirements for the cut pipeline (milestone â†
 | REQ-F4 | Scan writes the register in chunks, ASCII-clean, grouped plain-English companion, tolerant of schema variants | `m75-chunked-register`, `m76-ascii-clean-register`, `m78-plain-english-grouping`, `m112-scan-schema-tolerance`, `m112-severity-labels`, `m80-scan-document-phase-refs` |
 | REQ-F5 | Scan and debug consume and refresh the graph (reader + writer) | `m94-d6-scan-consumer`, `m94-d11-writer-wiring`, `m99-wiring-mode`, `m112-graph-wiring-casing` |
 | REQ-F6 | Debug runs at most two fix cycles, then `needs-human`; a broken graph halts it, an absent one is built | `broken-graph-halts` (graph classification); cycle cap verified by use |
+| REQ-F7 | Scan stops before any review when the project has no code yet (documents and GSD-T's own files only); any language counts as code | `m112-slice-budget` (has-code) |
 
 ## Technical Requirements
 

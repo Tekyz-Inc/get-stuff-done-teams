@@ -1,6 +1,6 @@
 {
   "name": "@tekyzinc/gsd-t",
-  "version": "6.2.15",
+  "version": "6.2.16",
   "description": "GSD-T: guardrails for Claude Code — code graph with an enforced search guard, no-fallback guard, architect and red-team passes, provisioned worktrees, environments registry, narrated demo videos, and client estimates",
   "author": "Tekyz, Inc.",
   "license": "MIT",

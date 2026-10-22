@@ -49,7 +49,7 @@ npx @tekyzinc/gsd-t update-all   # the above + every registered project
 | `/gsd-t-tidy-directives` | Cleans a project's directive files (CLAUDE.md, AGENTS.md, `.claude/` commands/skills/rules/settings) that still name retired GSD-T commands. `update-all` flags the project; the next session there runs it automatically, backs up each file first, and leaves the edits uncommitted |
 | `/gsd-t-red-team` | Opt-in adversarial review of a change — a fresh-context agent tries to break it. For complex or security / money / permissions / data-integrity work |
 | `/gsd-t-debug` | Graph-localized debug loop: two fix cycles, then HALT and hand back to you |
-| `/gsd-t-scan` | Deep codebase analysis and tech-debt register, sliced by volume and built on the graph |
+| `/gsd-t-scan` | Deep codebase analysis and tech-debt register, sliced by volume and built on the graph; stops at once when the project has no code yet |
 | `/gsd-t-init` | Scaffold `.gsd-t/`, `docs/`, project `CLAUDE.md`; register the project |
 | `/gsd-t-init-scan-setup` | Full onboarding: git, init, scan, and a project CLAUDE.md written from the scan |
 | `/gsd-t-demo-videos` | Narrated walkthrough videos of a running app (Playwright + Cloud TTS) |

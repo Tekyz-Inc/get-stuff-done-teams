@@ -2,6 +2,23 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.16] - 2026-10-22
+
+### Fixed — scan stops when a project has no code yet
+
+Setup ran the full scan on AccountingAutomation, which holds only a requirements doc and GSD-T's own files. The scan now counts the project's code first and returns `nothing-to-scan` before any review agent runs. Any language counts as code (the graph reads only JS/TS/Python, so its count could not be the test); an unknown kind of file counts as code, so a wrong guess still scans.
+
+- `bin/gsd-t-slice-budget.cjs`: `--has-code` mode — git-visible files minus documents, media, config, `.gsd-t/`, `docs/` and GSD-T's copied tools.
+- `templates/workflows/gsd-t-scan.workflow.js`: has-code check first in Preflight; an unreadable answer halts.
+- `commands/gsd-t-scan.md`, `commands/gsd-t-init-scan-setup.md`: `nothing-to-scan` handled; setup skips the completeness check.
+- `test/m112-slice-budget.test.js`: 3 tests. Checked on all 24 projects: only the 4 document-only ones report no code.
+
+### Fixed — setup no longer calls an expired `gh` login a push blocker
+
+git pushes with its own keychain login, which works when the `gh` tool's token has expired. Setup and init now test pushing with `git push --dry-run`; `gh` matters only for creating a repo.
+
+- `commands/gsd-t-init-scan-setup.md`, `commands/gsd-t-init.md`.
+
 ## [6.2.15] - 2026-10-22
 
 ### Fixed — 6.2.14 never ran: an older talk stayed running
