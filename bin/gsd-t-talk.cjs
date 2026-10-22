@@ -46,8 +46,15 @@ const VOICE_STYLE = [
   'Keep it to about seventy words. If there is more worth knowing, say so in one sentence and offer to go deeper.',
   'Never use tables, code blocks, URLs, file paths or markdown symbols.',
   'Do the work the user asks for as usual — this only changes how you reply.',
-  'You are a spoken side conversation running on a copy of the user\'s session. Do not resume, continue or act on that session\'s unfinished work, background tasks or task notifications unless the user asks you to; leave them to the session itself.',
+  'You are a spoken side conversation running on a read-only copy of the user\'s session. You can only read and search — you cannot edit files, run commands, start work or reach the session. Never resume or act on that session\'s unfinished work, background tasks or task notifications. When the user wants something done, agree what it is and tell them it goes to the session when they say "we\'re done, pass it on".',
+  'Do not write the date and version header line in this conversation; start with the answer.',
 ].join(' ');
+
+// A copy can read and search, nothing else: no edits, no shell, no workflows,
+// no messages to other sessions, no timers, no connected services. Work reaches
+// a session only as the "pass it on" summary the user sends themselves.
+// [RULE] talk-copies-read-only
+const READ_ONLY_TOOLS = 'Read,Grep,Glob,WebSearch,WebFetch';
 
 const SUMMARY_REQUEST = 'The spoken conversation is ending. Write a summary for the main session: the decisions made and the points that matter, in plain sentences, under 120 words. Start directly with the content — no header line, no greeting.';
 
@@ -105,17 +112,74 @@ function sessionForPane(home, pane) {
   return found.length ? found[0] : null;
 }
 
-// ── Ending phrases ──────────────────────────────────────────────────────────
-/**
- * "We're done, pass it on" → pass; "We're done, ignore" → ignore; "we're done"
- * alone → unclear; anything else → null. Tolerant of dictation spellings.
- */
+// ── Ending the conversation ─────────────────────────────────────────────────
+// Ending pastes the summary unless you say to ignore it. Plain phrases are
+// matched in code; a short remark that only sounds like closing ("that's good")
+// is judged by Haiku with Claude's last reply, because right after a question
+// it can just mean "yes". [RULE] end-phrases-understood
+
+function normalize(text) {
+  return ' ' + text.toLowerCase().replace(/[’]/g, "'").replace(/[^a-z' ]+/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
+}
+
+/** Plain endings → 'pass' | 'ignore'; anything else → null. */
 function endIntent(text) {
-  const t = ' ' + text.toLowerCase().replace(/[’]/g, "'").replace(/[^a-z' ]+/g, ' ') + ' ';
-  if (!/ (we're|we are|were|we re) done /.test(t)) return null;
-  if (/ pass(ed)? (it )?on /.test(t)) return 'pass';
+  const t = normalize(text);
+  const words = t.trim().split(' ').length;
+  const done = / (we're|we are|were|we re) done /.test(t) || (/ done /.test(t) && words <= 8);
+  if (!done) return null;
   if (/ ignore /.test(t)) return 'ignore';
-  return 'unclear';
+  return 'pass';
+}
+
+const CLOSING = / (done|finished|that's (good|it|all|great|fine|perfect)|thats (good|it|all|great|fine|perfect)|all set|wrap (it )?up|pass (it )?on|paste|ignore|goodbye|good bye|that'll do|that will do) /;
+
+/** A short remark that might close the conversation — worth asking Haiku. */
+function mightEnd(text) {
+  const t = normalize(text);
+  return t.trim().split(' ').length <= 12 && CLOSING.test(t);
+}
+
+function endPrompt(utterance, lastReply) {
+  return [
+    'A developer is in a spoken conversation with an assistant and may be ending it.',
+    'The assistant\'s last reply:', '<<<', String(lastReply).slice(0, 1500), '>>>',
+    'The developer now said:', '<<<', utterance, '>>>',
+    'Is the developer ending the conversation?',
+    '- If the remark answers or approves a specific choice the assistant just asked about or proposed (for example "that\'s good" meaning "yes, do that"), the conversation continues.',
+    '- If the assistant just summarized, wrapped up, or asked whether there is anything else, a closing remark ("that\'s good", "thanks", "that\'s it", "all set") ends it.',
+    '- "Done", "we\'re done", "paste it" or "pass it on" end it.',
+    'Reply with JSON only: {"end": "continue"} or {"end": "pass"} (ending; hand the summary to the session — the default for any ending) or {"end": "ignore"} (ending, and the developer said to ignore, discard or not pass it on).',
+  ].join('\n');
+}
+
+function parseEnd(raw) {
+  const m = String(raw).match(/\{[^{}]*\}/);
+  if (!m) throw new Error('end check reply was not JSON: ' + String(raw).slice(0, 120));
+  const v = JSON.parse(m[0]).end;
+  if (v === 'continue') return null;
+  if (v === 'pass' || v === 'ignore') return v;
+  throw new Error('end check gave an unknown answer: ' + m[0].slice(0, 120));
+}
+
+/** Haiku on your Claude login, no tools, no hooks, nothing saved. */
+function askHaiku(text) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('claude', ['-p', '--model', 'haiku', '--output-format', 'json', '--setting-sources', '', '--tools', '', '--no-session-persistence'],
+      { cwd: os.tmpdir(), stdio: ['pipe', 'pipe', 'pipe'] });
+    let out = '';
+    let err = '';
+    const timer = setTimeout(() => child.kill(), 20000);
+    child.stdout.on('data', (d) => { out += d; });
+    child.stderr.on('data', (d) => { err += d; });
+    child.on('error', (e) => reject(new Error('end check could not start: ' + e.message)));
+    child.on('exit', (code) => {
+      clearTimeout(timer);
+      if (code !== 0) return reject(new Error('end check failed (exit ' + code + '): ' + (err + out).trim().slice(-200)));
+      return resolve(JSON.parse(out).result);
+    });
+    child.stdin.end(text);
+  });
 }
 
 // ── Which text is spoken ────────────────────────────────────────────────────
@@ -123,9 +187,7 @@ function endIntent(text) {
 const HEADER_LINE = /^[A-Z][a-z]{2}: [A-Z][a-z]{2} \d{1,2}, \d{4} .*GSD-T v/;
 
 function stripHeader(text) {
-  const lines = text.replace(/^\s+/, '').split('\n');
-  if (HEADER_LINE.test(lines[0])) lines.shift();
-  return lines.join('\n').trim();
+  return text.split('\n').filter((l) => !HEADER_LINE.test(l.trim())).join('\n').trim();
 }
 
 function cleanProse(line) {
@@ -162,7 +224,6 @@ function createSpeechFilter(onSentence) {
   }
 
   function completeLine(text) {
-    const isFirst = firstLine;
     firstLine = false;
     if (/^\s*```/.test(text)) {
       if (!inFence) {
@@ -182,7 +243,8 @@ function createSpeechFilter(onSentence) {
       return;
     }
     inTable = false;
-    if (isFirst && HEADER_LINE.test(text)) return;
+    // The header line is never spoken, wherever it lands (after a tool call it is not the first line).
+    if (HEADER_LINE.test(text.trim())) return;
     // Each line — a bullet, a heading, a paragraph — is its own utterance.
     addProse(text);
     flush();
@@ -199,7 +261,7 @@ function createSpeechFilter(onSentence) {
       }
       // Speak the finished sentences of a long line before the line ends, so
       // the voice starts early. Only for a line that is clearly prose.
-      const maybeHeader = firstLine && /^[A-Z][a-z]{2}:/.test(line);
+      const maybeHeader = /^\s*[A-Z][a-z]{0,2}(:|$)/.test(line);
       if (inFence || maybeHeader || /^\s*(```|\|)/.test(line)) return;
       const m = line.match(/^(.*[.!?])\s+(\S.*)?$/s);
       if (!m) return;
@@ -327,8 +389,84 @@ function afplayPlayer() {
   };
 }
 
+// ── Working sounds: while the copy thinks or runs tools ─────────────────────
+// A soft up-and-down "do-do" while it thinks; a low-medium-high pattern while it
+// runs tools. Both stop the moment it speaks or the keys are pressed.
+// [RULE] talk-working-sounds
+const CUE_RATE = 24000;
+
+function cueSamples(notes, volume) {
+  const out = [];
+  for (const { f, ms } of notes) {
+    const n = Math.round((CUE_RATE * ms) / 1000);
+    const fade = Math.min(n / 4, CUE_RATE * 0.012);
+    for (let i = 0; i < n; i++) {
+      const env = Math.min(1, i / fade, (n - i) / fade);
+      out.push(f ? volume * env * Math.sin((2 * Math.PI * f * i) / CUE_RATE) : 0);
+    }
+  }
+  return out;
+}
+
+function writeWav(file, samples) {
+  const data = Buffer.alloc(samples.length * 2);
+  samples.forEach((v, i) => data.writeInt16LE(Math.round(Math.max(-1, Math.min(1, v)) * 32767), i * 2));
+  const h = Buffer.alloc(44);
+  h.write('RIFF', 0); h.writeUInt32LE(36 + data.length, 4); h.write('WAVE', 8);
+  h.write('fmt ', 12); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22);
+  h.writeUInt32LE(CUE_RATE, 24); h.writeUInt32LE(CUE_RATE * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34);
+  h.write('data', 36); h.writeUInt32LE(data.length, 40);
+  fs.writeFileSync(file, Buffer.concat([h, data]));
+}
+
+/** The two cue files, written once (the name carries the design, so a change writes new ones). */
+function ensureCues(dir) {
+  fs.mkdirSync(dir, { recursive: true });
+  const cues = {
+    thinking: path.join(dir, 'thinking-v1.wav'),
+    tools: path.join(dir, 'tools-v1.wav'),
+  };
+  if (!fs.existsSync(cues.thinking)) {
+    writeWav(cues.thinking, cueSamples([
+      { f: 440, ms: 150 }, { f: 523, ms: 170 }, { f: 0, ms: 350 },
+      { f: 523, ms: 150 }, { f: 440, ms: 170 }, { f: 0, ms: 1300 },
+    ], 0.05));
+  }
+  if (!fs.existsSync(cues.tools)) {
+    writeWav(cues.tools, cueSamples([
+      { f: 330, ms: 100 }, { f: 0, ms: 40 }, { f: 440, ms: 100 }, { f: 0, ms: 40 }, { f: 554, ms: 100 }, { f: 0, ms: 800 },
+    ], 0.06));
+  }
+  return cues;
+}
+
+/** Loops one cue at a time with afplay; set(null) or stop() silences it. */
+function afplayCues(dir) {
+  const files = ensureCues(dir);
+  let kind = null;
+  let child = null;
+  function loop() {
+    if (!kind) return;
+    const playing = kind;
+    child = spawn('afplay', [files[playing]], { stdio: 'ignore' });
+    child.on('exit', () => {
+      if (kind === playing) loop();
+    });
+  }
+  return {
+    set(next) {
+      if (next === kind) return;
+      kind = next;
+      if (child) child.kill();
+      child = null;
+      loop();
+    },
+    stop() { this.set(null); },
+  };
+}
+
 // ── The speaker queue: synthesize ahead, play in order, drop on hush ────────
-function createSpeaker(getVoice, player, onError) {
+function createSpeaker(getVoice, player, onError, onPlay = () => {}) {
   let queue = [];
   let current = null;
   let generation = 0;
@@ -345,6 +483,7 @@ function createSpeaker(getVoice, player, onError) {
         onError(outcome.error);
         continue;
       }
+      onPlay();
       current = player.play(outcome.file);
       await current.done;
       current = null;
@@ -369,14 +508,16 @@ function createSpeaker(getVoice, player, onError) {
 }
 
 // ── Claude: a copy of your session, kept running for the conversation ──────
-function startClaude({ cwd, claudeBin, model, session, configDir, home, extraPrompt, onText, onTool, onTurnEnd, onBackground, onExit }) {
+function startClaude({ cwd, claudeBin, model, session, configDir, home, extraPrompt, onText, onTool, onToolDone = () => {}, onTurnEnd, onBackground, onExit }) {
   const prompt = extraPrompt ? VOICE_STYLE + '\n\n' + extraPrompt : VOICE_STYLE;
   // --replay-user-messages echoes each message we send. A copy of a session can
   // also run turns of its own (the original's queued task notifications arrive
   // first), so a turn is ours only from the echo of our message to its result.
   // [RULE] talk-turns-matched-by-echo
   const args = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json',
-    '--verbose', '--include-partial-messages', '--replay-user-messages', '--append-system-prompt', prompt];
+    '--verbose', '--include-partial-messages', '--replay-user-messages', '--append-system-prompt', prompt,
+    '--tools', READ_ONLY_TOOLS, '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
+    '--no-session-persistence'];
   if (model) args.push('--model', model);
   // A copy of the session you are in: it knows the conversation so far, and
   // writing to the copy never touches the original. A resumed session also
@@ -416,6 +557,9 @@ function startClaude({ cwd, claudeBin, model, session, configDir, home, extraPro
           sent.shift();
           ours = true;
         }
+      } else if (ev.type === 'user' && ours) {
+        const c = ev.message && ev.message.content;
+        if (Array.isArray(c) && c.some((x) => x.type === 'tool_result')) onToolDone();
       } else if (ev.type === 'stream_event' && ev.event) {
         const e = ev.event;
         if (e.type === 'content_block_start' && e.content_block && e.content_block.type === 'text' && sawText && ours) onText('\n');
@@ -477,7 +621,7 @@ function recentSummaries(cwd, limit) {
 }
 
 // ── One conversation with one session ──────────────────────────────────────
-function createConversation({ reg, home, claudeBin, model, speaker, log }) {
+function createConversation({ reg, home, claudeBin, model, speaker, cues, log }) {
   const app = path.basename(reg.cwd);
   const started = new Date();
   const dir = path.join(reg.cwd, '.gsd-t', 'talk');
@@ -494,19 +638,18 @@ function createConversation({ reg, home, claudeBin, model, speaker, log }) {
     ? 'Earlier spoken conversations in this project, newest first (from .gsd-t/talk/):\n' + history.map((h) => '- ' + h.name + ': ' + h.summary.replace(/\s+/g, ' ')).join('\n')
     : '';
 
-  const conv = { app, file, relFile, dropping: false, closed: false };
+  const conv = { app, file, relFile, dropping: false, closed: false, lastReply: '' };
   const filter = createSpeechFilter((s) => { if (!conv.dropping) speaker.say(s); });
   const waiting = [];
   let current = null;
-  let toldWorking = false;
   let turnText = '';
 
   function sendNext() {
     if (current || !waiting.length || conv.closed) return;
     current = waiting.shift();
     conv.dropping = current.silent;
-    toldWorking = false;
     turnText = '';
+    cues.set('thinking');
     if (!current.silent) {
       fs.appendFileSync(file, `\n**You:** ${current.text}\n`);
       log(app + ' · You: ' + current.text);
@@ -518,8 +661,10 @@ function createConversation({ reg, home, claudeBin, model, speaker, log }) {
     cwd: reg.cwd, claudeBin, model, session: reg.sessionId, configDir: reg.configDir, home, extraPrompt,
     onTool(name) {
       log(app + ' · ' + name);
-      if (!toldWorking && !conv.dropping) speaker.say('One moment.');
-      toldWorking = true;
+      if (!conv.dropping) cues.set('tools');
+    },
+    onToolDone() {
+      if (!conv.dropping) cues.set('thinking');
     },
     onText(t) {
       turnText += t;
@@ -530,10 +675,12 @@ function createConversation({ reg, home, claudeBin, model, speaker, log }) {
       log(DIM_ON + app + ' · (not yours) ' + what + RESET);
     },
     onTurnEnd(err) {
+      cues.stop();
       if (!current.silent) filter.end();
       const text = stripHeader(turnText);
       if (err) log(RED + app + ' · Claude: ' + err + RESET);
       if (!current.silent) {
+        conv.lastReply = text;
         fs.appendFileSync(file, `\n**Claude:** ${text}\n`);
         log(app + ' · Claude: ' + text);
       }
@@ -543,6 +690,7 @@ function createConversation({ reg, home, claudeBin, model, speaker, log }) {
       sendNext();
     },
     onExit(reason) {
+      cues.stop();
       conv.closed = true;
       log(RED + app + ' · ' + reason + RESET);
       fs.appendFileSync(file, `\n_${reason}_\n`);
@@ -590,7 +738,7 @@ function createConversation({ reg, home, claudeBin, model, speaker, log }) {
  * Start the talk program. Resolves to { port, token, close } once the local
  * door is open and the handoff file is written.
  */
-async function startTalk({ home, claudeBin, model, makeVoice, player, focus, log }) {
+async function startTalk({ home, claudeBin, model, makeVoice, player, cues, focus, log, judgeEnd = askHaiku }) {
   const file = handoffPath(home);
   if (fs.existsSync(file)) {
     const prior = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -608,13 +756,13 @@ async function startTalk({ home, claudeBin, model, makeVoice, player, focus, log
     }
     return voice;
   };
-  const speaker = createSpeaker(getVoice, player, (e) => log(RED + 'voice failed: ' + e.message + RESET));
+  const speaker = createSpeaker(getVoice, player, (e) => log(RED + 'voice failed: ' + e.message + RESET), () => cues.stop());
   const conversations = new Map(); // sessionId → conversation
 
   function conversationFor(reg) {
     let conv = conversations.get(reg.sessionId);
     if (conv && !conv.closed) return conv;
-    conv = createConversation({ reg, home, claudeBin, model, speaker, log });
+    conv = createConversation({ reg, home, claudeBin, model, speaker, cues, log });
     conv.onClosed = () => conversations.delete(reg.sessionId);
     conversations.set(reg.sessionId, conv);
     log(conv.app + ' · conversation started → ' + conv.relFile);
@@ -629,14 +777,16 @@ async function startTalk({ home, claudeBin, model, makeVoice, player, focus, log
       speaker.say('No Claude session is running in this window.');
       return [409, { ok: false, reason: 'no Claude session is running in the focused tmux pane (' + pane + ')' }];
     }
-    const intent = endIntent(text);
     const open = conversations.get(reg.sessionId);
-    if (intent === 'unclear') {
-      speaker.say('Pass it on, or ignore?');
-      return [200, { ok: true, asked: 'pass it on or ignore' }];
+    const isOpen = Boolean(open) && !open.closed;
+    let intent = endIntent(text);
+    if (intent === null && isOpen && mightEnd(text)) {
+      cues.set('thinking');
+      intent = parseEnd(await judgeEnd(endPrompt(text, open.lastReply)));
+      cues.stop();
     }
     if (intent) {
-      if (!open || open.closed) {
+      if (!isOpen) {
         speaker.say('There is no conversation to end.');
         return [200, { ok: true, ended: 'none' }];
       }
@@ -667,6 +817,7 @@ async function startTalk({ home, claudeBin, model, makeVoice, player, focus, log
     if (req.url === '/hush') {
       for (const c of conversations.values()) c.dropping = true;
       speaker.hush();
+      cues.stop();
       getVoice(); // warm the voice while you speak
       return reply(200, { ok: true });
     }
@@ -874,7 +1025,7 @@ async function main() {
   const session = await startTalk({
     home, claudeBin: 'claude', model: opts.model,
     makeVoice: () => (opts.voice === 'kokoro' ? kokoroVoice(opts.speaker) : googleVoice(opts.speaker)),
-    player: afplayPlayer(), focus: tmuxFocusedPane, log,
+    player: afplayPlayer(), cues: afplayCues(path.join(talkDir(home), 'cues')), focus: tmuxFocusedPane, log,
   });
   log('talk ready on 127.0.0.1:' + session.port + ' — idle until Ctrl+Option+Space');
   const end = () => {
@@ -894,6 +1045,6 @@ if (require.main === module) {
 
 module.exports = {
   createSpeechFilter, createSpeaker, startTalk, parseArgs, handoffPath, pidAlive,
-  sayText, endIntent, stripHeader, recentSummaries, sessionForPane, liveSessions,
-  runSupervisor, talkRunning, MAX_RESTARTS, HEALTHY_MS,
+  sayText, endIntent, mightEnd, endPrompt, parseEnd, stripHeader, recentSummaries, sessionForPane, liveSessions,
+  runSupervisor, talkRunning, MAX_RESTARTS, HEALTHY_MS, ensureCues, READ_ONLY_TOOLS,
 };

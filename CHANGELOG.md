@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.14] - 2026-10-22
+
+### Fixed — a talk copy could do real work beside the session (now read-only)
+
+ATOS-V2, 11:24–11:57: the talk copy of the session picked up its unfinished round-1 build, edited files, committed and pushed `docs/plan/living-plan.md`, and launched a build workflow beside the real window. A voice conversation must never touch the session's work. Copies now get only Read, Grep, Glob, WebSearch and WebFetch — no edits, no shell, no workflows, no messages to sessions, no timers, no connected services (`--tools`, `--strict-mcp-config` with none, `--no-session-persistence`) — and are told work reaches the session only through the paste you send.
+
+### Added — working sounds, smarter endings, no spoken header
+
+- Working sounds: a soft up-and-down "do-do" while the copy thinks; a low-medium-high pattern while it runs tools; both stop when it speaks or you press the keys (replaces the spoken "One moment").
+- Endings: "done", "we're done", "that's good, paste it" end the conversation and paste the summary; add "ignore" to save only. A short closing-sounding remark is judged by Haiku with Claude's last reply — after a question, "that's good" means yes. Live: 9/9 right over three runs.
+- The date/version header is never spoken, wherever it lands, and the copy is told not to write it.
+- `bin/gsd-t-talk.cjs`, `test/talk.test.js` (25 tests).
+
 ## [6.2.13] - 2026-10-22
 
 ### Added — talk restarts itself after a crash

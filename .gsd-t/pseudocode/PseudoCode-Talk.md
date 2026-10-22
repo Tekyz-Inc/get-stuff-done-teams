@@ -106,7 +106,9 @@ The microphone is only open while you hold the keys
 - [RULE] speak-for-decisions — the answer or decision first; at most three options with trade-offs; a recommendation; about seventy words; no narration of the work.
 - [RULE] talk-turns-matched-by-echo — a copy can run turns of its own (the original session's queued notices arrive first); only the turn that follows the echo of our message is the answer. Its own turns are logged, never spoken, and the copy is told to leave the original's unfinished work alone.
 - [RULE] talk-restarts-twice-then-halts — every crash is logged with its full error and talk restarts. A restart has failed when the restarted talk crashes within a minute; after two failed restarts in a row it stops with a notification and a "crashed" status. Approved fallback `talk-supervisor-restart`.
-- [RULE] end-phrases-matched-in-code — "we're done" plus "pass it on" or "ignore", tolerant of dictation spellings; anything else is not an ending.
+- [RULE] talk-copies-read-only — a copy gets only Read, Grep, Glob, WebSearch, WebFetch, no connected services, nothing saved; it cannot edit, run commands, start work or reach any session. Work reaches a session only through the paste the user sends. (ATOS-V2, 11:24–11:57: a copy committed, pushed and launched a build beside the real window.)
+- [RULE] talk-working-sounds — a soft up-and-down tone while the copy thinks, a low-medium-high pattern while it runs tools; both stop when it speaks or the keys are pressed.
+- [RULE] end-phrases-understood — "done" / "we're done" end and paste; "ignore" ends without pasting; a short closing-sounding remark is judged by Haiku with Claude's last reply (after a question, "that's good" means yes).
 
 ## What I confirmed with you
 

@@ -68,12 +68,17 @@ test('speech filter: a finished sentence is spoken before its line ends', () => 
   assert.deepEqual(out, ['This is the first sentence.', 'And the second is still coming.']);
 });
 
-test('endIntent: the two closing phrases, tolerant of dictation spelling', () => {
+test('endIntent: plain endings paste unless told to ignore; tolerant of dictation spelling', () => {
   assert.equal(endIntent("We're done. Pass it on."), 'pass');
   assert.equal(endIntent('Okay, we are done, pass it on'), 'pass');
   assert.equal(endIntent('were done, passed on'), 'pass');
   assert.equal(endIntent("We’re done. Ignore."), 'ignore');
-  assert.equal(endIntent("We're done."), 'unclear');
+  assert.equal(endIntent("We're done."), 'pass', 'an ending pastes by default');
+  assert.equal(endIntent('Done.'), 'pass');
+  assert.equal(endIntent('Done, pass it on.'), 'pass', 'dictation dropped "we\'re"');
+  assert.equal(endIntent('Done, paste in this session.'), 'pass');
+  assert.equal(endIntent('done, ignore'), 'ignore');
+  assert.equal(endIntent('Is the build done yet? Did you pass it on to the backend team?'), null);
   assert.equal(endIntent('Can you pass it on to the backend?'), null);
   assert.equal(endIntent('Ignore the lint warnings'), null);
 });
@@ -156,10 +161,15 @@ function setup() {
     },
   };
   let focused = PANE;
+  const cueLog = [];
+  const cues = { set(k) { cueLog.push(k); }, stop() { cueLog.push(null); } };
+  const judged = [];
+  let judgeReply = '{"end":"continue"}';
+  const judgeEnd = async (p) => { judged.push(p); return judgeReply; };
   const start = () => startTalk({
-    home, claudeBin, makeVoice: () => voice, player, focus: () => focused, log: () => {},
+    home, claudeBin, makeVoice: () => voice, player, cues, focus: () => focused, log: () => {}, judgeEnd,
   });
-  return { root, home, app, played, stopped, start, focusOn: (t) => { focused = t; } };
+  return { root, home, app, played, stopped, cueLog, judged, judge: (r) => { judgeReply = r; }, start, focusOn: (t) => { focused = t; } };
 }
 
 async function post(session, route, body, token) {
@@ -245,13 +255,11 @@ test('talk: "we\'re done, pass it on" saves a summary and returns the paste', as
   }
 });
 
-test('talk: "we\'re done, ignore" saves only; "we\'re done" alone asks which', async () => {
+test('talk: "we\'re done, ignore" saves only', async () => {
   const s = setup();
   const session = await s.start();
   try {
     await post(session, '/say', { text: 'a question' });
-    const asked = await post(session, '/say', { text: "We're done." });
-    assert.equal(asked.json.asked, 'pass it on or ignore');
     const r = await post(session, '/say', { text: "We're done, ignore." });
     assert.deepEqual(r.json, { ok: true, ended: 'ignore' });
     assert.match(transcript(s).text, /Outcome: ignored \(saved only\)/);
@@ -444,4 +452,100 @@ test('supervisor: a clean stop is not a crash; a crash after a minute of running
   const s2 = runSupervisor({ startWorker, log: () => {}, onCrash: () => {}, onGiveUp: () => assert.fail('count should have reset'), now: () => t });
   assert.equal(await s2.done, 'stopped');
   assert.equal(w.started.length, 4);
+});
+
+// ATOS-V2, 2026-10-22: a talk copy picked up the session's unfinished build, committed,
+// pushed and launched a workflow beside the real window. A copy may only read.
+// [RULE] talk-copies-read-only
+test('talk: copies can only read and search — no edits, shell, workflows, messages or connected services', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    await post(session, '/say', { text: 'hello' });
+    await waitFor(() => s.played.includes('You asked: hello.'));
+    const args = JSON.parse(fs.readFileSync(process.env.TALK_TEST_ARGS, 'utf8').trim());
+    assert.equal(args[args.indexOf('--tools') + 1], 'Read,Grep,Glob,WebSearch,WebFetch');
+    assert.ok(args.includes('--strict-mcp-config'));
+    assert.equal(args[args.indexOf('--mcp-config') + 1], '{"mcpServers":{}}');
+    assert.ok(args.includes('--no-session-persistence'));
+    assert.match(args[args.indexOf('--append-system-prompt') + 1], /read-only copy/);
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: the header line is never spoken or saved, even after a tool call', () => {
+  const out = [];
+  const f = createSpeechFilter((x) => out.push(x));
+  f.push('\n');
+  f.push(liveHeader().slice(0, 3));
+  f.push(liveHeader().slice(3) + '\n\nThe answer is yes.\n');
+  f.end();
+  assert.deepEqual(out, ['The answer is yes.']);
+  const { stripHeader } = require('../bin/gsd-t-talk.cjs');
+  assert.equal(stripHeader('Working on it.\n' + liveHeader() + '\nDone.'), 'Working on it.\nDone.');
+});
+
+test('talk: working sounds — thinking after you speak, tools while tools run, silent once it speaks', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    await post(session, '/say', { text: 'cue test' });
+    await waitFor(() => s.played.includes('You asked: cue test.'));
+    assert.equal(s.cueLog[0], 'thinking');
+    assert.ok(s.cueLog.includes(null), 'stopped when it spoke');
+    await post(session, '/hush');
+    assert.equal(s.cueLog[s.cueLog.length - 1], null, 'hush silences the cue');
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: cue files are real audio, written once', () => {
+  const { ensureCues } = require('../bin/gsd-t-talk.cjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-t-cues-'));
+  const c = ensureCues(dir);
+  for (const file of [c.thinking, c.tools]) {
+    const b = fs.readFileSync(file);
+    assert.equal(b.toString('ascii', 0, 4), 'RIFF');
+    assert.ok(b.length > 10000);
+  }
+  const before = fs.statSync(c.thinking).mtimeMs;
+  ensureCues(dir);
+  assert.equal(fs.statSync(c.thinking).mtimeMs, before);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('talk: "that\'s good" is judged with the last reply — an approval continues, a close pastes', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    await post(session, '/say', { text: 'option two?' });
+    await waitFor(() => s.played.includes('You asked: option two?.') || s.played.some((p) => /option two/.test(p)));
+    s.judge('{"end":"continue"}');
+    const cont = await post(session, '/say', { text: "That's good." });
+    assert.deepEqual(cont.json, { ok: true, queued: false }, 'an approval is sent to Claude');
+    assert.match(s.judged[0], /You asked: option two\?/, 'Haiku sees the last reply');
+    await waitFor(() => s.played.some((p) => /That's good/.test(p)));
+    s.judge('{"end":"pass"}');
+    const end = await post(session, '/say', { text: "That's good, thanks." });
+    assert.equal(end.json.ended, 'pass');
+    assert.match(end.json.paste, /^Claude Voice Session: /);
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: a long remark is never treated as an ending, and nothing open means nothing to judge', () => {
+  const { mightEnd, parseEnd } = require('../bin/gsd-t-talk.cjs');
+  assert.ok(mightEnd("That's good."));
+  assert.ok(mightEnd('Okay, paste it.'));
+  assert.ok(!mightEnd('That is good but the second screen also needs the done button moved to the left of cancel please'));
+  assert.ok(!mightEnd('How does sign-up work?'));
+  assert.equal(parseEnd('{"end":"continue"}'), null);
+  assert.equal(parseEnd('{"end":"ignore"}'), 'ignore');
+  assert.throws(() => parseEnd('maybe'), /not JSON/);
 });
