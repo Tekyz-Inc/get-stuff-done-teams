@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v6.0.10 (2026-10-11): **M120 GSD-T v6 slim-down COMPLETE** — execution pipeline removed (59 → 18 commands, ~129K lines cut); kept graph, no-fallback, date guard, architect, new opt-in red team, debug halt, worktrees, env registry, Playwright rules, demo videos, estimates. Retired files are moved to dated backups, never deleted. Next: v6.1 — `gsd-t link-config-dir` (per-account Claude config dirs), faster scan, estimate-rescale rethink, solo story flow (pilot project to be chosen — not FlyLingo, which the dev team is building).
-## Date: 2026-10-23 10:12 PDT
-## Version: 6.2.21
+## Date: 2026-10-23 10:15 PDT
+## Version: 6.2.22
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-10-23 10:15 PDT: [docs] Template carries David's "repose the question" global rule (v6.2.22) — it was only in his live ~/.claude/CLAUDE.md and the uncommitted template; the 6.2.21 template change would have made update replace the section without it.
 - 2026-10-23 10:12 PDT: [change] Wrong-app override prefix is now "---" (v6.2.21) — David: "This App - This Session" is too much to say; old phrase removed. Also talk ignores a closed copy's leftover output (caused writes to a closed transcript and a ~1-in-30 talk test flake; 0/80 after).
 - 2026-10-23 09:58 PDT: [feature][fix] Talk Esc stop + voice rules win (v6.2.20) — David asked for Esc to kill talk instantly and silently, even across projects: POST /stop closes every conversation (Outcome: stopped), POST /state tells the dictation app when Esc is talk's. ATOS-V2 reply read the header ("Day: Fri Oct 23…" missed by the filter) and used a table/269 words: header test now version+date in any spelling; talk copies skip auto-route (clock, Reader Contract, wrong-app); voice rules state they override CLAUDE.md.
 - 2026-10-22 16:50 PDT: [fix] Talk silent after an upgrade (v6.2.19) — talk.log showed the conversation start at 23:45:09.890Z and talk stopped 0.6 s later: the session copy ran the talk start hook, which replaced the older running talk. Copies now carry GSDT_TALK_COPY=1 and the hook returns there.

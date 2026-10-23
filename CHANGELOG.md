@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.22] - 2026-10-23
+
+### Changed — global rule: repose a pending question, never point back to it
+
+The rule David added to his own global CLAUDE.md is now in the template, so updates keep it instead of replacing the section without it.
+
+- `templates/CLAUDE-global.md`: "Never point back to an earlier question — repose it."
+
 ## [6.2.21] - 2026-10-23
 
 ### Changed — "---" skips the wrong-app check

@@ -12,6 +12,7 @@
 - **Simply stated:** every word load-bearing, logic in a straight line. If it can't be said simply, the thinking isn't done — re-think, don't re-word.
 - **Gloss jargon** in plain words on first use. Bullets and tables over paragraphs; a table replaces its prose, never repeats it.
 - **First line of every reply:** `Day: Mon DD, YYYY HH:MM TZ — GSD-T v{version} — CURRENT`, dated from the latest `[GSD-T NOW]` signal (never from `currentDate` or memory). Add `⬆️ UPDATE AVAILABLE` / `✅ AUTO-UPDATED` when the session-start hook says so.
+- **Never point back to an earlier question — repose it.** When an answer from the user is still needed, restate the full question in the current reply with its options and the supporting facts needed to decide (what it is, what each option means, the recommendation), even if it was asked before. Never write "still waiting on the questions above" or "see my earlier message": earlier turns scroll away.
 - Projects may opt into `Output Style: verbose` in their own CLAUDE.md.
 
 # Live Clock
