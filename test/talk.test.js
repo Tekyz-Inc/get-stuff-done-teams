@@ -599,3 +599,53 @@ test('talk start hook: inside a talk copy it does nothing, even with an older ta
   assert.equal(normal.status, 1, 'outside a copy the same call reaches the real checks');
   fs.rmSync(home, { recursive: true, force: true });
 });
+
+test('talk: Esc stops every conversation at once — silent, no summary, transcript marked', async () => {
+  const s = setup();
+  const session = await s.start();
+  try {
+    await post(session, '/say', { text: 'esc test' });
+    await waitFor(() => s.played.includes('You asked: esc test.'));
+    const before = await post(session, '/state');
+    assert.equal(before.json.open, 1);
+    const r = await post(session, '/stop');
+    assert.deepEqual(r.json, { ok: true, stopped: 1 });
+    assert.equal(s.cueLog[s.cueLog.length - 1], null, 'no cue left playing');
+    const heard = s.played.length;
+    await new Promise((res) => setTimeout(res, 200));
+    assert.equal(s.played.length, heard, 'nothing spoken after Esc');
+    assert.ok(!s.played.some((p) => /Claude stopped/.test(p)));
+    const t = transcript(s);
+    assert.match(t.text, /Outcome: stopped/);
+    assert.doesNotMatch(t.text, /## Summary/);
+    const after = await post(session, '/state');
+    assert.deepEqual(after.json, { ok: true, active: false, open: 0 });
+  } finally {
+    session.close();
+    fs.rmSync(s.root, { recursive: true, force: true });
+  }
+});
+
+test('talk: the date-and-version line is dropped in any spelling; a sentence naming a version is spoken', () => {
+  const heard = (text) => {
+    const out = [];
+    const f = createSpeechFilter((x) => out.push(x));
+    for (let i = 0; i < text.length; i += 5) f.push(text.slice(i, i + 5));
+    f.end();
+    return out;
+  };
+  const now = new Date();
+  const mon = now.toLocaleString('en-US', { month: 'short' });
+  const date = mon + ' ' + now.getDate() + ', ' + now.getFullYear();
+  assert.deepEqual(heard('Day: Fri ' + date + ' 09:39 PDT — GSD-T v6.1.20 — CURRENT\n\nYes.'), ['Yes.']);
+  assert.deepEqual(heard('**Fri: ' + date + ' 09:39 PDT — GSD-T v6.2.19 — CURRENT**\nYes.'), ['Yes.']);
+  assert.deepEqual(heard('You are on GSD-T v6.2.19 now.'), ['You are on GSD-T v6.2.19 now.']);
+});
+
+test('auto-route: inside a talk copy it adds nothing to the prompt', () => {
+  const { spawnSync } = require('node:child_process');
+  const hook = path.join(__dirname, '..', 'scripts', 'gsd-t-auto-route.js');
+  const r = spawnSync(process.execPath, [hook], { input: JSON.stringify({ prompt: 'hello', cwd: os.tmpdir() }), encoding: 'utf8', env: { ...process.env, GSDT_TALK_COPY: '1' } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout, '');
+});

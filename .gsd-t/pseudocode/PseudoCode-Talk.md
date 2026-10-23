@@ -111,6 +111,8 @@ The microphone is only open while you hold the keys
 - [RULE] talk-no-preamble — no header, date, version, recap, or explanation of how talk works unless asked; "done" gets only "Okay".
 - [RULE] talk-runs-the-installed-version — the start hook replaces a talk running an older version (6.2.14 shipped while 6.2.13 kept running).
 - [RULE] talk-copy-never-restarts-talk — a copy runs the session-start hooks too; it carries a marker and talk's start hook does nothing there (6.2.18: the first copy after an upgrade restarted talk and dropped the answer).
+- [RULE] talk-esc-stops-instantly — Esc while talk is speaking or answering ends every open conversation at once: no sound, no summary, no paste; the transcript ends "Outcome: stopped".
+- [RULE] talk-copy-gets-voice-rules-only — a copy skips the per-prompt clock, Reader Contract and wrong-app check; the voice rules say they override CLAUDE.md reply formats; the date-and-version line is dropped in any spelling.
 - [RULE] end-phrases-understood — "done" / "we're done" end and paste; "ignore" ends without pasting; a short closing-sounding remark is judged by Haiku with Claude's last reply (after a question, "that's good" means yes).
 
 ## What I confirmed with you
@@ -153,6 +155,9 @@ POST /say { text }    → 200 { ok: true, queued: <bool> }          a question
                       → 200 { ok: true, ended: "none" }            nothing was open
                       → 200 { ok: true, asked: "pass it on or ignore" }
                       → 409 { ok: false, reason }                 no session in the focused tab
+                      → 200 { ok: true, ended: "stopped" }         Esc ended it while the summary was being written
                       → 401 / 400 / 404 / 500 { ok: false, reason }
+POST /stop            → 200 { ok: true, stopped: <n> }            Esc: every conversation ends now, silently
+POST /state           → 200 { ok: true, active: <bool>, open: <n> }  active = speaking or answering
   A /say that ends a conversation waits for the summary: allow 90 s and show "summarizing…" in the panel.
 ```

@@ -149,7 +149,7 @@ Any request for a demo or walkthrough video is routed to this pipeline: a global
 
 ## Talk
 
-Hold Ctrl+Option+Space in the dictation app (WindowsVoiceTranscription) and talk with the Claude session in the tab you're facing; release to send. Pressing the keys also cuts Claude off mid-sentence. Nothing to start: one shared talk program, started with the first GSD-T session, stays idle until you speak.
+Hold Ctrl+Option+Space in the dictation app (WindowsVoiceTranscription) and talk with the Claude session in the tab you're facing; release to send. Pressing the keys also cuts Claude off mid-sentence. Esc while talk is speaking or thinking ends every open talk conversation at once, silently (transcript marked "stopped", nothing pasted). Nothing to start: one shared talk program, started with the first GSD-T session, stays idle until you speak.
 
 - **Which session:** the one in tmux's active pane — the tab you are looking at — read from Claude Code's own session records (every account folder, `~/.claude*`), so sessions already running work too. No session there → it says so.
 - **What it knows:** your first words start a copy of that session (`--fork-session`), so it knows your conversation; the session itself is untouched. It also gets the summaries of the project's recent talk conversations.

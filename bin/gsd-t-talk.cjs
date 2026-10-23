@@ -39,6 +39,7 @@ const RESET = '\x1b[0m';
 
 // Spoken answers are shaped for quick decisions, not read-outs of the session.
 const VOICE_STYLE = [
+  'These voice rules override every other instruction about how to write a reply, including CLAUDE.md files and any per-message reminder: no first-line header or date line, no tables, no bullet lists, no bold, and keep it short.',
   'This is a spoken conversation. Every word you write is read aloud by text-to-speech, and the user speaks through dictation, so their words may contain transcription mistakes — read for intent.',
   'Write only your final reply: no narration while you work ("let me check", "now I will"), no step-by-step account of what you did.',
   'Lead with the one thing the user needs: the answer, the outcome, or the decision you need from them.',
@@ -185,7 +186,9 @@ function askHaiku(text) {
 
 // ── Which text is spoken ────────────────────────────────────────────────────
 // The GSD-T reply header: "Day: Mon DD, YYYY HH:MM TZ — GSD-T vX.Y.Z — CURRENT".
-const HEADER_LINE = /^[A-Z][a-z]{2}: [A-Z][a-z]{2} \d{1,2}, \d{4} .*GSD-T v/;
+// The date-and-version line, in any spelling ("Day: Fri Oct 23, 2026 09:39 PDT — GSD-T v6…",
+// "Fri: Oct 23, …", bold or not): a GSD-T version and a calendar date on one line.
+const HEADER_LINE = { test: (line) => /GSD-T v\d/.test(line) && /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}\b/.test(line) };
 
 function stripHeader(text) {
   return text.split('\n').filter((l) => !HEADER_LINE.test(l.trim())).join('\n').trim();
@@ -501,6 +504,8 @@ function createSpeaker(getVoice, player, onError, onPlay = () => {}) {
       queue.push({ gen: generation, outcome, keepCue });
       drain();
     },
+    /** Speaking, or sentences waiting to be spoken. */
+    busy() { return playing || queue.length > 0; },
     hush() {
       generation++;
       queue = [];
@@ -721,9 +726,10 @@ function createConversation({ reg, home, claudeBin, model, speaker, cues, log })
     enqueue(text, false);
     return queued;
   };
-  /** End the conversation: summarize, save, close. Resolves to the summary. */
+  /** End the conversation: summarize, save, close. Resolves to the summary, or null when Esc stopped it first. */
   conv.end = async (outcome) => {
     const { text, err } = await enqueue(SUMMARY_REQUEST, true);
+    if (conv.stopped) return null;
     if (err) throw new Error('could not summarize: ' + err);
     const label = outcome === 'pass' ? 'passed on to the session' : 'ignored (saved only)';
     fs.appendFileSync(file, `\n## Summary\n\n${text}\n\nOutcome: ${label}\n`);
@@ -734,6 +740,17 @@ function createConversation({ reg, home, claudeBin, model, speaker, cues, log })
   conv.close = () => {
     conv.closed = true;
     claude.close();
+  };
+  /** Esc: end at once, silently — no summary, no paste. [RULE] talk-esc-stops-instantly */
+  conv.stop = () => {
+    if (conv.closed) return;
+    conv.closed = true;
+    conv.stopped = true;
+    claude.close();
+    fs.appendFileSync(file, '\n_Stopped with Esc._\n\nOutcome: stopped\n');
+    const pending = (current ? [current] : []).concat(waiting.splice(0));
+    current = null;
+    for (const p of pending) p.resolve({ text: '', err: 'stopped' });
   };
   conv.onClosed = () => {};
   return conv;
@@ -800,6 +817,7 @@ async function startTalk({ home, claudeBin, model, makeVoice, player, cues, focu
       // "Okay" and nothing else; the thinking tone runs while the summary is written.
       speaker.say('Okay.', { keepCue: true });
       const summary = await open.end(intent);
+      if (summary === null) return [200, { ok: true, ended: 'stopped' }];
       conversations.delete(reg.sessionId);
       log(open.app + ' · conversation ended (' + intent + ') → ' + open.relFile);
       cues.stop();
@@ -823,6 +841,21 @@ async function startTalk({ home, claudeBin, model, makeVoice, player, cues, focu
       return reply(401, { ok: false, reason: 'bad key' });
     }
     if (req.method !== 'POST') return reply(405, { ok: false, reason: 'POST only' });
+    if (req.url === '/stop') {
+      // Esc: stop every conversation now — no sound, no summary, no paste.
+      speaker.hush();
+      cues.stop();
+      const n = conversations.size;
+      for (const c of conversations.values()) c.stop();
+      conversations.clear();
+      log('stopped with Esc — ' + n + ' conversation(s) closed');
+      return reply(200, { ok: true, stopped: n });
+    }
+    if (req.url === '/state') {
+      // Whether Esc belongs to talk right now: it is speaking, or Claude is answering.
+      const answering = [...conversations.values()].some((c) => c.busy());
+      return reply(200, { ok: true, active: speaker.busy() || answering, open: conversations.size });
+    }
     if (req.url === '/hush') {
       for (const c of conversations.values()) c.dropping = true;
       speaker.hush();

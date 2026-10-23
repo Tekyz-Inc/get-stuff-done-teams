@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.20] - 2026-10-23
+
+### Added — Esc stops talk instantly
+
+`POST /stop` ends every open talk conversation at once: speech and cues stop, each copy closes, the transcript ends "Outcome: stopped", nothing is summarized or pasted. `POST /state` says whether talk is speaking or answering, so the dictation app takes Esc only then and otherwise lets it through to the focused window.
+
+### Fixed — talk read the date-and-version line and ignored its voice rules
+
+ATOS-V2, 09:39: a reply began "Day: Fri Oct 23, 2026 … — GSD-T v6.1.20 — CURRENT", which the filter (expecting one word before the date) read aloud, then a table, bullets and 269 words. The filter now drops any line with a GSD-T version and a calendar date. A talk copy no longer gets the per-prompt clock, Reader Contract and wrong-app check (`GSDT_TALK_COPY=1`; the "tables over paragraphs" reminder was beating talk's rules, and the check added ~3 s per question), and the voice rules say they override CLAUDE.md reply formats.
+
+- `bin/gsd-t-talk.cjs`: `/stop`, `/state`, `conv.stop`, `speaker.busy`, header test, override rule.
+- `scripts/gsd-t-auto-route.js`: does nothing inside a talk copy.
+- `test/talk.test.js`: Esc stop, header spellings, auto-route in a copy.
+
 ## [6.2.19] - 2026-10-22
 
 ### Fixed — talk went silent after an upgrade

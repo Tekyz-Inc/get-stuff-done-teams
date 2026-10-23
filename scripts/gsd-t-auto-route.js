@@ -283,6 +283,10 @@ function liveTimestamp(now = new Date()) {
 // (npm test runner children get a never-EOF stdin pipe → suite hang), and the
 // "end" handler's process.exit(0) would kill the test process on stdin EOF.
 if (require.main === module) {
+// A talk copy's prompts are spoken conversation: no wrong-app check (talk already
+// picked the session), and no clock or Reader Contract, whose "tables over
+// paragraphs" and header rule beat talk's voice rules. [RULE] talk-copy-gets-voice-rules-only
+if (process.env.GSDT_TALK_COPY === "1") process.exit(0);
 let input = "";
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (chunk) => { input += chunk; });
