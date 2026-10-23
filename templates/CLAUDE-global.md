@@ -58,7 +58,7 @@ Any request for a demo, walkthrough or tutorial video of an app uses `/gsd-t-dem
 
 # Wrong-App Guard
 
-Every prompt is checked against the GSD-T project list. A request for a different app is blocked with a 🔴 message and the prompt to paste into that app's session. Start a prompt with `This App - This Session` to send it here anyway.
+Every prompt is checked against the GSD-T project list. A request for a different app is blocked with a 🔴 message and the prompt to paste into that app's session. Start a prompt with `---` to send it here anyway.
 
 # Environments Registry
 

@@ -24,10 +24,10 @@ function fixture() {
   return { root, home, appA, appB };
 }
 
-test('override prefix is matched without regard to capitals or dash style', () => {
-  for (const p of ['This App - This Session fix it', 'this app - this session', '  THIS APP — THIS SESSION do x', 'This App-This Session'])
+test('override prefix: three hyphens at the start; the old phrase no longer skips', () => {
+  for (const p of ['--- fix it', '---fix it', '  --- do x', '---'])
     assert.ok(isOverride(p), p);
-  for (const p of ['fix this app', 'This App fix it', 'please: This App - This Session'])
+  for (const p of ['fix this --- app', '-- fix it', 'This App - This Session fix it', '— fix it'])
     assert.ok(!isOverride(p), p);
 });
 
@@ -74,7 +74,7 @@ test('check: another app blocks with the target folder and the prompt to paste',
   assert.match(r.reason, /WRONG APP — this prompt is for newman-avtar-be, not newman/);
   assert.ok(r.reason.includes(appB));
   assert.ok(r.reason.includes('add a refresh-token endpoint'));
-  assert.match(r.reason, /This App - This Session/);
+  assert.match(r.reason, /start it with: ---/);
 });
 
 test('check: a failed model call blocks and names the failure', () => {
@@ -88,7 +88,7 @@ test('check: never asks the model for override, empty prompt, unregistered folde
   const { root, home, appA } = fixture();
   const ask = () => { throw new Error('should not be called'); };
   const opts = { home, ask, mainRepoRoot: noGit };
-  assert.strictEqual(wrongAppCheck({ prompt: 'This App - This Session do it', cwd: appA }, opts), null);
+  assert.strictEqual(wrongAppCheck({ prompt: '--- do it', cwd: appA }, opts), null);
   assert.strictEqual(wrongAppCheck({ prompt: '   ', cwd: appA }, opts), null);
   assert.strictEqual(wrongAppCheck({ prompt: 'x', cwd: path.join(root, 'other') }, opts), null);
   assert.strictEqual(wrongAppCheck({ prompt: 'x' }, opts), null);

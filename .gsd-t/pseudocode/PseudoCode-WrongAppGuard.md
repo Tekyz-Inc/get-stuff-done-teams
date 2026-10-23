@@ -7,7 +7,7 @@ You send a prompt
   Was this prompt sent by the guard's own app check (its private helper call):
     Yes: Pass it on untouched
     No:  Go on
-  Does the prompt start with "This App - This Session" (any capitals, any dash):
+  Does the prompt start with three hyphens ("---"):
     Yes: Pass it on — you said it belongs here
     No:  Go on
   Which registered app is this session in:
@@ -28,7 +28,7 @@ You send a prompt
     It answers one of: this app, unclear, or another app (its folder or its name)
   The model call failed, timed out, or gave an answer not on the list:
     STOP the prompt — red message naming the failure
-    Say: resend it starting with "This App - This Session" to skip the check
+    Say: resend it starting with "---" to skip the check
   It says this app, or unclear:
     Pass it on
   It names another app:
@@ -36,7 +36,7 @@ You send a prompt
       "Wrong app — this is for <other app>, not <this app>"
       The folder to open a session in
       The prompt, ready to copy and paste there
-      How to send it here anyway (the "This App - This Session" prefix)
+      How to send it here anyway (the "---" prefix)
 ```
 
 ---
@@ -68,7 +68,7 @@ You send a prompt
 ## The rules
 
 - [RULE] Every prompt is checked by the model unless it carries the override prefix (David's choice: catches requests that never name the app; costs about 3 seconds per prompt).
-- [RULE] The override prefix is "This App - This Session", matched without regard to capitals.
+- [RULE] The override prefix is "---" at the start of the prompt (leading spaces allowed). "This App - This Session" was too long to say every time and no longer skips the check (2026-10-23).
 - [RULE] Sibling repos of one product (Newman back end / admin / mobile; the Hilo repos) are different apps and get blocked.
 - [RULE] A failed check stops the prompt and says why — never lets it through quietly (no fallback).
 - [RULE] The model call runs on the Max subscription login, never an API key.
@@ -77,7 +77,7 @@ You send a prompt
 ## What I confirmed with you
 
 - Detection: the model checks every prompt.
-- Override: the "This App - This Session" prefix.
+- Override: the "---" prefix.
 - Siblings: different apps, blocked.
 - Check failure: stop the prompt (you flagged letting it through as a fallback).
 

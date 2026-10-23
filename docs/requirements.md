@@ -45,7 +45,7 @@ Requirements for the v6 package. Requirements for the cut pipeline (milestone �
 | REQ-H3 | Fallback guard denies unapproved fallbacks; errors halt, never allow | `m106-fallback-gate` |
 | REQ-H4 | CLAUDE.md changelog records outside and Claude edits | `m110-claude-md-changelog` |
 | REQ-H5 | Auto-route emits `[GSD-T NOW]` and the Reader Contract every prompt | `m93-reader-contract-presence` |
-| REQ-H6 | Wrong-app guard: a prompt Haiku assigns to another registered app — judged with the session's recent conversation — is blocked with a red message and the prompt to paste there; `This App - This Session` prefix skips it; a failed check blocks | `wrong-app-guard` |
+| REQ-H6 | Wrong-app guard: a prompt Haiku assigns to another registered app — judged with the session's recent conversation — is blocked with a red message and the prompt to paste there; `---` prefix skips it; a failed check blocks | `wrong-app-guard` |
 | REQ-H7 | Build-speed guard: a Playwright run identical to a failed one is blocked until a project file changes; a whole-config re-run after a whole-config failure waits for a narrower pass; a foreground wait over a minute is blocked; an unseen outcome never blocks | `build-speed-guard` |
 
 ### Worktrees, environments, estimates

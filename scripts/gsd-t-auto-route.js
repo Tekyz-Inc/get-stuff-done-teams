@@ -23,8 +23,9 @@ const { spawnSync } = require("child_process");
 
 // ─── Wrong-app guard ──────────────────────────────────────────────────────────
 
-const OVERRIDE_PREFIX = "This App - This Session";
-const OVERRIDE_RE = /^\s*this\s+app\s*[-–—]\s*this\s+session\b/i;
+// Three hyphens at the very start send the prompt to this session unchecked.
+const OVERRIDE_PREFIX = "---";
+const OVERRIDE_RE = /^\s*---/;
 const CHILD_ENV = "GSDT_APP_GUARD_CHILD"; // set on the guard's own model call
 const CHECK_TIMEOUT_MS = 20000;           // Claude Code kills prompt hooks at 30s
 const RED = "\x1b[31m";

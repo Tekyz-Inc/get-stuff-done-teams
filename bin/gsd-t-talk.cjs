@@ -553,6 +553,9 @@ function startClaude({ cwd, claudeBin, model, session, configDir, home, extraPro
   child.stderr.on('data', (d) => { stderrTail = (stderrTail + d).slice(-2000); });
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (d) => {
+    // Output still in the pipe after the copy was closed (Esc, done, talk
+    // shutting down) belongs to no turn; acting on it wrote to a closed transcript.
+    if (closing) return;
     buf += d;
     let nl = buf.indexOf('\n');
     while (nl !== -1) {

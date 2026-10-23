@@ -2,6 +2,22 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.21] - 2026-10-23
+
+### Changed — "---" skips the wrong-app check
+
+A prompt that starts with three hyphens goes to this session without the check. "This App - This Session" was too long to say every time and no longer skips it.
+
+- `scripts/gsd-t-auto-route.js`: `OVERRIDE_PREFIX` / `OVERRIDE_RE`.
+- `templates/CLAUDE-global.md`, `README.md`, `docs/requirements.md`, `.gsd-t/pseudocode/PseudoCode-WrongAppGuard.md`: the new prefix.
+- `test/wrong-app-guard.test.js`: "---" skips; the old phrase does not.
+
+### Fixed — talk acted on a closed copy's leftover output
+
+Output still in the pipe after a copy was closed (Esc, "done", shutdown) reached the turn handlers and wrote to a closed transcript. It is now ignored. This was also the cause of an intermittent talk test failure (about 1 in 30 runs; 0 in 80 after).
+
+- `bin/gsd-t-talk.cjs`: `startClaude` ignores stdout once closing.
+
 ## [6.2.20] - 2026-10-23
 
 ### Added — Esc stops talk instantly
