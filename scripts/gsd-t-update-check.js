@@ -6,7 +6,14 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { execFileSync } = require("child_process");
+const { execFileSync, execSync } = require("child_process");
+
+// npm and gsd-t are .cmd scripts on Windows, which Node only runs through a
+// shell. Every argument passed here is a fixed string with no spaces.
+function runCli(cmd, args, opts) {
+  if (process.platform === "win32") return execSync([cmd, ...args].join(" "), opts);
+  return execFileSync(cmd, args, opts);
+}
 
 const CLAUDE_DIR = path.join(os.homedir(), ".claude");
 const VERSION_FILE = path.join(CLAUDE_DIR, ".gsd-t-version");
@@ -47,10 +54,10 @@ function fetchLatestVersion() {
 
 function doAutoUpdate(latest, installed) {
   try {
-    execFileSync("npm", ["install", "-g", "@tekyzinc/gsd-t@" + latest], {
+    runCli("npm", ["install", "-g", "@tekyzinc/gsd-t@" + latest], {
       timeout: 60000, encoding: "utf8", stdio: "pipe"
     });
-    execFileSync("gsd-t", ["update-all"], {
+    runCli("gsd-t", ["update-all"], {
       timeout: 60000, encoding: "utf8", stdio: "pipe"
     });
     const updated = fs.existsSync(VERSION_FILE)

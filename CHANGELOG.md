@@ -2,6 +2,18 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.23] - 2026-10-23
+
+### Fixed — `gsd-t update-all` works on Windows
+
+On Windows, `update-all` failed with "spawnSync npm ENOENT": npm, npx and gsd-t are `.cmd` scripts there, and Node only runs those through a shell. Every npm / npx / gsd-t call now goes through a shell on Windows (all arguments are fixed strings). A second Windows bug sat behind it: after installing, `update-all` read the new version from `<prefix>/lib/node_modules`, which Windows does not have, then silently carried on with the OLD binary and reported "already at latest". It now reads `npm root -g` and HALTS when the installed package can't be found.
+
+- `bin/gsd-t.js`: `runCli` helper; global upgrade, version read-back, re-exec and the code-graph indexer install use it; `where` instead of `which` on Windows
+- `scripts/gsd-t-update-check.js`: auto-update runs npm and gsd-t through `runCli`
+- `bin/gsd-t-install-check.cjs`: `npm root -g` through a shell on Windows
+- `bin/playwright-bootstrap.cjs`: npm / npx installs through a shell on Windows
+- `test/windows-cli.test.js`: 4 tests
+
 ## [6.2.22] - 2026-10-23
 
 ### Changed — global rule: repose a pending question, never point back to it

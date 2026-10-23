@@ -122,17 +122,24 @@ function _classifyError(stderr, code, command) {
   };
 }
 
+// npm and npx are .cmd scripts on Windows, which Node only runs through a
+// shell. Every argument passed here is a fixed string with no spaces.
+function cliCall(cmd, args, opts) {
+  if (process.platform === 'win32') return [[cmd, ...args].join(' '), { ...opts, shell: true }];
+  return [cmd, args, opts];
+}
+
 function _runSubprocess(cmd, args, cwd) {
   return new Promise((resolve) => {
     let stdout = '';
     let stderr = '';
     let child;
     try {
-      child = spawn(cmd, args, {
+      child = spawn(...cliCall(cmd, args, {
         cwd,
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'],
-      });
+      }));
     } catch (err) {
       resolve({ code: 127, stdout: '', stderr: err.message || String(err) });
       return;
@@ -251,12 +258,12 @@ async function installPlaywright(projectDir, opts) {
 function _runSubprocessSync(cmd, args, cwd) {
   let res;
   try {
-    res = spawnSync(cmd, args, {
+    res = spawnSync(...cliCall(cmd, args, {
       cwd,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
-    });
+    }));
   } catch (err) {
     return { code: 127, stdout: '', stderr: err.message || String(err) };
   }

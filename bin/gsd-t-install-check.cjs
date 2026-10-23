@@ -40,7 +40,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { execFileSync } = require("child_process");
+const { execFileSync, execSync } = require("child_process");
 
 const EXIT_OK = 0;
 const EXIT_UNREPAIRABLE = 4;
@@ -78,7 +78,7 @@ function findPackageRoot() {
   // 2. Ask npm where global installs live.
   let root;
   try {
-    root = execFileSync("npm", ["root", "-g"], { encoding: "utf8", timeout: 10000 }).trim();
+    root = (process.platform === "win32" ? execSync("npm root -g", { encoding: "utf8", timeout: 10000 }) : execFileSync("npm", ["root", "-g"], { encoding: "utf8", timeout: 10000 })).trim();
   } catch (e) {
     problems.push(`npm could not be asked where global packages live: ${e.message}`);
   }

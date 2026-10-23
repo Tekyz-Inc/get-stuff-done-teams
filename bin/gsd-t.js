@@ -18,7 +18,14 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { execFileSync, spawn: cpSpawn } = require("child_process");
+const { execFileSync, execSync, spawn: cpSpawn } = require("child_process");
+
+// npm, npx and gsd-t are .cmd scripts on Windows, which Node only runs through
+// a shell. Every argument passed here is a fixed string with no spaces.
+function runCli(cmd, args, opts) {
+  if (process.platform === "win32") return execSync([cmd, ...args].join(" "), opts);
+  return execFileSync(cmd, args, opts);
+}
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -1165,7 +1172,7 @@ function installScipIndexers() {
   for (const { bin, pkg, langs } of indexers) {
     let present = false;
     try {
-      execFileSync("which", [bin], { encoding: "utf8", timeout: 3000, stdio: ["pipe", "pipe", "pipe"] });
+      runCli(process.platform === "win32" ? "where" : "which", [bin], { encoding: "utf8", timeout: 3000, stdio: ["pipe", "pipe", "pipe"] });
       present = true;
     } catch { /* not present */ }
 
@@ -1175,7 +1182,7 @@ function installScipIndexers() {
     }
     info(`Installing ${bin} (${langs} compiler-accurate code graph)...`);
     try {
-      execFileSync("npm", ["install", "-g", pkg], {
+      runCli("npm", ["install", "-g", pkg], {
         encoding: "utf8", timeout: 180000, stdio: ["pipe", "pipe", "pipe"],
       });
       success(`${bin} installed`);
@@ -2228,7 +2235,7 @@ function versionCmp(a, b) {
 async function upgradeGlobalBinary() {
   heading("Upgrading global @tekyzinc/gsd-t to latest...");
   try {
-    execFileSync("npm", ["install", "-g", "@tekyzinc/gsd-t@latest"], {
+    runCli("npm", ["install", "-g", "@tekyzinc/gsd-t@latest"], {
       stdio: "inherit",
       env: process.env,
     });
@@ -2240,16 +2247,14 @@ async function upgradeGlobalBinary() {
 
   // Read the freshly-installed global package's version. If it's newer than
   // the currently-running process, signal a re-exec.
-  let newVersion = null;
-  try {
-    const prefix = execFileSync("npm", ["prefix", "-g"], { encoding: "utf8" }).trim();
-    const globalPkgJson = path.join(prefix, "lib", "node_modules", "@tekyzinc", "gsd-t", "package.json");
-    if (fs.existsSync(globalPkgJson)) {
-      newVersion = JSON.parse(fs.readFileSync(globalPkgJson, "utf8")).version;
-    }
-  } catch {
-    // Best-effort; fall through.
+  // `npm root -g` names the global folder on every OS (Windows has no lib/).
+  // An unreadable version HALTS: carrying on would let the old binary copy its
+  // old files everywhere and report "already at latest".
+  const globalPkgJson = path.join(runCli("npm", ["root", "-g"], { encoding: "utf8" }).trim(), "@tekyzinc", "gsd-t", "package.json");
+  if (!fs.existsSync(globalPkgJson)) {
+    throw new Error(`npm reported success but ${globalPkgJson} does not exist. Nothing was updated — re-run update-all.`);
   }
+  const newVersion = JSON.parse(fs.readFileSync(globalPkgJson, "utf8")).version;
 
   if (newVersion && versionCmp(newVersion, PKG_VERSION) < 0) {
     // v5.20.10 (2026-09-17): right after `npm publish`, npm's cached package
@@ -2279,7 +2284,7 @@ async function upgradeGlobalBinary() {
 function reexecUpdateAll() {
   const env = Object.assign({}, process.env, { GSDT_POST_UPGRADE: "1" });
   try {
-    execFileSync("gsd-t", ["update-all"], { stdio: "inherit", env });
+    runCli("gsd-t", ["update-all"], { stdio: "inherit", env });
   } catch (e) {
     // Surface the child's exit code; execFileSync throws with .status on
     // non-zero exit. Fall through to re-throw so the caller exits cleanly.
