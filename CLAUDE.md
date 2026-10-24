@@ -51,7 +51,7 @@ Exact command list: `ls commands/`. Don't hand-maintain counts in docs.
 
 **Command files** — markdown, accept `$ARGUMENTS`, step-numbered. `gsd-t-scan` and `gsd-t-debug` are thin invokers: resolve `gsd-t workflow-path <name>`, then `Workflow({scriptPath, args})`.
 
-**Retiring something** — add it to `RETIRED_V6` in `bin/gsd-t.js` with a verbatim header sentinel from the shipped file (and a hook marker if it was a hook), so install/update/update-all remove it from every machine and project.
+**Retiring something** — add it to `RETIRED_V6` in `bin/gsd-t.js` with a verbatim header sentinel from the shipped file (and a hook marker if it was a hook), so install/update remove it from every machine and project.
 
 **Templates** — `{Project Name}`, `{Date}` replacement tokens; tables for structured data.
 
@@ -97,7 +97,7 @@ The global gate applies first (see `~/.claude/CLAUDE.md`). Additionally for this
 
 - **Command added/removed/renamed or its behavior changed** → update `README.md` command table, `GSD-T-README.md` + `docs/GSD-T-README.md`, and the command table in `templates/CLAUDE-global.md`. A removed command's leftovers go in `RETIRED_V6` (non-prefixed files) — `gsd-t-*.md` files are removed automatically.
 - **Hook added/removed** → registrar + marker in `bin/gsd-t.js` (`GSDT_HOOK_MARKERS`; retired ones in `RETIRED_V6.hookMarkers`), README hooks table, `docs/infrastructure.md`.
-- **bin tool added/removed** → `PROJECT_BIN_TOOLS` / `GLOBAL_BIN_TOOLS`; a removed one also goes in `RETIRED_V6.bin` with its header sentinel. Then `ls` the file in a real project after `update-all`.
+- **bin tool added/removed** → `PROJECT_BIN_TOOLS` / `GLOBAL_BIN_TOOLS`; a removed one also goes in `RETIRED_V6.bin` with its header sentinel. Then `ls` the file in a real project after `gsd-t update`.
 - **Workflow script changed** → `scriptPath` still resolves via `gsd-t workflow-path`, `args` matches `meta.phases`, sandbox lint passes, and run it in the real Workflow sandbox.
 - **CLI installer changed** → smoke test `install`, `update`, `status`, `doctor`, `init`, `uninstall`.
 - **Template changed** → verify `gsd-t init` still produces correct output.

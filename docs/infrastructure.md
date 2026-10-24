@@ -9,8 +9,7 @@
 | Task | Command |
 |------|---------|
 | Install GSD-T | `npx @tekyzinc/gsd-t install` |
-| Update GSD-T | `npx @tekyzinc/gsd-t update` |
-| Update GSD-T + all projects | `npx @tekyzinc/gsd-t update-all` |
+| Update GSD-T + all projects | `npx @tekyzinc/gsd-t update` (installs the latest release from npm first) |
 | Installation status | `gsd-t status` |
 | Diagnose | `gsd-t doctor [--install-playwright]` |
 | Scaffold a project | `gsd-t init [project-name]` |
@@ -20,7 +19,7 @@
 | Code graph | `gsd-t graph index \| status \| who-calls \| who-imports \| blast-radius \| body \| who-uses \| table \| metrics` |
 | Worktree | `gsd-t pick-worktree [--name <branch> \| --list \| --suggest]` |
 | Second Claude account | `gsd-t link-config-dir ~/.claude-<name>` |
-| Update every project + its worktrees | `gsd-t update-all` (worktrees with an open session are skipped) |
+| Update every project + its worktrees | `gsd-t update` (worktrees with an open session are skipped) |
 | Workflow path | `gsd-t workflow-path scan \| debug` |
 | Estimate sheet | `gsd-t estimate-sheet <verb> --sheet <id\|url>` |
 | Talk (spoken conversation) | Starts on its own with the first session. `gsd-t talk status \| stop`; `gsd-t talk [--voice kokoro\|google]` runs it in the foreground. Needs `uv` and tmux; handoff file `~/.claude/.gsd-t-talk.json` |
@@ -54,7 +53,7 @@ Real work happens in a worktree: `~/Worktrees/GSD-T/<branch>/` (v6 was built in 
 - **Version**: `package.json` (also `package-lock.json`, `.gsd-t/progress.md`, README, CHANGELOG); installed version in `~/.claude/.gsd-t-version`.
 - **Runtime dependencies**: `better-sqlite3`, `tree-sitter`, `tree-sitter-typescript`, `tree-sitter-python`. SCIP indexers (`scip-typescript`, `scip-python`) installed by `gsd-t install`.
 - **Files shipped**: `bin/`, `commands/`, `scripts/`, `templates/`, `examples/`, `docs/`, `CHANGELOG.md`.
-- **Publish**: `/cpua` — tests, bump, commit, tag, publish, poll the registry tarball, clean cache, install by tarball, verify the on-disk version, `install`, `update-all`, re-check.
+- **Publish**: `/cpua` — tests, bump, commit, tag, publish, poll the registry tarball, clean cache, install by tarball, verify the on-disk version, `install`, `update`, re-check.
 
 ### Installed locations
 
@@ -135,7 +134,7 @@ GSD-T itself needs none beyond an npm login for publishing. Projects record envi
 | Hooks not firing | `gsd-t doctor`, then `npx @tekyzinc/gsd-t install` |
 | "graph unavailable" / search blocked for a missing graph | `gsd-t graph status`, then `gsd-t graph index` |
 | SCIP tier missing on large files | Re-run `gsd-t graph index`; check `graph status` for SCIP-missing files |
-| A project is missing `bin/` tools | Start a session (self-heal) or run `gsd-t install-check --project .` / `gsd-t update-all` |
+| A project is missing `bin/` tools | Start a session (self-heal) or run `gsd-t install-check --project .` / `gsd-t update` |
 | Old v5 commands or hooks still present | `npx @tekyzinc/gsd-t update` — retired files are moved to `~/.claude/.gsd-t-retired/<date>/` |
 | Install halts on a symlink / settings.json / CLAUDE.md markers | Follow the printed `Fix:` line (replace the link with a real file, repair the JSON or markers), re-run — nothing was changed |
 | Need a retired file back | Move it from `~/.claude/.gsd-t-retired/<date>/<path>` (or `<project>/.gsd-t/retired/<date>/<path>`) back to `<path>` |

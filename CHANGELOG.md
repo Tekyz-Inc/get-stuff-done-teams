@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.24] - 2026-10-24
+
+### Changed — `gsd-t update` updates everything
+
+`gsd-t update` now does what `update-all` did: installs the latest release from npm, then updates the global install and every registered project. Before, it only compared `~/.claude` with the package already on the machine, so a machine stuck on an old release reported "Already up to date" (seen on Windows at 6.1.16 while 6.2.23 was out). A failed npm install halts before anything changes. `update-all` still works as the same command, because older releases hand off to the new binary by that name; it is no longer advertised.
+
+- `bin/gsd-t.js`: `update` and `update-all` both run the full update; the local-only update is removed; hand-off, help, update banner and failure text say `gsd-t update`
+- `scripts/gsd-t-update-check.js`: auto-update runs `gsd-t update`
+- `commands/gsd-t-version-update-all.md`, `commands/cpua.md`, README, docs: one `gsd-t update`
+- tests: `update` dispatch test; npm-failure halt checked for both names; CLI tests that run `update` skip the real npm install
+
 ## [6.2.23] - 2026-10-23
 
 ### Fixed — `gsd-t update-all` works on Windows

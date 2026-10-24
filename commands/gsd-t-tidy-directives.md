@@ -2,7 +2,7 @@
 
 Fixes a project's directive files — CLAUDE.md (any depth), AGENTS.md, `.cursorrules`, project
 `.claude/` commands, skills, rules, agents and settings — that still point at GSD-T commands
-removed in v6. Runs automatically: `update-all` flags the project and the next session there
+removed in v6. Runs automatically: `gsd-t update` flags the project and the next session there
 starts it. **Pre-approved — do not ask before editing.** Nothing is committed.
 
 ## Step 1: Find what needs fixing

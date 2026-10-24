@@ -72,7 +72,7 @@ test('BUG-2: install replaces a v5 GSD-T section; update refreshes a stale one a
 
     // Version now current; a stale section must still be refreshed by content.
     fs.writeFileSync(md, body.replace(template.trim().split('\n')[1], 'STALE LINE'));
-    assert.equal(cli(home, ['update']).status, 0);
+    assert.equal(cli(home, ['update'], { GSDT_POST_UPGRADE: '1' }).status, 0);
     body = fs.readFileSync(md, 'utf8');
     assert.ok(!body.includes('STALE LINE'), 'update refreshes the section even at the current version');
 

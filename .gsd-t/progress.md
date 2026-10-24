@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v6.0.10 (2026-10-11): **M120 GSD-T v6 slim-down COMPLETE** — execution pipeline removed (59 → 18 commands, ~129K lines cut); kept graph, no-fallback, date guard, architect, new opt-in red team, debug halt, worktrees, env registry, Playwright rules, demo videos, estimates. Retired files are moved to dated backups, never deleted. Next: v6.1 — `gsd-t link-config-dir` (per-account Claude config dirs), faster scan, estimate-rescale rethink, solo story flow (pilot project to be chosen — not FlyLingo, which the dev team is building).
-## Date: 2026-10-23 15:43 PDT
-## Version: 6.2.23
+## Date: 2026-10-24 12:17 PDT
+## Version: 6.2.24
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-10-24 12:17 PDT: [change] `gsd-t update` now updates everything (v6.2.24) — David: "remove the -all; update should automatically update all". It installs the latest release from npm (halts if npm fails), then global + every project. `update-all` stays as a silent alias because older releases hand off by that name. Found while testing: the CLI tests that ran `update` now hit real npm, and parallel installs wiped the global package once (restored); those tests now skip npm.
 - 2026-10-23 15:43 PDT: [fix] update-all on Windows (v6.2.23) — a Windows machine failed with "spawnSync npm ENOENT" (npm/npx/gsd-t are .cmd scripts that need a shell); all those calls now use a shell on Windows. The version read-back after the upgrade used <prefix>/lib/node_modules (absent on Windows) and silently continued with the old binary — now `npm root -g` and a HALT if missing.
 - 2026-10-23 10:15 PDT: [docs] Template carries David's "repose the question" global rule (v6.2.22) — it was only in his live ~/.claude/CLAUDE.md and the uncommitted template; the 6.2.21 template change would have made update replace the section without it.
 - 2026-10-23 10:12 PDT: [change] Wrong-app override prefix is now "---" (v6.2.21) — David: "This App - This Session" is too much to say; old phrase removed. Also talk ignores a closed copy's leftover output (caused writes to a closed transcript and a ~1-in-30 talk test flake; 0/80 after).

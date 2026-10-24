@@ -57,7 +57,7 @@ function doAutoUpdate(latest, installed) {
     runCli("npm", ["install", "-g", "@tekyzinc/gsd-t@" + latest], {
       timeout: 60000, encoding: "utf8", stdio: "pipe"
     });
-    runCli("gsd-t", ["update-all"], {
+    runCli("gsd-t", ["update"], {
       timeout: 60000, encoding: "utf8", stdio: "pipe"
     });
     const updated = fs.existsSync(VERSION_FILE)

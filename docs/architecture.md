@@ -8,7 +8,7 @@ GSD-T is an npm package that adds guardrails to Claude Code. It has no long-runn
 
 - **Slash commands** (`commands/*.md`) — markdown instructions Claude Code follows.
 - **Hook scripts** (`scripts/*.js`) — registered in `~/.claude/settings.json`; they block, rewrite or annotate tool calls.
-- **A CLI** (`bin/gsd-t.js`) — install, update, update-all, init, doctor, graph, worktree picking, estimate sheets.
+- **A CLI** (`bin/gsd-t.js`) — install, update, init, doctor, graph, worktree picking, estimate sheets.
 - **Tools** (`bin/*.cjs`) — the code graph, worktree provisioner, env registry, estimate writer, guards. Copied into each project's `bin/` (and some into `~/.claude/bin/`).
 - **Templates** — the global `CLAUDE.md` block, project scaffolding, the scan and debug Workflow scripts, demo-video and estimate assets.
 
@@ -19,7 +19,7 @@ v6 removed the phase pipeline (milestone → partition → plan → execute → 
 ### CLI (`bin/gsd-t.js`)
 
 - Node built-ins only in the CLI itself; the graph needs `better-sqlite3` and `tree-sitter` (+ TypeScript / Python grammars), declared as package dependencies. `install` also installs the SCIP indexers.
-- Subcommands: `install`, `update`, `update-all`, `init`, `register`, `status`, `uninstall`, `doctor`, `changelog`, `graph`, `pick-worktree`, `setup-playwright`, `workflow-path`, `estimate-sheet`, `talk`, plus the tool routes `install-check`, `slice-budget`, `pseudocode-style`, `graph-availability`.
+- Subcommands: `install`, `update` (`update-all` is an old alias), `init`, `register`, `status`, `uninstall`, `doctor`, `changelog`, `graph`, `pick-worktree`, `setup-playwright`, `workflow-path`, `estimate-sheet`, `talk`, plus the tool routes `install-check`, `slice-budget`, `pseudocode-style`, `graph-availability`.
 - `PROJECT_BIN_TOOLS` lists what is copied into every project's `bin/`. `bin/gsd-t-install-check.cjs` parses that array from the source text, so it must keep the `const PROJECT_BIN_TOOLS = [ … ];` shape.
 
 ### Commands (`commands/`)
@@ -122,10 +122,10 @@ gsd-t install | update
   └── install SCIP indexers
 ```
 
-### update-all
+### update
 
 ```
-gsd-t update-all
+gsd-t update            (update-all: same thing — older releases hand off by that name)
   ├── npm install -g fails → HALT before touching anything
   ├── installed version ≠ package → full update; equal → preflight + CLAUDE.md compare + RETIRED_V6 retirement
   ├── for each registered project: symlink preflight (CLAUDE.md, CHANGELOG.md, bin/), move retired strays to
@@ -148,7 +148,7 @@ gsd-t init [name]
 
 One object in `bin/gsd-t.js` drives every retirement: commands, `~/.claude/bin` and project `bin/` tools, `~/.claude/scripts` files, `~/.claude/templates`, the status-line script, and `settings.json` hook markers. **Move, never delete:** a file whose first 1,200 characters contain a verbatim header GSD-T shipped (for `gsd-t-*.md` commands: the `# GSD-T: ` header, which must be the FIRST line) is moved by `retireShippedFile` to `~/.claude/.gsd-t-retired/<YYYY-MM-DD>/<relative path>` (project: `<project>/.gsd-t/retired/<YYYY-MM-DD>/bin/…`), keeping its permissions and never overwriting an existing backup (`name.1.ext`, …); one summary line gives the count and folder. A file without the header is reported and kept. Why: two red-team rounds on delete-based cleanup did not converge; a move makes any misclassification recoverable. The project backup is added to `.gitignore` only when the project already ignores `.gsd-t/` working files. The status-line setting is cleared when it names (in any spelling) a retired GSD-T script that is now gone. A move that fails (e.g. EXDEV, a different disk) removes the backup folder it just created and prints a fix. Appending a GSD-T section to an unmarked CLAUDE.md writes a backup first. The GSD-T source repo is never swept.
 
-**Halts, not fallbacks.** `preflightGlobal` (install / update / update-all) and `haltOnSymlinks` (also at the top of the project sweep) stop with a `Fix:` line before any change when settings.json is not an object of hook arrays, a path GSD-T would write / copy over / move — or a directory between it and `~/.claude` / the project — is a symlink, or CLAUDE.md markers are malformed (`claudeMdProblem`). A failed copy or move throws: no "Installation Complete!", version file not advanced, so the next run retries.
+**Halts, not fallbacks.** `preflightGlobal` (install / update) and `haltOnSymlinks` (also at the top of the project sweep) stop with a `Fix:` line before any change when settings.json is not an object of hook arrays, a path GSD-T would write / copy over / move — or a directory between it and `~/.claude` / the project — is a symlink, or CLAUDE.md markers are malformed (`claudeMdProblem`). A failed copy or move throws: no "Installation Complete!", version file not advanced, so the next run retries.
 
 **One hook registrar.** `upsertGsdtHook` registers every GSD-T hook (guards, intercepts, use report, changelog hooks, install-heal, update-check, auto-route): one entry per script on its intended event, copies on other events removed, SessionStart matcher `""`, user groups never re-matched. `normalizeHookCommand` rewrites every spelling of a script path (quotes, `~`, `$HOME`, `${HOME}`, `"$HOME"/…`, the absolute or real home path, the `$(npm root -g)/@tekyzinc/gsd-t/scripts/` wrapper) to one form, and `gsdtScriptRefs` matches only `~/.claude/scripts/[hooks/]gsd-t-*` or the package scripts dir — a user hook running a same-named script from its own repo is not ours. **Invariant:** after install no hook or statusLine names a GSD-T script that does not exist; a run that would break it halts before any change, and the end of the run re-checks it.
 

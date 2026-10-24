@@ -16,7 +16,7 @@ In a project, inside Claude Code:
 
 That runs git setup, `gsd-t init` (creates `CLAUDE.md`, `docs/`, `.gsd-t/`, copies tools into `bin/`, registers the project), a deep scan, and writes the project `CLAUDE.md` from what the scan found. Use `/gsd-t-init` alone for a bare scaffold.
 
-Keep everything current with `/gsd-t-version-update-all` (or `npx @tekyzinc/gsd-t update-all`).
+Keep everything current with `/gsd-t-version-update-all` (or `npx @tekyzinc/gsd-t update`).
 
 ## 2. Day-to-day work
 
@@ -34,7 +34,7 @@ Reach for a command when the work calls for it:
 |---|---|
 | Non-trivial design, before writing code | `/gsd-t-architect` |
 | Risky change (security, money, permissions, data integrity, or just complex) | `/gsd-t-red-team` |
-| Project rules still name retired GSD-T commands | `/gsd-t-tidy-directives` (runs automatically after `update-all` flags it) |
+| Project rules still name retired GSD-T commands | `/gsd-t-tidy-directives` (runs automatically after `gsd-t update` flags it) |
 | A failing test or runtime error | `/gsd-t-debug` |
 | New codebase, or a health check on an old one | `/gsd-t-scan` |
 | Stopping mid-task | `/gsd-t-pause`, later `/gsd-t-resume` |

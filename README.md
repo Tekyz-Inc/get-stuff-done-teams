@@ -33,11 +33,10 @@ Then, inside Claude Code:
 **Updating:**
 
 ```bash
-npx @tekyzinc/gsd-t update       # global commands, CLAUDE.md block, hooks
-npx @tekyzinc/gsd-t update-all   # the above + every registered project
+npx @tekyzinc/gsd-t update       # latest release from npm, then global commands, CLAUDE.md block, hooks + every registered project
 ```
 
-`update` and `update-all` also **retire what v6 no longer ships**: old `gsd-t-*` commands, `~/.claude/bin` tools, `~/.claude/scripts` hooks, the status line, their `settings.json` hook entries, and stray copies in each project's `bin/`. Retired files are moved (never deleted) to `~/.claude/.gsd-t-retired/<date>/` (project files to `<project>/.gsd-t/retired/<date>/`), and only when they carry the exact header GSD-T shipped them with; a same-named file of your own is left alone. A symlink, a malformed `settings.json` or malformed CLAUDE.md markers stop the run before anything changes.
+`update` also **retire what v6 no longer ships**: old `gsd-t-*` commands, `~/.claude/bin` tools, `~/.claude/scripts` hooks, the status line, their `settings.json` hook entries, and stray copies in each project's `bin/`. Retired files are moved (never deleted) to `~/.claude/.gsd-t-retired/<date>/` (project files to `<project>/.gsd-t/retired/<date>/`), and only when they carry the exact header GSD-T shipped them with; a same-named file of your own is left alone. A symlink, a malformed `settings.json` or malformed CLAUDE.md markers stop the run before anything changes.
 
 ---
 
@@ -46,7 +45,7 @@ npx @tekyzinc/gsd-t update-all   # the above + every registered project
 | Command | What it does |
 |---|---|
 | `/gsd-t-architect` | Design pass before building: grounds in the code and standing rules, asks only what the code can't answer, checks reuse via the graph, writes a plain-English PseudoCode plan for approval |
-| `/gsd-t-tidy-directives` | Cleans a project's directive files (CLAUDE.md, AGENTS.md, `.claude/` commands/skills/rules/settings) that still name retired GSD-T commands. `update-all` flags the project; the next session there runs it automatically, backs up each file first, and leaves the edits uncommitted |
+| `/gsd-t-tidy-directives` | Cleans a project's directive files (CLAUDE.md, AGENTS.md, `.claude/` commands/skills/rules/settings) that still name retired GSD-T commands. `gsd-t update` flags the project; the next session there runs it automatically, backs up each file first, and leaves the edits uncommitted |
 | `/gsd-t-red-team` | Opt-in adversarial review of a change — a fresh-context agent tries to break it. For complex or security / money / permissions / data-integrity work |
 | `/gsd-t-debug` | Graph-localized debug loop: two fix cycles, then HALT and hand back to you |
 | `/gsd-t-scan` | Deep codebase analysis and tech-debt register, sliced by volume and built on the graph; stops at once when the project has no code yet |
@@ -168,8 +167,7 @@ Hold Ctrl+Option+Space in the dictation app (WindowsVoiceTranscription) and talk
 
 ```
 gsd-t install            Install slash commands + global CLAUDE.md + hooks
-gsd-t update             Update global commands + CLAUDE.md
-gsd-t update-all         Update globally + every registered project
+gsd-t update             Install the latest release, then update globally + every registered project
 gsd-t init [name]        Scaffold a GSD-T project (auto-registers)
 gsd-t register           Register current directory as a GSD-T project
 gsd-t status             Show installation status + check for updates

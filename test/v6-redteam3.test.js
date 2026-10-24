@@ -216,7 +216,7 @@ test('RT3 BUG-3: a failed project write (read-only CLAUDE.md) fails update-all n
     const r = cli(home, ['update-all'], { GSDT_POST_UPGRADE: '1' });
     assert.notEqual(r.status, 0, r.stdout + r.stderr);
     assert.match(r.stdout + r.stderr, /HALTED: failed to update .*CLAUDE\.md/);
-    assert.match(r.stdout + r.stderr, /update-all FAILED for 1 project/);
+    assert.match(r.stdout + r.stderr, /gsd-t update FAILED for 1 project/);
     assert.ok(fs.existsSync(path.join(proj, '.gsd-t', 'graph.db')), 'halted project: legacy graph NOT moved');
   } finally { rm(home); rm(proj); }
 });

@@ -5,8 +5,7 @@
  *
  * Usage:
  *   npx @tekyzinc/gsd-t install     — Install commands + global CLAUDE.md
- *   npx @tekyzinc/gsd-t update      — Update commands + global CLAUDE.md (preserves customizations)
- *   npx @tekyzinc/gsd-t update-all  — Update globally + all registered project CLAUDE.md files
+ *   npx @tekyzinc/gsd-t update      — Install the latest release, then update globally + every registered project
  *   npx @tekyzinc/gsd-t init [name] — Initialize a new project with GSD-T structure (auto-registers)
  *   npx @tekyzinc/gsd-t register    — Register current directory as a GSD-T project
  *   npx @tekyzinc/gsd-t status      — Show what's installed and check for updates
@@ -1562,27 +1561,6 @@ function showInstallSummary(gsdtCount, utilCount) {
   log("");
 }
 
-async function doUpdate() {
-  const installedVersion = getInstalledVersion();
-
-  if (installedVersion === PKG_VERSION) {
-    heading(`GSD-T ${versionLink()}`);
-    info("Already up to date!");
-    refreshSameVersion();
-    log("");
-    log("  To force a reinstall, run:");
-    log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
-    log("");
-    return;
-  }
-
-  if (installedVersion) {
-    heading(`Updating GSD-T: ${versionLink(installedVersion)} → ${versionLink()}`);
-  }
-
-  await doInstall({ update: true });
-}
-
 function initClaudeMd(projectDir, projectName, today) {
   const claudeMdPath = path.join(projectDir, "CLAUDE.md");
   if (isSymlink(claudeMdPath)) {
@@ -2205,7 +2183,7 @@ async function doUpdateAll() {
   );
   // Every project is attempted, then the run fails if any project halted.
   if (failed.length) {
-    error(`update-all FAILED for ${failed.length} project(s):`);
+    error(`gsd-t update FAILED for ${failed.length} project(s):`);
     for (const p of failed) error(`    ${p}`);
     process.exitCode = 1;
   }
@@ -2242,7 +2220,7 @@ async function upgradeGlobalBinary() {
   } catch (e) {
     // HALT before touching ~/.claude or any project: continuing would push the
     // OLD package's files everywhere and report success.
-    throw new Error(`Global npm install failed (${e.message || e}). Nothing was updated — fix npm (permissions, network) and re-run update-all.`);
+    throw new Error(`Global npm install failed (${e.message || e}). Nothing was updated — fix npm (permissions, network) and re-run "gsd-t update".`);
   }
 
   // Read the freshly-installed global package's version. If it's newer than
@@ -2252,7 +2230,7 @@ async function upgradeGlobalBinary() {
   // old files everywhere and report "already at latest".
   const globalPkgJson = path.join(runCli("npm", ["root", "-g"], { encoding: "utf8" }).trim(), "@tekyzinc", "gsd-t", "package.json");
   if (!fs.existsSync(globalPkgJson)) {
-    throw new Error(`npm reported success but ${globalPkgJson} does not exist. Nothing was updated — re-run update-all.`);
+    throw new Error(`npm reported success but ${globalPkgJson} does not exist. Nothing was updated — re-run "gsd-t update".`);
   }
   const newVersion = JSON.parse(fs.readFileSync(globalPkgJson, "utf8")).version;
 
@@ -2265,7 +2243,7 @@ async function upgradeGlobalBinary() {
     // HALT and say how to fix it, never continue on a stale listing.
     error(`HALT: npm installed v${newVersion} over the running v${PKG_VERSION} — @latest resolved to an OLDER release.`);
     info("npm's cached package listing is stale. Run `npm cache clean --force`, wait until");
-    info(`\`curl -sI https://registry.npmjs.org/@tekyzinc/gsd-t/-/gsd-t-${PKG_VERSION}.tgz\` returns 200, then re-run update-all.`);
+    info(`\`curl -sI https://registry.npmjs.org/@tekyzinc/gsd-t/-/gsd-t-${PKG_VERSION}.tgz\` returns 200, then re-run "gsd-t update".`);
     info(`Restore the current release first: npm install -g @tekyzinc/gsd-t@${PKG_VERSION}`);
     process.exit(1);
   }
@@ -2278,13 +2256,13 @@ async function upgradeGlobalBinary() {
   return { upgraded: true, reexec: false };
 }
 
-// Hand execution to the newly-installed global `gsd-t update-all`. Sets the
+// Hand execution to the newly-installed global `gsd-t update`. Sets the
 // GSDT_POST_UPGRADE env flag so the child does not recurse into another
 // upgrade attempt.
 function reexecUpdateAll() {
   const env = Object.assign({}, process.env, { GSDT_POST_UPGRADE: "1" });
   try {
-    runCli("gsd-t", ["update-all"], { stdio: "inherit", env });
+    runCli("gsd-t", ["update"], { stdio: "inherit", env });
   } catch (e) {
     // Surface the child's exit code; execFileSync throws with .status on
     // non-zero exit. Fall through to re-throw so the caller exits cleanly.
@@ -2347,7 +2325,7 @@ function updateProjectWorktrees(projects, counts, failed, sessionDirs) {
   for (const w of all) {
     const label = `${path.basename(w.repo)} [${w.branch}]`;
     if (detect.isOccupied(w.path, sessions)) {
-      warn(`${label} — a session is open in ${w.path}; skipped (re-run update-all after it closes)`);
+      warn(`${label} — a session is open in ${w.path}; skipped (re-run "gsd-t update" after it closes)`);
       counts.worktrees.busy++;
       continue;
     }
@@ -2569,7 +2547,7 @@ function copyBinToolsToProject(projectDir, projectName) {
   if (notDelivered.length) {
     warn(`${projectName} — ${notDelivered.length} of ${PROJECT_BIN_TOOLS.length} tools were NOT delivered:`);
     for (const n of notDelivered) warn(`    ${n.tool} — ${n.why}`);
-    throw new Error(`${notDelivered.length} bin tool(s) not delivered — fix the cause above and re-run update-all`);
+    throw new Error(`${notDelivered.length} bin tool(s) not delivered — fix the cause above and re-run "gsd-t update"`);
   }
   if (copied > 0) info(`${projectName} — copied ${copied} bin tool(s)`);
   return copied > 0 || moved > 0;
@@ -2980,8 +2958,7 @@ function showUpdateNotice(latest) {
   e("");
   e(`  ${YELLOW}╭──────────────────────────────────────────────╮${RESET}`);
   e(`  ${YELLOW}│${RESET}  Update available: ${DIM}${PKG_VERSION}${RESET} → ${GREEN}${latest}${RESET}            ${YELLOW}│${RESET}`);
-  e(`  ${YELLOW}│${RESET}  Run: ${CYAN}npm update -g @tekyzinc/gsd-t${RESET}         ${YELLOW}│${RESET}`);
-  e(`  ${YELLOW}│${RESET}  Then: ${CYAN}gsd-t update-all${RESET}                     ${YELLOW}│${RESET}`);
+  e(`  ${YELLOW}│${RESET}  Run: ${CYAN}gsd-t update${RESET}                           ${YELLOW}│${RESET}`);
   e(`  ${YELLOW}│${RESET}  Changelog: ${CYAN}gsd-t changelog${RESET}                  ${YELLOW}│${RESET}`);
   e(`  ${YELLOW}╰──────────────────────────────────────────────╯${RESET}`);
 }
@@ -3221,8 +3198,7 @@ function showHelp() {
   log(`${BOLD}Usage:${RESET}  npx @tekyzinc/gsd-t ${CYAN}<command>${RESET} [options]\n`);
   log(`${BOLD}Commands:${RESET}`);
   log(`  ${CYAN}install${RESET}             Install slash commands + global CLAUDE.md + hooks`);
-  log(`  ${CYAN}update${RESET}              Update global commands + CLAUDE.md`);
-  log(`  ${CYAN}update-all${RESET}          Update globally + every registered project`);
+  log(`  ${CYAN}update${RESET}              Install the latest release, then update globally + every registered project`);
   log(`  ${CYAN}init${RESET} [name]         Scaffold a GSD-T project (auto-registers)`);
   log(`  ${CYAN}register${RESET}            Register current directory as a GSD-T project`);
   log(`  ${CYAN}status${RESET}              Show installation status + check for updates`);
@@ -3343,9 +3319,9 @@ if (require.main === module) {
     case "install":
       doInstall().catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
+    // `update-all` stays accepted: older releases hand off to the new binary
+    // (and run their update-check hook) by that name.
     case "update":
-      doUpdate().catch((e) => { error(e.message || String(e)); process.exit(1); });
-      break;
     case "update-all":
       doUpdateAll().catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;

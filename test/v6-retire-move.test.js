@@ -263,7 +263,7 @@ test('R2-8: one registrar — one entry per GSD-T script, wrong-event copies rem
   } finally { rm(home); }
 });
 
-test('R2-9: update-all halts before touching anything when npm install -g fails', () => {
+for (const verb of ['update', 'update-all']) test(`R2-9: ${verb} halts before touching anything when npm install -g fails`, () => {
   const home = tmp('gsdt-r9-');
   const proj = tmp('gsdt-r9-proj-');
   const stub = tmp('gsdt-r9-bin-');
@@ -277,7 +277,7 @@ test('R2-9: update-all halts before touching anything when npm install -g fails'
     const before = { ...snap(home), ...snap(proj) };
     const env = { ...process.env, HOME: home, PATH: `${stub}:${process.env.PATH}` };
     delete env.GSDT_POST_UPGRADE;
-    const r = spawnSync('node', [INSTALLER, 'update-all'], { env, encoding: 'utf8' });
+    const r = spawnSync('node', [INSTALLER, verb], { env, encoding: 'utf8' });
     assert.notEqual(r.status, 0);
     assert.match(r.stdout + r.stderr, /Global npm install failed/);
     assert.deepEqual({ ...snap(home), ...snap(proj) }, before, 'nothing touched');
@@ -291,9 +291,9 @@ test('R2-10: same-version update still runs the retired cleanup', () => {
     write(path.join(C, '.gsd-t-version'), PKG_VERSION);
     write(path.join(C, 'commands', 'gsd-t-wave.md'), '# GSD-T: Wave\n');
     write(path.join(C, 'scripts', 'gsd-t-heartbeat.js'), shipped(R.scripts['gsd-t-heartbeat.js']));
-    const r = cli(home, ['update']);
+    const r = cli(home, ['update'], { GSDT_POST_UPGRADE: '1' });
     assert.equal(r.status, 0, r.stdout + r.stderr);
-    assert.match(r.stdout, /Already up to date/);
+    assert.match(r.stdout, /Global commands already up to date/);
     assert.ok(fs.existsSync(path.join(RETIRED_HOME(home), 'commands', 'gsd-t-wave.md')));
     assert.ok(fs.existsSync(path.join(RETIRED_HOME(home), 'scripts', 'gsd-t-heartbeat.js')));
   } finally { rm(home); }

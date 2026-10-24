@@ -2,19 +2,15 @@
 
 You are updating the GSD-T package to the latest version from npm and applying it to the global installation and all registered projects.
 
-## Step 1: Update the npm package
+## Step 1: Update
+
+`gsd-t update` installs the latest release from npm, then updates the global install and every registered project. It halts if npm fails.
 
 ```bash
-npm update -g @tekyzinc/gsd-t
+gsd-t update
 ```
 
-## Step 2: Apply to global install and all projects
-
-```bash
-gsd-t update-all
-```
-
-## Step 3: Report
+## Step 2: Report
 
 Show the user what version was installed, how many projects were updated, and confirm success.
 

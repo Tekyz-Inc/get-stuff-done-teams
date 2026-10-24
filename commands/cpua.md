@@ -160,11 +160,11 @@ gsd-t install 2>&1 | tail -5
 #    instead of handing off, but do not rely on the halt: check first).
 [ "$(npm view @tekyzinc/gsd-t dist-tags.latest)" = "{NEW_VERSION}" ] || { echo "HALT: registry latest is not {NEW_VERSION}"; exit 1; }
 # 5. Propagate, then prove the global is STILL the new version and a NEW file reached a project.
-gsd-t update-all 2>&1 | tail -30
-[ "$(node -p "require('$G/package.json').version")" = "{NEW_VERSION}" ] || { echo "HALT: global package reverted during update-all"; exit 1; }
+gsd-t update 2>&1 | tail -30
+[ "$(node -p "require('$G/package.json').version")" = "{NEW_VERSION}" ] || { echo "HALT: global package reverted during update"; exit 1; }
 ```
 
-Never `npm update -g` (npm rejects it for legacy version strings like `3.19.00`). After `update-all`, prove propagation by `ls`/`grep` of one NEW or CHANGED file in a real registered project — the "copied N tool(s)" line is a report, not proof. Note: `update-all` also overwrites `~/.claude/commands/*.md` from the package, so THIS file's source of truth is `commands/cpua.md` in the GSD-T repo; an edit made only in `~/.claude/commands/` is lost on the next propagation.
+Never `npm update -g` (npm rejects it for legacy version strings like `3.19.00`). After `gsd-t update`, prove propagation by `ls`/`grep` of one NEW or CHANGED file in a real registered project — the "copied N tool(s)" line is a report, not proof. Note: `gsd-t update` also overwrites `~/.claude/commands/*.md` from the package, so THIS file's source of truth is `commands/cpua.md` in the GSD-T repo; an edit made only in `~/.claude/commands/` is lost on the next propagation.
 
 ## Step 7: Report
 

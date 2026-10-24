@@ -57,3 +57,10 @@ test("upgradeGlobalBinary halts (process.exit) when the installed version is old
   assert.ok(!/reexec:\s*true/.test(branchBody), "a downgrade must never re-exec into the older binary");
   assert.ok(/npm cache clean --force/.test(branchBody), "the halt names the fix (stale npm listing)");
 });
+
+test("`gsd-t update` runs the full update (npm latest + every project); `update-all` is the same", () => {
+  const m = SRC.match(/case "update":\s*case "update-all":\s*doUpdateAll\(\)/);
+  assert.ok(m, "update and update-all both dispatch to doUpdateAll");
+  assert.ok(!/function doUpdate\(/.test(SRC), "the old local-only update is gone");
+  assert.ok(/runCli\("gsd-t", \["update"\]/.test(extractFunction("reexecUpdateAll")), "hand-off uses `update`");
+});

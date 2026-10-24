@@ -78,10 +78,10 @@ Each guard hook has a marker string. On install, the one registrar (`upsertGsdtH
 
 ### Update all projects
 
-1. `gsd-t update-all` (or `/gsd-t-version-update-all`).
+1. `gsd-t update` (or `/gsd-t-version-update-all`).
 2. `npm install -g` failure halts before anything is touched.
 3. Global: preflight (settings.json shape, symlinks, CLAUDE.md markers — halt with a fix, nothing changed); installed version differs → full update; same version → still compare the CLAUDE.md section and retire old hooks and files (moved to `~/.claude/.gsd-t-retired/<date>/`).
-4. Per registered project: symlink preflight on `bin/`; move listed retired tools whose header matches a shipped sentinel to `.gsd-t/retired/<date>/`; copy `PROJECT_BIN_TOOLS` into `bin/` (a copy that fails halts that project). The GSD-T source repo is skipped. Any halted project makes update-all exit non-zero.
+4. Per registered project: symlink preflight on `bin/`; move listed retired tools whose header matches a shipped sentinel to `.gsd-t/retired/<date>/`; copy `PROJECT_BIN_TOOLS` into `bin/` (a copy that fails halts that project). The GSD-T source repo is skipped. Any halted project makes `gsd-t update` exit non-zero.
 
 ### Install self-heal
 

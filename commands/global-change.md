@@ -200,7 +200,7 @@ If there were failures, list them with actionable error messages.
 - **Content for `insert`** can be provided inline or pasted in the user's message
 - **Content for `update`** uses the `%%REPLACE_WITH%%` delimiter — old_content match is exact and whitespace-sensitive
 - **Project names in logs** are derived from the last segment of the project path
-- **The `.gsd-t-projects` file** is maintained by `gsd-t init` (auto-registers) and `gsd-t update-all` (reads)
+- **The `.gsd-t-projects` file** is maintained by `gsd-t init` (auto-registers) and `gsd-t update` (reads)
 
 $ARGUMENTS
 
