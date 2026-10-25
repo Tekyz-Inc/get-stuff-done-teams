@@ -26,16 +26,15 @@ You release the keys
       The panel shows the reason in red; your words stay there to copy
     Found: Go on
   Do your words say "we're done":
+    Talk goes quiet at once: no "Okay", no tone (ending is silent)
     With "pass it on":
-      Talk says "Summarizing for the session"
-      The copy writes a short summary (decisions and the points that matter)
+      The copy writes a short summary, silently (decisions and the points that matter)
       Save the summary in the transcript, marked "passed on"
       Close the copy; talk goes idle for that session
       The dictation app pastes "Claude Voice Session: <summary> Full transcript: <file>" into the tab
         You read it and press Enter to send it, or edit it first
     With "ignore":
-      The copy writes the summary; save it, marked "ignored"
-      Close the copy; talk says "Saved. Going quiet"
+      Close the copy at once; no summary; the transcript is marked "ignored"
     Neither:
       Talk asks "Pass it on, or ignore?"
     There is no conversation to end:
@@ -107,13 +106,14 @@ The microphone is only open while you hold the keys
 - [RULE] talk-turns-matched-by-echo — a copy can run turns of its own (the original session's queued notices arrive first); only the turn that follows the echo of our message is the answer. Its own turns are logged, never spoken, and the copy is told to leave the original's unfinished work alone.
 - [RULE] talk-restarts-twice-then-halts — every crash is logged with its full error and talk restarts. A restart has failed when the restarted talk crashes within a minute; after two failed restarts in a row it stops with a notification and a "crashed" status. Approved fallback `talk-supervisor-restart`.
 - [RULE] talk-copies-read-only — a copy gets only Read, Grep, Glob, WebSearch, WebFetch, no connected services, nothing saved; it cannot edit, run commands, start work or reach any session. Work reaches a session only through the paste the user sends. (ATOS-V2, 11:24–11:57: a copy committed, pushed and launched a build beside the real window.)
-- [RULE] talk-working-sounds — subtle alternating dings from the moment the keys are released (and while the closing summary is written) until it speaks; a low-medium-high pattern while it runs tools; both stop when it speaks or the keys are pressed.
-- [RULE] talk-no-preamble — no header, date, version, recap, or explanation of how talk works unless asked; "done" gets only "Okay".
+- [RULE] talk-working-sounds — subtle alternating dings from the moment the keys are released until it speaks; never for words that may end the talk or while the closing summary is written; a low-medium-high pattern while it runs tools; both stop when it speaks or the keys are pressed.
+- [RULE] talk-no-preamble — no header, date, version, recap, or explanation of how talk works unless asked.
+- [RULE] talk-ending-is-silent — ending says nothing and plays no tone. "Ignore" closes the copy at once with no summary; "done" writes the summary silently and pastes it. (AccountingAutomation, 2026-10-24: "done, ignore" still played the tone and said "Okay" for 4.6 s while an unwanted summary was written.)
 - [RULE] talk-runs-the-installed-version — the start hook replaces a talk running an older version (6.2.14 shipped while 6.2.13 kept running).
 - [RULE] talk-copy-never-restarts-talk — a copy runs the session-start hooks too; it carries a marker and talk's start hook does nothing there (6.2.18: the first copy after an upgrade restarted talk and dropped the answer).
 - [RULE] talk-esc-stops-instantly — Esc while talk is speaking or answering ends every open conversation at once: no sound, no summary, no paste; the transcript ends "Outcome: stopped".
 - [RULE] talk-copy-gets-voice-rules-only — a copy skips the per-prompt clock, Reader Contract and wrong-app check; the voice rules say they override CLAUDE.md reply formats; the date-and-version line is dropped in any spelling.
-- [RULE] end-phrases-understood — "done" / "we're done" end and paste; "ignore" ends without pasting; a short closing-sounding remark is judged by Haiku with Claude's last reply (after a question, "that's good" means yes).
+- [RULE] end-phrases-understood — "done" / "we're done" end and paste; "ignore" ends at once without a summary or paste; a short closing-sounding remark is judged by Haiku with Claude's last reply (after a question, "that's good" means yes).
 
 ## What I confirmed with you
 

@@ -488,7 +488,7 @@ function createSpeaker(getVoice, player, onError, onPlay = () => {}) {
         onError(outcome.error);
         continue;
       }
-      if (!item.keepCue) onPlay();
+      onPlay();
       current = player.play(outcome.file);
       await current.done;
       current = null;
@@ -497,11 +497,11 @@ function createSpeaker(getVoice, player, onError, onPlay = () => {}) {
   }
 
   return {
-    say(sentence, { keepCue = false } = {}) {
+    say(sentence) {
       // Each sentence carries its own success or failure; a failed one is shown
       // red by drain and the next sentence still plays.
       const outcome = getVoice().synth(sentence).then((file) => ({ file }), (error) => ({ error }));
-      queue.push({ gen: generation, outcome, keepCue });
+      queue.push({ gen: generation, outcome });
       drain();
     },
     /** Speaking, or sentences waiting to be spoken. */
@@ -663,8 +663,8 @@ function createConversation({ reg, home, claudeBin, model, speaker, cues, log })
     current = waiting.shift();
     conv.dropping = current.silent;
     turnText = '';
-    cues.set('thinking');
     if (!current.silent) {
+      cues.set('thinking'); // the summary turn is silent: no tone
       fs.appendFileSync(file, `\n**You:** ${current.text}\n`);
       log(app + ' · You: ' + current.text);
     }
@@ -744,13 +744,13 @@ function createConversation({ reg, home, claudeBin, model, speaker, cues, log })
     conv.closed = true;
     claude.close();
   };
-  /** Esc: end at once, silently — no summary, no paste. [RULE] talk-esc-stops-instantly */
-  conv.stop = () => {
+  /** Esc or "ignore": end at once, silently — no summary, no paste. [RULE] talk-esc-stops-instantly */
+  conv.stop = (outcome = 'stopped') => {
     if (conv.closed) return;
     conv.closed = true;
     conv.stopped = true;
     claude.close();
-    fs.appendFileSync(file, '\n_Stopped with Esc._\n\nOutcome: stopped\n');
+    fs.appendFileSync(file, outcome === 'stopped' ? '\n_Stopped with Esc._\n\nOutcome: stopped\n' : `\nOutcome: ${outcome}\n`);
     const pending = (current ? [current] : []).concat(waiting.splice(0));
     current = null;
     for (const p of pending) p.resolve({ text: '', err: 'stopped' });
@@ -797,7 +797,9 @@ async function startTalk({ home, claudeBin, model, makeVoice, player, cues, focu
 
   /** Answer one /say. Returns [status, body]. */
   async function say(text) {
-    cues.set('thinking'); // from the moment you release the keys until it speaks
+    // The tone runs from the moment you release the keys until it speaks, but
+    // never for words that may end the talk: ending is silent.
+    if (endIntent(text) === null && !mightEnd(text)) cues.set('thinking');
     const pane = focus();
     const reg = sessionForPane(home, pane);
     if (!reg) {
@@ -812,22 +814,24 @@ async function startTalk({ home, claudeBin, model, makeVoice, player, cues, focu
       intent = parseEnd(await judgeEnd(endPrompt(text, open.lastReply)));
     }
     if (intent) {
-      if (!isOpen) {
-        cues.stop();
-        speaker.say('Okay.');
-        return [200, { ok: true, ended: 'none' }];
+      // Ending is silent and instant: no "Okay", no tone. [RULE] talk-ending-is-silent
+      speaker.hush();
+      cues.stop();
+      if (!isOpen) return [200, { ok: true, ended: 'none' }];
+      if (intent === 'ignore') {
+        open.stop('ignored (saved only)');
+        conversations.delete(reg.sessionId);
+        log(open.app + ' · conversation ended (ignore) → ' + open.relFile);
+        return [200, { ok: true, ended: 'ignore' }];
       }
-      // "Okay" and nothing else; the thinking tone runs while the summary is written.
-      speaker.say('Okay.', { keepCue: true });
       const summary = await open.end(intent);
       if (summary === null) return [200, { ok: true, ended: 'stopped' }];
       conversations.delete(reg.sessionId);
       log(open.app + ' · conversation ended (' + intent + ') → ' + open.relFile);
-      cues.stop();
-      if (intent === 'ignore') return [200, { ok: true, ended: 'ignore' }];
       const paste = 'Claude Voice Session: ' + summary.replace(/\s+/g, ' ').trim() + ' Full transcript: ' + open.relFile;
       return [200, { ok: true, ended: 'pass', paste }];
     }
+    cues.set('thinking');
     const conv = conversationFor(reg);
     return [200, { ok: true, queued: conv.ask(text) }];
   }

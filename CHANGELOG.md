@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.25] - 2026-10-24
+
+### Changed — talk ends silently and at once
+
+Ending a talk conversation now says nothing and plays no tone. "Done, ignore" closes the conversation immediately with no summary; "done" / "pass it on" writes the summary silently and pastes it. Before, both said "Okay" and played the thinking tone while a summary was written — 4.6 s for an ignored conversation in AccountingAutomation.
+
+- `bin/gsd-t-talk.cjs`: an ending hushes speech and the tone; "ignore" closes like Esc (transcript marked "ignored (saved only)"); the silent summary turn plays no tone; the tone never starts for words that may end the talk; unused `keepCue` removed
+- `test/talk.test.js`: "ignore" writes no summary and speaks nothing; "done" plays no tone and says nothing
+- `.gsd-t/pseudocode/PseudoCode-Talk.md`, `README.md`: rule `talk-ending-is-silent`
+
 ## [6.2.24] - 2026-10-24
 
 ### Changed — `gsd-t update` updates everything

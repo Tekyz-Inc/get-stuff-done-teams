@@ -260,9 +260,13 @@ test('talk: "we\'re done, ignore" saves only', async () => {
   const session = await s.start();
   try {
     await post(session, '/say', { text: 'a question' });
+    const before = s.played.length;
     const r = await post(session, '/say', { text: "We're done, ignore." });
     assert.deepEqual(r.json, { ok: true, ended: 'ignore' });
-    assert.match(transcript(s).text, /Outcome: ignored \(saved only\)/);
+    const t = transcript(s).text;
+    assert.match(t, /Outcome: ignored \(saved only\)/);
+    assert.ok(!/## Summary/.test(t), 'no summary is written');
+    assert.deepEqual(s.played.slice(before), [], 'nothing is spoken');
   } finally {
     session.close();
     fs.rmSync(s.root, { recursive: true, force: true });
@@ -274,7 +278,7 @@ test('talk: the next conversation is given the earlier summaries', async () => {
   const session = await s.start();
   try {
     await post(session, '/say', { text: 'first talk' });
-    await post(session, '/say', { text: "We're done, ignore." });
+    await post(session, '/say', { text: "We're done, pass it on." });
     fs.writeFileSync(process.env.TALK_TEST_ARGS, '');
     await post(session, '/say', { text: 'second talk' });
     await waitFor(() => fs.readFileSync(process.env.TALK_TEST_ARGS, 'utf8').length > 0);
@@ -567,18 +571,19 @@ test('talk: the handoff names the running version, so a release can replace an o
   }
 });
 
-test('talk: "done" gets only "Okay", with the thinking tone kept on while the summary is written', async () => {
+test('talk: "done" ends silently — no "Okay", no tone while the summary is written', async () => {
   const s = setup();
   const session = await s.start();
   try {
     await post(session, '/say', { text: 'one thing' });
     await waitFor(() => s.played.includes('The table is in the transcript.'));
     const before = s.played.length;
+    const cuesBefore = s.cueLog.length;
     const r = await post(session, '/say', { text: 'Done.' });
     assert.equal(r.json.ended, 'pass');
-    await waitFor(() => s.played.length > before);
-    assert.deepEqual(s.played.slice(before), ['Okay.']);
-    assert.ok(s.cueLog.lastIndexOf('thinking') > s.cueLog.indexOf(null), 'the tone ran again for the summary');
+    assert.deepEqual(s.played.slice(before), [], 'nothing is spoken');
+    assert.equal(s.cueLog[s.cueLog.length - 1], null, 'the tone is off');
+    assert.ok(!s.cueLog.slice(cuesBefore).includes('thinking'), 'no tone at all for "Done."');
   } finally {
     session.close();
     fs.rmSync(s.root, { recursive: true, force: true });
