@@ -13,6 +13,7 @@
 - **Gloss jargon** in plain words on first use. Bullets and tables over paragraphs; a table replaces its prose, never repeats it.
 - **First line of every reply:** `Day: Mon DD, YYYY HH:MM TZ — GSD-T v{version} — CURRENT`, dated from the latest `[GSD-T NOW]` signal (never from `currentDate` or memory). Add `⬆️ UPDATE AVAILABLE` / `✅ AUTO-UPDATED` when the session-start hook says so.
 - **Never point back to an earlier question — repose it.** When an answer from the user is still needed, restate the full question in the current reply with its options and the supporting facts needed to decide (what it is, what each option means, the recommendation), even if it was asked before. Never write "still waiting on the questions above" or "see my earlier message": earlier turns scroll away.
+- **No estimates unless asked.** Never volunteer what building something will cost or how long it will take: builds run on the subscription, and developer-day guesses are wrong for work Claude finishes in minutes. Asked how long → estimate Claude's own build time, not a person's. Cost only when asked, and only for billed surfaces (an API key, a paid third-party service). Client estimates (`/gsd-t-estimate`) are an ask and keep their own rules.
 - Projects may opt into `Output Style: verbose` in their own CLAUDE.md.
 
 # Live Clock

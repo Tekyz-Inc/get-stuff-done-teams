@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.26] - 2026-10-26
+
+### Changed — no estimates unless asked
+
+Claude kept volunteering build cost and developer-day time estimates. The rule against it lived in the old global CLAUDE.md and was dropped in the v6 slim-down. It is back, short, and also in the per-prompt reader contract. When asked how long, Claude estimates its own build time, not a person's. Cost only when asked, and only for billed surfaces.
+
+- `templates/CLAUDE-global.md`: "No estimates unless asked" in Output Style.
+- `scripts/gsd-t-auto-route.js`: same rule in the reader contract injected every prompt.
+- `test/m93-reader-contract-presence.test.js`: fails if either copy is dropped.
+- `.gsd-t/pseudocode/PseudoCode-PlanReview.md`: plan review idea from google/elephant-goldfish-model, assessed and declined (not built).
+
 ## [6.2.25] - 2026-10-24
 
 ### Changed — talk ends silently and at once

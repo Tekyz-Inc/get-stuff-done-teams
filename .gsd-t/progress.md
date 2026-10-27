@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v6.0.10 (2026-10-11): **M120 GSD-T v6 slim-down COMPLETE** — execution pipeline removed (59 → 18 commands, ~129K lines cut); kept graph, no-fallback, date guard, architect, new opt-in red team, debug halt, worktrees, env registry, Playwright rules, demo videos, estimates. Retired files are moved to dated backups, never deleted. Next: v6.1 — `gsd-t link-config-dir` (per-account Claude config dirs), faster scan, estimate-rescale rethink, solo story flow (pilot project to be chosen — not FlyLingo, which the dev team is building).
-## Date: 2026-10-24 17:17 PDT
-## Version: 6.2.25
+## Date: 2026-10-26 19:31 PDT
+## Version: 6.2.26
 
 ## Current Milestone
 
@@ -49,6 +49,9 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-10-26 19:31: [feature] No estimates unless asked (v6.2.26) — David: stop volunteering build cost and developer-day estimates; if asked how long, estimate Claude's own build time. The v6 slim-down had dropped the old Effort Estimates section; rule restored in CLAUDE-global Output Style + the per-prompt reader contract, with a test guarding both.
+- 2026-10-26 19:28: [docs] Plan review (EGM idea) DECLINED by David — too little value: a no-context reviewer can't catch the user-held facts behind most plan corrections. PseudoCode-PlanReview.md kept, marked declined; nothing built.
+- 2026-10-25 14:01: [feature] Architect: plan review borrowed from google/elephant-goldfish-model (PseudoCode-PlanReview.md, not built). Verdict: modest value, opt-in only — fold into /gsd-t-red-team as a plan target (four checks: references exist via graph, nothing over-built, newcomer can follow, failures halt) with an offer from the architect for risky plans; no new command. Gate: blind replay on two past plans (Talk, WrongAppGuard) must flag a problem a later fix corrected, else drop.
 - 2026-10-24 17:17 PDT: [change] Talk ends silently and at once (v6.2.25) — David: on "done/ignore" it played the tone and said "Okay" (talk.log: 4.6 s while an ignored summary was written). "Ignore" now closes like Esc with no summary; "done" summarizes silently; no "Okay", no tone for any ending.
 - 2026-10-24 12:17 PDT: [change] `gsd-t update` now updates everything (v6.2.24) — David: "remove the -all; update should automatically update all". It installs the latest release from npm (halts if npm fails), then global + every project. `update-all` stays as a silent alias because older releases hand off by that name. Found while testing: the CLI tests that ran `update` now hit real npm, and parallel installs wiped the global package once (restored); those tests now skip npm.
 - 2026-10-23 15:43 PDT: [fix] update-all on Windows (v6.2.23) — a Windows machine failed with "spawnSync npm ENOENT" (npm/npx/gsd-t are .cmd scripts that need a shell); all those calls now use a shell on Windows. The version read-back after the upgrade used <prefix>/lib/node_modules (absent on Windows) and silently continued with the old binary — now `npm root -g` and a HALT if missing.

@@ -233,6 +233,7 @@ const READER_CONTRACT = [
   "• Exception — when you're about to CHANGE code/files: state intent in one line first, so the user can stop a wrong direction.",
   "• Gloss every code/jargon term in plain words on first use. No bare IDs or acronyms the reader must decode.",
   "• Bullets/tables over paragraphs. Cut hedging and meta-commentary. Expand only if asked.",
+  "• NO ESTIMATES UNLESS ASKED — never volunteer build cost or build time (builds run on the subscription; developer-days are wrong). Asked how long → estimate YOUR build time, not a person's. Cost only when asked, and only for billed surfaces (API key, paid service).",
   "• SIMPLY STATED (applies to conversational narration too, not just formal deliverables). Every word load-bearing; logic in a straight line; the load-bearing point FIRST, not buried after justification. If you can't state it cleanly, the THINKING isn't done — re-think, don't re-word (a muddled sentence is a muddled understanding, and that ships bugs). Do NOT narrate the explanation (\"it matters that I say why…\") — just give it. Do NOT reach for a clever phrase that obscures (\"a fallback in reverse\") when a plain one is clearer. \"Too sophisticated to simplify\" is banned.",
   "EXAMPLES (before → after):",
   "• \"That's a great question, and it touches on something subtle. Let me look into how the cache works before I answer…\" → \"The cache lives in memory, cleared on restart.\"",

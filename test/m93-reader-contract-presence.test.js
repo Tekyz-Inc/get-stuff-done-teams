@@ -106,3 +106,15 @@ test("the UserPromptSubmit hook emits the [GSD-T READER CONTRACT] block every tu
   assert.doesNotMatch(r.stdout, /\[GSD-T (AUTO-ROUTE|PROFILE)\]/, "v6 cut the router and profile emits");
   assert.ok(SPLIT_PHRASES.length === 2, "the split has exactly two directions (question + action)");
 });
+
+// ── No unasked estimates (v6 slim-down dropped the old Effort Estimates section) ──
+
+test("the global template and the every-turn contract both forbid unasked estimates", () => {
+  const region = readerContractRegion(readBody(CLAUDE_GLOBAL));
+  assert.match(region, /No estimates unless asked/, "Output Style must carry the no-estimates rule");
+  assert.match(region, /Claude's own build time, not a person's/);
+  const { spawnSync } = require("node:child_process");
+  const r = spawnSync(process.execPath, [AUTO_ROUTE], { input: JSON.stringify({ prompt: "hi", cwd: ROOT }), encoding: "utf8" });
+  assert.match(r.stdout, /NO ESTIMATES UNLESS ASKED/, "the per-prompt contract carries it");
+  assert.match(r.stdout, /estimate YOUR build time, not a person's/);
+});
