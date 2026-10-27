@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.2.27] - 2026-10-27
+
+### Added — your own line in the status bar
+
+GSD-T rewrites its status bar script on every update, so personal additions were lost. The bar now runs `~/.claude/statusline-local.sh` when it exists, with the same input, and shows its output as the last line. A failing script shows "statusline-local.sh failed (exit N)" rather than vanishing. Nothing changes for anyone without the file.
+
+- `scripts/statusline-command.sh`: runs the local extra.
+- `test/statusline-local-extra.test.js`: no file, a working file, a failing file.
+- `docs/infrastructure.md`: the new file's row.
+
 ## [6.2.26] - 2026-10-26
 
 ### Changed — no estimates unless asked

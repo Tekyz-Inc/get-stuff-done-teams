@@ -130,8 +130,19 @@ done
 
 # Line 2: the milestone/status string on its own line (Claude Code renders \n as a
 # second status row). Omitted when there's no milestone status.
-if [ -n "$milestone" ]; then
-  printf '%s\n%s' "$line1" "$milestone"
-else
-  printf '%s' "$line1"
+out="$line1"
+[ -n "$milestone" ] && out="${out}"$'\n'"${milestone}"
+
+# Last line: this machine's own extra, if the user keeps one. GSD-T rewrites this
+# script on every update, so personal additions live in ~/.claude/statusline-local.sh
+# (same stdin as this script). A failing extra says so instead of vanishing.
+local_extra="$HOME/.claude/statusline-local.sh"
+if [ -f "$local_extra" ]; then
+  extra=$(printf '%s' "$input" | bash "$local_extra" 2>/dev/null)
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    extra="statusline-local.sh failed (exit $rc)"
+  fi
+  [ -n "$extra" ] && out="${out}"$'\n'"${extra}"
 fi
+printf '%s' "$out"

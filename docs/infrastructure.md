@@ -66,6 +66,7 @@ Real work happens in a worktree: `~/Worktrees/GSD-T/<branch>/` (v6 was built in 
 | Global bin tools (pick-worktree, worktree-detect, worktree-provision, slice-budget, pseudocode-style, fallback-detect, code-search-classifier, install-check, estimate-sheet) | `~/.claude/bin/` |
 | Hooks | `~/.claude/settings.json` |
 | Status line script (`statusLine` setting) | `~/.claude/statusline-command.sh` |
+| Your own status line extra (optional, never touched by GSD-T) | `~/.claude/statusline-local.sh` — gets the same input; its output is the bar's last line; a failure shows as "statusline-local.sh failed (exit N)" |
 | Model aliases (`sonnet`/`haiku` → newest) | `env.ANTHROPIC_DEFAULT_SONNET_MODEL` / `ANTHROPIC_DEFAULT_HAIKU_MODEL` in `~/.claude/settings.json`; GSD-T-set values tracked in `~/.claude/.gsd-t-model-pins.json` |
 | Version / update cache / project registry | `~/.claude/.gsd-t-version`, `.gsd-t-update-check`, `.gsd-t-projects` |
 | Linked config dirs (second Claude accounts) | `~/.claude/.gsd-t-config-dirs`; each listed dir holds links back to `~/.claude` (`gsd-t link-config-dir <dir>`; checked by `doctor`) |
