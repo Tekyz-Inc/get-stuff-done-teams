@@ -53,6 +53,10 @@ Reproduce before fixing. After **two** failed fix cycles on the same symptom, HA
 - Never create a worktree inside the project folder. Location: `~/Worktrees/<project>/<branch>/`.
 - One interactive session per working tree. Use `gsd-t pick-worktree --name <branch>` — it enters an existing free worktree or creates and **provisions** a new one (carries `.env`/local config, installs dependencies from the lockfile). A hand-made worktree is not ready until provisioned.
 - Default to a new worktree + branch for real work; don't work directly on `main`.
+- **Nothing is orphaned.** `pick-worktree --name <branch> --purpose "<what for>" [--target <branch>]` records each worktree in `.gsd-t/worktrees.json` (target defaults to `main`); record a purpose later with `gsd-t worktrees set <branch> --purpose "…"`. A session-start hook warns about unpushed branches, branches unmerged for more than 3 days, and integration branches (a branch others merge into) ahead of `main`.
+- `gsd-t worktrees audit` reports every worktree, branch and stash: merged into its target, pushed, uncommitted changes; it prunes registrations whose folder is gone.
+- **Removal:** A worktree is removed when its branch is merged into its target and nothing in it would be lost: every file (tracked, new or ignored) matches its last commit or the main checkout, except rebuildable output (installed packages, GSD-T's graph index and session logs, test reports). It happens (a) at the next session start, in any folder of the project, for every such worktree no session has open, or (b) when the user asks: `gsd-t worktrees finish <branch> --remove` (allowed from the session inside it). Never mid-session on its own. Anything kept is named with the file that blocks it. Removal is `git worktree remove` only — never `rm -rf`, never `--force`; the branch is kept.
+- **Releases** (`/cpua`, `/checkin`) run `gsd-t worktrees release-check`: pushes every branch with commits not on the remote, and HALTs on an integration branch ahead of `main` unless a reason is recorded (`gsd-t worktrees set <branch> --reason "…"`).
 
 # Demo Videos
 

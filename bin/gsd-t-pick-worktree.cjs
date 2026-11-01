@@ -22,6 +22,10 @@
  *     --list            list this project's worktrees, one per line, as
  *                       "<free|busy>\t<path>". Creates nothing.
  *
+ * With --name, --purpose <text> and --target <branch> are recorded in the
+ * project's worktree registry (.gsd-t/worktrees.json, see
+ * bin/gsd-t-worktree-lifecycle.cjs). The target defaults to main.
+ *
  * --name naming a worktree that already exists ENTERS it. Refusing that was the
  * old behaviour and it refused the ordinary case — your own worktree, from
  * yesterday, with nobody in it — leaving no way back in except quitting and
@@ -79,6 +83,8 @@ function main() {
   const wantsList = argv.includes("--list");
   const nameAt = argv.indexOf("--name");
   const wanted = nameAt >= 0 ? argv[nameAt + 1] : null;
+  const purpose = flagValue(argv, "--purpose");
+  const target = flagValue(argv, "--target");
 
   if (nameAt >= 0 && !wanted) fail("--name needs a branch name after it.");
 
@@ -121,7 +127,11 @@ function main() {
       );
       stay();
     }
-    process.stdout.write(enterOrCreate(cwd, home, branchNameFrom(wanted)).path + "\n");
+    const branch = branchNameFrom(wanted);
+    const picked = enterOrCreate(cwd, home, branch);
+    // A new worktree is always recorded; an existing one only when told something new.
+    if (picked.created || purpose || target) record(cwd, branch, picked.path, purpose, target);
+    process.stdout.write(picked.path + "\n");
     return;
   }
 
@@ -194,6 +204,26 @@ function branchNameFrom(input) {
 
   if (!clean) fail(`"${input}" leaves nothing usable as a branch name.`);
   return clean;
+}
+
+// The value after a flag, or null when the flag is absent.
+function flagValue(argv, flag) {
+  const at = argv.indexOf(flag);
+  if (at < 0) return null;
+  const v = argv[at + 1];
+  if (!v || v.startsWith("--")) fail(`${flag} needs a value after it.`);
+  return v;
+}
+
+// [RULE] worktree-registry-records-purpose-and-target — what a worktree is for
+// and where it must merge, so nothing is orphaned (gsd-t worktrees audit).
+function record(repo, branch, worktreePath, purpose, target) {
+  const { recordWorktree } = require("./gsd-t-worktree-lifecycle.cjs");
+  try {
+    recordWorktree(repo, { branch, worktreePath, purpose, target });
+  } catch (e) {
+    fail(`The worktree is at ${worktreePath} but could not be recorded in .gsd-t/worktrees.json (${e.message}).`);
+  }
 }
 
 function isSwitchedOff(cwd) {
@@ -338,7 +368,7 @@ function enterOrCreate(repo, home, branch) {
 
   provisionNewWorktree(repo, dest);
 
-  return { path: dest };
+  return { path: dest, created: true };
 }
 
 // Is there a local branch by this exact name? Asked of git's refs, not the

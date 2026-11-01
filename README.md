@@ -82,6 +82,7 @@ Planning, building and testing have no command — Claude does them directly, un
 | **No-fallback guard** | before Write / Edit | Denies a write that adds an unapproved fallback (code that continues after a failure). Approvals live in `.gsd-t/fallbacks.json`. |
 | **Date guard** | before Write / Edit | Blocks timestamps more than ±5 minutes off the live clock. |
 | **CLAUDE.md changelog** | session start + after Write / Edit | Logs outside edits to `CLAUDE.md` and reminds Claude to log its own, in `CLAUDE.md updates.md`. |
+| **Worktree check** | session start | Removes finished worktrees no session has open (merged, nothing unique in them — see Worktrees). Warns (never blocks) about worktree branches not pushed, unmerged for more than 3 days, or merged but kept (with the blocking file), and integration branches ahead of `main`. Stamps the first session in a recorded worktree as its owner. |
 | **Install self-heal** | session start | Restores missing project `bin/` tools before work starts; halts loudly if it can't. |
 | **Update check** | session start | Prints the version banner; auto-installs a newer release. |
 | **Talk start** | session start | Starts the shared talk program if it is not running (idle until Ctrl+Option+Space). |
@@ -115,6 +116,11 @@ In a git repo the graph skips everything `.gitignore` leaves out (build output, 
 - Never inside the project folder: `~/Worktrees/<project>/<branch>/`.
 - `gsd-t pick-worktree --name <branch>` enters an existing free worktree, or creates and **provisions** a new one: carries `.env*` and local config (permissions kept), skips per-session state and build output, installs dependencies from the worktree's own lockfile. Anything it can't copy is reported; a failed install halts.
 - `gsd-t pick-worktree --list` prints `free|busy<TAB><path>` per worktree.
+- `--purpose "<text>"` and `--target <branch>` (default `main`) are recorded in `.gsd-t/worktrees.json`, the project's worktree registry.
+- `gsd-t worktrees audit [--json]` — every worktree, branch and stash: merged into its target, pushed, uncommitted changes; integration branches (ones other branches merge into) not yet on `main` are flagged. Registrations whose folder is gone are pruned (they hold no work).
+- `gsd-t worktrees finish [<branch>] [--remove]` — removes finished worktrees with `git worktree remove` (never forced; the branch is kept). A worktree is removed when its branch is merged into its target and nothing in it would be lost: every file (tracked, new or ignored) matches its last commit or the main checkout, except rebuildable output (installed packages, GSD-T's graph index and session logs, test reports). Named, it works from the session inside that worktree; unnamed, it skips any worktree a session has open. Anything kept is named with the file that blocks it. The session-start hook runs the unnamed form.
+- `gsd-t worktrees set <branch> [--purpose …] [--target …] [--reason …]` — record what a branch is for, where it merges, or why an integration branch stays off `main`.
+- `gsd-t worktrees release-check` — run by `/cpua` and `/checkin`: pushes every branch with commits not on the remote; exits 1 on a failed push or an integration branch ahead of `main` with no reason.
 
 ## Multiple Claude accounts
 
@@ -176,6 +182,7 @@ gsd-t doctor             Diagnose common issues (--install-playwright)
 gsd-t changelog          Open changelog in the browser
 gsd-t graph              Code graph (index, status, who-calls, who-imports, blast-radius, body, …)
 gsd-t pick-worktree      Print the worktree a session should start in
+gsd-t worktrees          Audit, finish and release-check worktrees and branches
 gsd-t link-config-dir    Share this setup with another Claude config dir (second account)
 gsd-t directives-scan    List directive files that still name retired GSD-T commands
 gsd-t setup-playwright   Install Playwright into a project

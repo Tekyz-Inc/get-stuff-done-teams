@@ -17,7 +17,8 @@
 | Changelog | `gsd-t changelog` |
 | Uninstall | `gsd-t uninstall` |
 | Code graph | `gsd-t graph index \| status \| who-calls \| who-imports \| blast-radius \| body \| who-uses \| table \| metrics` |
-| Worktree | `gsd-t pick-worktree [--name <branch> \| --list \| --suggest]` |
+| Worktree | `gsd-t pick-worktree [--name <branch> [--purpose <text>] [--target <branch>] \| --list \| --suggest]` |
+| Worktree lifecycle | `gsd-t worktrees audit [--json] \| finish [<branch>] [--remove] \| set <branch> [--purpose\|--target\|--reason <v>] \| release-check`; registry `.gsd-t/worktrees.json` |
 | Second Claude account | `gsd-t link-config-dir ~/.claude-<name>` |
 | Update every project + its worktrees | `gsd-t update` (worktrees with an open session are skipped) |
 | Workflow path | `gsd-t workflow-path scan \| debug` |
@@ -63,7 +64,7 @@ Real work happens in a worktree: `~/Worktrees/GSD-T/<branch>/` (v6 was built in 
 | Global rules (marked block) | `~/.claude/CLAUDE.md` |
 | Update-check + auto-route scripts | `~/.claude/scripts/` |
 | Shared templates (`estimate-config.json`, `estimate-sheet-spec.md`) | `~/.claude/templates/` |
-| Global bin tools (pick-worktree, worktree-detect, worktree-provision, slice-budget, pseudocode-style, fallback-detect, code-search-classifier, install-check, estimate-sheet) | `~/.claude/bin/` |
+| Global bin tools (pick-worktree, worktree-detect, worktree-provision, worktree-lifecycle, slice-budget, pseudocode-style, fallback-detect, code-search-classifier, install-check, estimate-sheet) | `~/.claude/bin/` |
 | Hooks | `~/.claude/settings.json` |
 | Status line script (`statusLine` setting) | `~/.claude/statusline-command.sh` |
 | Your own status line extra (optional, never touched by GSD-T) | `~/.claude/statusline-local.sh` — gets the same input; its output is the bar's last line; a failure shows as "statusline-local.sh failed (exit N)" |
@@ -81,6 +82,7 @@ Real work happens in a worktree: `~/Worktrees/GSD-T/<branch>/` (v6 was built in 
 | SessionStart | `gsd-t-talk-start.js` | Starts the shared talk program, supervised, if not running (log `~/.claude/gsd-t-talk/talk.log`, crashes `crashes.log`, give-up state `status.json`) |
 | SessionStart | `gsd-t-install-heal.js` | Restore missing project tools |
 | SessionStart | `gsd-t-changelog-check.js` | Log outside CLAUDE.md edits |
+| SessionStart | `gsd-t-worktree-check.js` | Remove finished worktrees no session has open; warn about unpushed / stale / merged-but-kept worktrees and integration branches ahead of main; stamp the owner session |
 | PreToolUse Bash\|Grep | `gsd-t-graph-search-guard.js` | Block structural code searches |
 | PreToolUse Bash | `gsd-t-build-speed-guard.js` | Block unchanged re-runs of failed Playwright runs, whole-config re-runs before a narrower pass, long foreground waits |
 | PostToolUse Bash | `gsd-t-e2e-record.js` | Record a Playwright run's outcome (`~/.claude/gsd-t-e2e/`) |

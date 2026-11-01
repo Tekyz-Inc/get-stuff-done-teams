@@ -40,6 +40,7 @@ Automatically stage, commit, and push all updated files to GitHub with automatic
 11. Stage all changes (including the version bump and changelog) with `git add -A`
 12. Create a commit with a descriptive message summarizing the changes. Include `(vX.Y.Z)` at the end of the first line. Example: `fix: resolve branch guard edge case (v2.3.1)`
 13. Push to origin with `git push`
+13b. Run `gsd-t worktrees release-check`. It pushes every other local branch with commits not on the remote, and exits 1 on a failed push or on an integration branch (one other branches merge into) ahead of `main` with no recorded reason. Exit 1 → HALT and show its output; to keep such a branch off `main` on purpose, the user records why with `gsd-t worktrees set <branch> --reason "…"`.
 14. Confirm success to the user, including the old → new version
 
 Use the standard commit message format with Co-Authored-By line.

@@ -101,6 +101,14 @@ git push origin main --tags
 
 If push fails (auth, network, conflict), surface the error and stop — do NOT publish a version that's not in origin.
 
+Then push every other branch and check integration branches:
+
+```bash
+gsd-t worktrees release-check
+```
+
+It pushes each local branch holding commits that are on no remote, and exits 1 when a push fails or an integration branch (one other branches merge into) is ahead of `main` with no recorded reason. Exit 1 → HALT before publishing and show its output. To keep an integration branch off `main` on purpose, the user records why: `gsd-t worktrees set <branch> --reason "…"`.
+
 ## Step 5: Publish to npm
 
 ```bash
