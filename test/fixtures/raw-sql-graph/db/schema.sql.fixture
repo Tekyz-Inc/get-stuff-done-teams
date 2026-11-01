@@ -1,0 +1,13 @@
+-- Base schema
+CREATE TABLE users (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL
+);
+
+CREATE TABLE orders (
+    id SERIAL PRIMARY KEY,
+    user_id TEXT REFERENCES users(id),
+    total NUMERIC
+);
+
+INSERT INTO users (id, email) VALUES ('u1', 'a@b.c');

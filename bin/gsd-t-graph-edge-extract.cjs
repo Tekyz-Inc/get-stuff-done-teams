@@ -51,7 +51,7 @@ function errLog(msg) { log(`${C.red}[D3 ERR]${C.reset} ${msg}`); }
 
 // ── Source-file extensions parsed by the floor ───────────────────────────────
 
-const PARSED_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py']);
+const PARSED_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.sql']);
 
 // ── Tree-sitter parser lazy loader ───────────────────────────────────────────
 
@@ -492,11 +492,550 @@ function refAccess(node, name) {
   return 'READ';
 }
 
+// ── Plain SQL tables ─────────────────────────────────────────────────────────
+//
+// SQL written as text — a `.sql` file, or a string in code — declares tables
+// (CREATE TABLE / ALTER TABLE) and reads or writes them. Declarations become
+// `table` entities with `meta.dialect: 'sql'`; uses become TABLE-READ /
+// TABLE-WRITE edges keyed `TABLE#sql:<name>#<op>@<line>`, credited to the code
+// that holds the SQL text. A table named by a template hole (`FROM ${table}`)
+// is traced back to where the name is written out:
+//   a list in the same code         → a use of each name in the list
+//   the holder's own parameter      → TABLE-VAR param:<i>:<owner>, resolved at
+//                                     query time from callers' ARG edges
+//   a list another function returns → TABLE-VAR call:<name>, resolved from RETURNS
+//   anything else                   → TABLE-VAR runtime:<why>, listed, never guessed
+// [RULE] raw-sql-tables-in-graph  [RULE] variable-table-name-traced-never-guessed
+
+const { scanSql, looksLikeSql, holeMarker } = require('./gsd-t-graph-sql-scan.cjs');
+
+const FUNCTION_TYPES = new Set(['function_declaration', 'function', 'function_expression', 'arrow_function', 'method_definition', 'generator_function_declaration']);
+// A callback to these iterates its receiver: `checks.map(c => …)` binds `c` to an element of `checks`.
+const ITER_METHODS = new Set(['map', 'forEach', 'filter', 'flatMap', 'some', 'every', 'find', 'reduce']);
+// A string that could be a table name: `tb_users`, `public.tb_users`.
+const NAME_SHAPED = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/;
+
+/** Identifier-shaped string literals anywhere inside `node`, not inside a nested function. */
+function nameLiterals(node, out) {
+  const s = stringValue(node);
+  if (s !== null) { if (NAME_SHAPED.test(s)) out.add(s); return out; }
+  if (FUNCTION_TYPES.has(node.type)) return out;
+  for (let i = 0; i < node.namedChildCount; i++) nameLiterals(node.namedChild(i), out);
+  return out;
+}
+
+/** The id the extractor gives a named function node, or null for an anonymous one. */
+function ownerFuncId(fnNode, relPath) {
+  if (fnNode.type === 'function_declaration' || fnNode.type === 'generator_function_declaration' || fnNode.type === 'method_definition') {
+    const nameNode = fnNode.childForFieldName('name');
+    return nameNode ? `${relPath}#${nameNode.text}@${fnNode.startPosition.row + 1}` : null;
+  }
+  const decl = fnNode.parent;
+  if (decl && decl.type === 'variable_declarator' && decl.childForFieldName('value') !== null &&
+      decl.childForFieldName('value').startIndex === fnNode.startIndex) {
+    return `${relPath}#${decl.childForFieldName('name').text}@${decl.startPosition.row + 1}`;
+  }
+  return null;
+}
+
+/** Does pattern `node` (identifier / object or array pattern / default) bind `name`? */
+function patternBinds(node, name) {
+  if (!node) return false;
+  if (node.type === 'identifier' || node.type === 'shorthand_property_identifier_pattern') return node.text === name;
+  for (let i = 0; i < node.namedChildCount; i++) {
+    const child = node.namedChild(i);
+    // In `{ key: value }` only the value side binds; in `a = default` only the left side.
+    if (node.type === 'pair_pattern' && child.startIndex !== node.childForFieldName('value').startIndex) continue;
+    if (node.type === 'assignment_pattern' && child.startIndex !== node.childForFieldName('left').startIndex) continue;
+    if (patternBinds(child, name)) return true;
+  }
+  return false;
+}
+
+/**
+ * The parameter of function `fnNode` that binds `name`:
+ * { index, defaultValue, rest } | null. TS wraps each parameter
+ * (`required_parameter` with `pattern` and `value`); JS writes it bare
+ * (`identifier`, `assignment_pattern`, `rest_pattern`).
+ */
+function paramOf(fnNode, name) {
+  const single = fnNode.childForFieldName('parameter');
+  if (single) return single.text === name ? { index: 0, defaultValue: null, rest: false } : null;
+  const params = fnNode.childForFieldName('parameters');
+  if (!params) return null;
+  // A comment inside the parameter list is a named child too; it is not a parameter.
+  const list = params.namedChildren.filter((p) => p.type !== 'comment');
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    const pattern = p.childForFieldName('pattern') !== null ? p.childForFieldName('pattern') : p;
+    if (!patternBinds(pattern, name)) continue;
+    let defaultValue = p.childForFieldName('value');
+    if (p.type === 'assignment_pattern') defaultValue = p.childForFieldName('right');
+    return { index: i, defaultValue, rest: pattern.type === 'rest_pattern' };
+  }
+  return null;
+}
+
+// Every `name = value` inside a scope, computed once per scope per file.
+// A compound assignment (`t += 'x'`) records null: a value built while running.
+let assignmentCache = new Map();
+function assignmentsIn(scope) {
+  const key = `${scope.startIndex}:${scope.endIndex}`;
+  if (assignmentCache.has(key)) return assignmentCache.get(key);
+  const found = new Map();
+  const visit = (node) => {
+    if (node.type === 'assignment_expression' || node.type === 'augmented_assignment_expression') {
+      // `t = v` is recorded under 't'; a field `T.x = v` under 'T.x'.
+      const left = node.childForFieldName('left');
+      let key = null;
+      if (left && left.type === 'identifier') key = left.text;
+      if (left && left.type === 'member_expression' && left.childForFieldName('object').type === 'identifier') {
+        key = `${left.childForFieldName('object').text}.${left.childForFieldName('property').text}`;
+      }
+      if (key !== null) {
+        if (!found.has(key)) found.set(key, []);
+        found.get(key).push(node.type === 'assignment_expression' ? node.childForFieldName('right') : null);
+      }
+    }
+    for (let i = 0; i < node.namedChildCount; i++) visit(node.namedChild(i));
+  };
+  visit(scope);
+  assignmentCache.set(key, found);
+  return found;
+}
+function assignedValues(scope, name) {
+  if (!scope) return [];
+  const found = assignmentsIn(scope);
+  return found.has(name) ? found.get(name) : [];
+}
+
+/**
+ * Where `name` is bound, searching outward from `from`:
+ *   { kind: 'for', iterable }
+ *   { kind: 'param', fn, index, defaultValue, rest, assigned }
+ *   { kind: 'value', values }  — the declared value, plus every later
+ *                                assignment when the variable is `let`/`var`
+ *   null                       — not bound in this file
+ */
+function findBinding(name, from) {
+  for (let p = from.parent; p; p = p.parent) {
+    if (p.type === 'for_in_statement' && patternBinds(p.childForFieldName('left'), name)) {
+      return { kind: 'for', iterable: p.childForFieldName('right') };
+    }
+    if (FUNCTION_TYPES.has(p.type)) {
+      const param = paramOf(p, name);
+      if (param !== null) return { kind: 'param', fn: p, ...param, scope: p.childForFieldName('body'), assigned: assignedValues(p.childForFieldName('body'), name) };
+    }
+    if (p.type === 'statement_block' || p.type === 'program') {
+      for (const stmt of p.namedChildren) {
+        const decl = stmt.type === 'export_statement' ? stmt.childForFieldName('declaration') : stmt;
+        if (!decl || (decl.type !== 'lexical_declaration' && decl.type !== 'variable_declaration')) continue;
+        const reassignable = decl.type === 'variable_declaration' || decl.child(0).text === 'let';
+        for (const d of decl.namedChildren) {
+          if (d.type !== 'variable_declarator' || d.childForFieldName('name').text !== name) continue;
+          const values = d.childForFieldName('value') ? [d.childForFieldName('value')] : [];
+          if (reassignable) values.push(...assignedValues(p, name));
+          return { kind: 'value', values, scope: p };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/** `f()` / `obj.f()` → 'f'. */
+function calleeShortName(call) {
+  const fn = call.childForFieldName('function');
+  if (!fn) return null;
+  if (fn.type === 'identifier') return fn.text;
+  if (fn.type === 'member_expression') return fn.childForFieldName('property').text;
+  return null;
+}
+
+/**
+ * Trace a value to every table name it can hold. → { names, sources }:
+ *   names   — names written out in this file
+ *   sources — each part that comes from elsewhere: 'param:<i>:<owner>' (callers
+ *             supply it; 'paramd:' when it has a default), 'call:<name>' (a
+ *             returned list), 'runtime:<why>' (cannot be traced — listed)
+ * Every part of a value is followed: both sides of `a ? b : c` and `a ?? b`,
+ * each item of a list, every value a `let` is given. `path` picks a field:
+ * `c.table` traces `c` with path ['table'].
+ */
+function traceValue(node, relPath, seen, path) {
+  const out = { names: [], sources: [] };
+  const add = (r) => { out.names.push(...r.names); out.sources.push(...r.sources); };
+  const runtime = (why) => { out.sources.push(`runtime:${why.replace(/[|\n]/g, ' ')}`); return out; };
+  const n = unwrapParens(node);
+  if (!n) return runtime('no value');
+  const key = `${n.startIndex}:${path.join('.')}`;
+  if (seen.has(key)) return out; // already followed on this trace
+  seen.add(key);
+  const whole = path.length === 0;
+  const s = stringValue(n);
+  if (s !== null) {
+    if (whole) out.names.push(s);
+    return out;
+  }
+  switch (n.type) {
+    case 'array':
+      for (const el of n.namedChildren) {
+        if (el.type !== 'comment') add(traceValue(el.type === 'spread_element' ? el.namedChild(0) : el, relPath, seen, path));
+      }
+      return out;
+    case 'object':
+      // A whole record (passed or listed): the names written in it.
+      if (whole) {
+        out.names.push(...nameLiterals(n, new Set()));
+        return out;
+      }
+      for (const prop of n.namedChildren) {
+        if (prop.type === 'pair') {
+          const k = prop.childForFieldName('key');
+          const keyText = stringValue(k) !== null ? stringValue(k) : k.text;
+          if (keyText === path[0]) add(traceValue(prop.childForFieldName('value'), relPath, seen, path.slice(1)));
+        } else if (prop.type === 'shorthand_property_identifier' && prop.text === path[0]) {
+          add(traceName(prop.text, prop, relPath, seen, path.slice(1)));
+        } else if (prop.type === 'spread_element') {
+          add(traceValue(prop.namedChild(0), relPath, seen, path));
+        }
+      }
+      return out;
+    case 'ternary_expression':
+      add(traceValue(n.childForFieldName('consequence'), relPath, seen, path));
+      add(traceValue(n.childForFieldName('alternative'), relPath, seen, path));
+      return out;
+    case 'binary_expression': {
+      const op = n.childForFieldName('operator').type;
+      if (!CHOICE_OPERATORS.has(op)) return runtime(`${n.text.slice(0, 60)} (built while running)`);
+      add(traceValue(n.childForFieldName('left'), relPath, seen, path));
+      add(traceValue(n.childForFieldName('right'), relPath, seen, path));
+      return out;
+    }
+    case 'as_expression':
+    case 'satisfies_expression':
+    case 'non_null_expression':
+    case 'await_expression':
+      add(traceValue(n.namedChild(0), relPath, seen, path));
+      return out;
+    case 'call_expression': {
+      const name = calleeShortName(n);
+      if (name === null) return runtime('computed call');
+      out.sources.push(`call:${name}`);
+      return out;
+    }
+    case 'identifier':
+      add(traceName(n.text, n, relPath, seen, path));
+      return out;
+    case 'member_expression': {
+      const obj = n.childForFieldName('object');
+      if (obj.type === 'this') return runtime(`${n.text.slice(0, 60)} (a field set elsewhere)`);
+      add(traceValue(obj, relPath, seen, [n.childForFieldName('property').text, ...path]));
+      return out;
+    }
+    case 'subscript_expression': {
+      // `TABLES['users']` picks that field; `TABLES[key]` may be any of them.
+      const index = stringValue(unwrapParens(n.childForFieldName('index')));
+      add(traceValue(n.childForFieldName('object'), relPath, seen, index !== null ? [index, ...path] : path));
+      return out;
+    }
+    default:
+      return runtime(n.text.slice(0, 60));
+  }
+}
+// `a || b`, `a ?? b`, `a && b`: the value is one side or the other.
+const CHOICE_OPERATORS = new Set(['||', '??', '&&']);
+
+function traceName(name, at, relPath, seen, path) {
+  const out = { names: [], sources: [] };
+  const add = (r) => { out.names.push(...r.names); out.sources.push(...r.sources); };
+  const runtime = (why) => { out.sources.push(`runtime:${why}`); return out; };
+  const b = findBinding(name, at);
+  if (b === null) return runtime(`${name} (not bound in this file)`);
+  if (b.kind === 'for') return traceValue(b.iterable, relPath, seen, path);
+  // A field given a new value (`T.x = other`) can hold that value too.
+  if (path.length) {
+    for (const v of assignedValues(b.scope, `${name}.${path[0]}`)) {
+      if (v === null) runtime(`${name}.${path[0]} is added to while running`);
+      else add(traceValue(v, relPath, seen, path.slice(1)));
+    }
+  }
+  if (b.kind === 'value') {
+    if (b.values.length === 0) return runtime(`${name} is declared but never given a value`);
+    for (const v of b.values) {
+      if (v === null) runtime(`${name} is added to while running`);
+      else add(traceValue(v, relPath, seen, path));
+    }
+    return out;
+  }
+  // A parameter: a value given to it in the body, its default, and what callers pass.
+  for (const v of b.assigned) {
+    if (v === null) runtime(`${name} is added to while running`);
+    else add(traceValue(v, relPath, seen, path));
+  }
+  if (b.rest) return runtime(`${name} (a rest parameter)`);
+  if (b.defaultValue) add(traceValue(b.defaultValue, relPath, seen, path));
+  // Of a named function → its callers supply it; of a callback to `.map()` and
+  // friends → an element of the receiver; of anything else → unknown.
+  const owner = ownerFuncId(b.fn, relPath);
+  if (owner !== null) {
+    out.sources.push(`${b.defaultValue ? 'paramd' : 'param'}:${b.index}:${owner}`);
+    return out;
+  }
+  const args = b.fn.parent;
+  const call = args && args.type === 'arguments' ? args.parent : null;
+  const callee = call ? call.childForFieldName('function') : null;
+  if (callee && callee.type === 'member_expression' && ITER_METHODS.has(callee.childForFieldName('property').text)) {
+    add(traceValue(callee.childForFieldName('object'), relPath, seen, path));
+    return out;
+  }
+  return runtime(`${name} (parameter of an anonymous function)`);
+}
+
+/**
+ * SQL text of a JS/TS string node, holes replaced by markers numbered from
+ * `first`; → { text, holes: [exprNode] }
+ */
+// A template's own text keeps `\\`` escapes; SQL sees a plain backtick (a MySQL quoted name).
+const templateText = (raw) => raw.split('\\`').join('`');
+
+function jsStringSql(node, first) {
+  if (node.type === 'string') return { text: node.text.slice(1, -1), holes: [] };
+  const holes = [];
+  let text = '';
+  let pos = node.startIndex + 1;
+  for (let i = 0; i < node.childCount; i++) {
+    const c = node.child(i);
+    if (c.type !== 'template_substitution') continue;
+    text += templateText(node.text.slice(pos - node.startIndex, c.startIndex - node.startIndex));
+    // Keep line numbers right: a hole spanning lines leaves its newlines behind.
+    text += holeMarker(first + holes.length) + ' ' + '\n'.repeat(c.text.split('\n').length - 1);
+    holes.push(c.namedChild(0));
+    pos = c.endIndex;
+  }
+  text += templateText(node.text.slice(pos - node.startIndex, node.text.length - 1));
+  return { text, holes };
+}
+
+/** SQL text of a Python string node; an f-string `{expr}` becomes a hole numbered from `first`. */
+function pyStringSql(node, first) {
+  const holes = [];
+  let text = '';
+  for (let i = 0; i < node.childCount; i++) {
+    const c = node.child(i);
+    if (c.type === 'string_content') text += c.text;
+    else if (c.type === 'interpolation') { text += holeMarker(first + holes.length) + ' '; holes.push(c.namedChild(0)); }
+  }
+  return { text, holes };
+}
+
+// Python `%s` / `%(name)s` / `{}` / `{name}` slots, filled while running.
+const PY_PLACEHOLDER = /%(\([^)]*\))?[sdr]|\{[^{}]*\}/g;
+
+/**
+ * SQL built from pieces — `'DELETE FROM ' + table`, `['DELETE FROM', t].join(' ')`,
+ * Python `"…" + t`. String pieces are text, anything else a hole. Every string
+ * piece is added to `done`, so it is not scanned again on its own.
+ * → { text, holes, line }
+ */
+function piecesSql(pieces, sep, python, done) {
+  let text = '';
+  const holes = [];
+  let row = pieces[0].startPosition.row;
+  pieces.forEach((p, i) => {
+    if (i) text += sep;
+    text += '\n'.repeat(Math.max(0, p.startPosition.row - row));
+    if (p.type === 'string' || p.type === 'template_string') {
+      done.add(p.startIndex);
+      const part = python ? pyStringSql(p, holes.length) : jsStringSql(p, holes.length);
+      text += part.text;
+      holes.push(...part.holes);
+    } else {
+      text += holeMarker(holes.length) + ' ' + '\n'.repeat(p.endPosition.row - p.startPosition.row);
+      holes.push(p);
+    }
+    row = p.endPosition.row;
+  });
+  return { text, holes, line: pieces[0].startPosition.row + 1 };
+}
+
+/** `a + b + c` → [a, b, c] (any other operator stops the walk). */
+function plusLeaves(node, binaryType, out) {
+  const n = unwrapParens(node);
+  if (n.type === binaryType && n.childForFieldName('operator').type === '+') {
+    plusLeaves(n.childForFieldName('left'), binaryType, out);
+    plusLeaves(n.childForFieldName('right'), binaryType, out);
+  } else out.push(n);
+  return out;
+}
+
+/** A Python string whose `%s` / `{}` slots are filled while running: each slot is a hole. */
+function placeheld(str, done) {
+  done.add(str.startIndex);
+  const base = pyStringSql(str, 0);
+  let next = base.holes.length;
+  const holes = base.holes.slice();
+  const text = base.text.replace(PY_PLACEHOLDER, () => { holes.push(null); return holeMarker(next++) + ' '; });
+  return { text, holes, line: str.startPosition.row + 1 };
+}
+
+/**
+ * SQL assembled from pieces at `node`, or null: the top of a `+` chain holding
+ * a string, `[…].join(sep)`, Python `"…" % args` / `"…".format(…)`.
+ * → { text, holes, line } with every string piece added to `done`.
+ */
+function assembledSql(node, python, done) {
+  const t = node.type;
+  const binaryType = python ? 'binary_operator' : 'binary_expression';
+  if (t === binaryType) {
+    const op = node.childForFieldName('operator').type;
+    if (python && op === '%') {
+      const left = unwrapParens(node.childForFieldName('left'));
+      return left.type === 'string' ? placeheld(left, done) : null;
+    }
+    if (op !== '+') return null;
+    let parent = node.parent;
+    while (parent && parent.type === 'parenthesized_expression') parent = parent.parent;
+    if (parent && parent.type === binaryType && parent.childForFieldName('operator').type === '+') return null;
+    const leaves = plusLeaves(node, binaryType, []);
+    if (!leaves.some((l) => l.type === 'string' || l.type === 'template_string')) return null;
+    return piecesSql(leaves, '', python, done);
+  }
+  if (!python && t === 'call_expression') {
+    const fn = node.childForFieldName('function');
+    if (!fn || fn.type !== 'member_expression' || fn.childForFieldName('property').text !== 'join') return null;
+    const list = unwrapParens(fn.childForFieldName('object'));
+    if (list.type !== 'array') return null;
+    const items = list.namedChildren.filter((el) => el.type !== 'comment');
+    if (!items.some((el) => el.type === 'string' || el.type === 'template_string')) return null;
+    const args = node.childForFieldName('arguments');
+    const sepNode = args ? args.namedChildren.find((a) => a.type !== 'comment') : undefined;
+    // JS joins with ',' when no separator is given.
+    const sep = sepNode !== undefined && stringValue(sepNode) !== null ? stringValue(sepNode) : ',';
+    return piecesSql(items, ` ${sep} `, false, done);
+  }
+  if (python && t === 'call') {
+    const fn = node.childForFieldName('function');
+    if (!fn || fn.type !== 'attribute' || fn.childForFieldName('attribute').text !== 'format') return null;
+    const str = unwrapParens(fn.childForFieldName('object'));
+    return str.type === 'string' ? placeheld(str, done) : null;
+  }
+  return null;
+}
+
+/** A unique id for a declaration (`file#sql:<table>@<line>`, suffixed if one line declares twice). */
+function sqlDeclId(relPath, decl, entities) {
+  const base = `${relPath}#sql:${decl.table.toLowerCase()}@${decl.line}`;
+  let id = base;
+  for (let k = 2; entities.some((e) => e.id === id); k++) id = `${base}.${k}`;
+  return id;
+}
+
+/**
+ * Turn one scan result into entities + edges. `holeSource(i)` traces template
+ * hole i; it is null where no tracing is possible (a `.sql` file, Python).
+ * `onePerOp`: keep one edge per table and operation (a `.sql` file — a data
+ * dump would otherwise add an edge per row).
+ */
+function emitSql(scan, src, relPath, entities, edges, holeSource, onePerOp) {
+  for (const d of scan.decls) {
+    const meta = { kind: 'table', dialect: 'sql', sqlName: d.table, declKind: d.kind, columns: d.columns, foreignKeys: d.foreignKeys };
+    if (d.schema !== null) meta.schema = d.schema;
+    if (d.dropped.length) meta.dropped = d.dropped;
+    const problems = d.unresolved.concat(d.columns.filter((c) => c.unresolved).map((c) => `column ${c.name}: ${c.unresolved}`));
+    if (problems.length) meta.unresolved = problems;
+    entities.push({ id: sqlDeclId(relPath, d, entities), name: d.table.toLowerCase(), type: 'table', line: d.line, endLine: d.line, exported: false, meta });
+  }
+  const emitted = new Set();
+  const use = (access, name, op, line, via) => {
+    const key = `${access}|${name.toLowerCase()}|${op}|${onePerOp ? '' : line}|${via}`;
+    if (emitted.has(key)) return;
+    emitted.add(key);
+    edges.push({ kind: `TABLE-${access}`, source: src, target: `TABLE#sql:${name.toLowerCase()}#${op}@${line}${via ? `~${via}` : ''}`, line });
+  };
+  const site = (access, op, line, source) => {
+    const key = `${access}|${op}|${line}|${source}`;
+    if (emitted.has(key)) return;
+    emitted.add(key);
+    edges.push({ kind: 'TABLE-VAR', source: src, target: `TABLEVAR#${access}#${op}@${line}#${source}`, line });
+  };
+  for (const u of scan.uses) use(u.access, u.table, u.op, u.line, null);
+  for (const h of scan.holes) {
+    if (holeSource === null) { site(h.access, h.op, h.line, 'runtime:table name filled in while running'); continue; }
+    const traced = holeSource(h.hole);
+    for (const name of traced.names) {
+      if (NAME_SHAPED.test(name)) use(h.access, name.includes('.') ? name.split('.').pop() : name, h.op, h.line, 'list');
+    }
+    for (const source of traced.sources) site(h.access, h.op, h.line, source);
+    if (traced.names.length === 0 && traced.sources.length === 0) site(h.access, h.op, h.line, 'runtime:no table name in the value');
+  }
+  // Text the scanner could not read past may hold any table's uses: listed, never skipped.
+  for (const u of scan.unread) site('WRITE', 'unread', u.line, `runtime:${u.why}`);
+  // A write whose table name is added to this text elsewhere (`let sql = 'DELETE FROM '`).
+  for (const o of scan.open) site(o.access, o.op, o.line, `runtime:${o.why}`);
+}
+
+/** Scan SQL text found in code; `holes` fill its holes (a null hole is filled while running). */
+function sqlFromText(text, holes, line, src, relPath, entities, edges, python) {
+  if (!looksLikeSql(text)) return;
+  const scan = scanSql(text, { line });
+  // A quote that never closes inside one code string is prose ("don't select…")
+  // or one piece of SQL assembled elsewhere: it hides only the rest of that
+  // string, not a file. Only a .sql file reports it.
+  scan.unread = [];
+  const holeSource = python ? null : (i) => {
+    if (!holes[i]) return { names: [], sources: ['runtime:table name filled in while running'] };
+    return traceValue(holes[i], relPath, new Set(), []);
+  };
+  emitSql(scan, src, relPath, entities, edges, holeSource, false);
+}
+
+/** Scan a JS/TS/Python string node for SQL. */
+function sqlFromString(node, src, relPath, entities, edges, python) {
+  const { text, holes } = python ? pyStringSql(node, 0) : jsStringSql(node, 0);
+  sqlFromText(text, holes, node.startPosition.row + 1, src, relPath, entities, edges, python);
+}
+
+/** `.sql` file → entities + edges (all uses credited to the file itself). */
+function extractSqlFile(content, relPath) {
+  const entities = [];
+  const edges = [];
+  emitSql(scanSql(content, { line: 1 }), `${relPath}#_toplevel`, relPath, entities, edges, null, true);
+  return { entities, edges };
+}
+
+// Arguments that can never carry a table name.
+const SCALAR_ARG_TYPES = new Set(['number', 'true', 'false', 'null', 'undefined', 'regex', 'class', 'unary_expression', 'update_expression']);
+
+/**
+ * At a call site, the table names one argument can carry — for tracing a
+ * callee's parameter back to its callers. → 'v1|v2|param:…|call:…|?' or null
+ * (an argument that cannot be a table name). `?` is a part that cannot be
+ * traced: a callee putting it in SQL is then listed, never counted as safe.
+ */
+function argValues(arg, relPath) {
+  const n = unwrapParens(arg);
+  if (!n) return null;
+  if (FUNCTION_TYPES.has(n.type)) return null;
+  if (SCALAR_ARG_TYPES.has(n.type)) return null;
+  const traced = traceValue(n, relPath, new Set(), []);
+  const parts = new Set(traced.names.filter((s) => NAME_SHAPED.test(s)));
+  for (const source of traced.sources) parts.add(/^(param|paramd|call):/.test(source) ? source : '?');
+  return parts.size ? Array.from(parts).join('|') : null;
+}
+
 // ── Python-specific extraction ────────────────────────────────────────────────
 
 function walkPython(rootNode, relPath, entities, edges) {
+  const sqlDone = new Set(); // strings already scanned as a piece of assembled SQL
   function walk(node, enclosingFuncId) {
     const t = node.type;
+
+    // SQL assembled from pieces: `"…" + t`, `"…" % t`, `"…".format(t)`. [RULE] raw-sql-tables-in-graph
+    if (t === 'binary_operator' || t === 'call' || t === 'concatenated_string') {
+      const sql = t === 'concatenated_string' ? piecesSql(node.namedChildren, '', true, sqlDone) : assembledSql(node, true, sqlDone);
+      if (sql !== null) sqlFromText(sql.text, sql.holes, sql.line, enclosingFuncId === null ? `${relPath}#_toplevel` : enclosingFuncId, relPath, entities, edges, true);
+    }
 
     if (t === 'import_statement') {
       // import foo, bar
@@ -594,6 +1133,9 @@ function walkPython(rootNode, relPath, entities, edges) {
         }
         return;
       }
+    } else if (t === 'string' && !sqlDone.has(node.startIndex)) {
+      // Plain SQL in a Python string. [RULE] raw-sql-tables-in-graph
+      sqlFromString(node, enclosingFuncId === null ? `${relPath}#_toplevel` : enclosingFuncId, relPath, entities, edges, true);
     } else if (t === 'call') {
       // Python call node
       const fn = node.childForFieldName('function');
@@ -634,6 +1176,7 @@ function walkTSJS(rootNode, relPath, entities, edges) {
   const refSeen = new Set();      // one column-ref edge per (user, access, table)
   const inDecl = (i) => declRanges.some(([s, e]) => i >= s && i < e);
   const userOf = (enclosingFuncId) => (enclosingFuncId === null ? `${relPath}#_toplevel` : enclosingFuncId);
+  const sqlDone = new Set();      // strings already scanned as a piece of assembled SQL
   const tableEdge = (access, src, name, op, node) => edges.push({
     kind: `TABLE-${access}`,
     source: src,
@@ -647,6 +1190,14 @@ function walkTSJS(rootNode, relPath, entities, edges) {
     const obj = node.childForFieldName('object');
     if (obj.type !== 'identifier' || !candidates.namespaces.has(obj.text)) return null;
     return node.childForFieldName('property').text;
+  }
+  /** A function that returns a list of names (`return [{ table: 'tb_x' }, …]`) → RETURNS edge. */
+  function returnedNames(value, funcId) {
+    let v = unwrapParens(value);
+    while (v && (v.type === 'as_expression' || v.type === 'satisfies_expression')) v = unwrapParens(v.namedChild(0));
+    if (!v || v.type !== 'array') return;
+    const names = Array.from(nameLiterals(v, new Set()));
+    if (names.length) edges.push({ kind: 'RETURNS', source: funcId, target: `RETURNS#${names.join('|')}`, line: v.startPosition.row + 1 });
   }
   function tableRef(node, name, enclosingFuncId) {
     if (consumed.has(node.startIndex)) return;
@@ -718,6 +1269,15 @@ function walkTSJS(rootNode, relPath, entities, edges) {
             // from one it never looked at. [RULE] scip-tier-proportional
             col: fn.startPosition.column,
           });
+          // What each argument carries that could be a table name — the callee may
+          // put it in SQL (`FROM ${table}`). [RULE] variable-table-name-traced-never-guessed
+          if (args) {
+            args.namedChildren.filter((arg) => arg.type !== 'comment').forEach((arg, i) => {
+              if (FUNCTION_TYPES.has(arg.type)) return;
+              const v = argValues(arg, relPath);
+              if (v !== null) edges.push({ kind: 'ARG', source: srcId, target: `ARG#${calleeName}#${i}@${node.startPosition.row + 1}=${v}`, line: node.startPosition.row + 1 });
+            });
+          }
         }
 
         // Table operation: `.from(T)`, `.innerJoin(T, …)`, `.insert(T)`, `.update(T)`, `.delete(T)`.
@@ -767,6 +1327,18 @@ function walkTSJS(rootNode, relPath, entities, edges) {
 
       // Fall through to walk children (the call_expression can contain more nodes)
     }
+
+    // ── plain SQL in a string; a returned list of names ───────────────────
+    // [RULE] raw-sql-tables-in-graph
+    if ((t === 'string' || t === 'template_string') && !sqlDone.has(node.startIndex)) {
+      sqlFromString(node, userOf(enclosingFuncId), relPath, entities, edges, false);
+    }
+    // SQL assembled from pieces: `'DELETE FROM ' + table`, `['DELETE FROM', t].join(' ')`.
+    if (t === 'binary_expression' || t === 'call_expression') {
+      const sql = assembledSql(node, false, sqlDone);
+      if (sql !== null) sqlFromText(sql.text, sql.holes, sql.line, userOf(enclosingFuncId), relPath, entities, edges, false);
+    }
+    if (t === 'return_statement' && enclosingFuncId !== null) returnedNames(node.namedChild(0), enclosingFuncId);
 
     // ── table references: `eq(T.id, …)`, `getTableColumns(T)`, `db.query.T.findMany()` ──
     // [RULE] drizzle-table-entity-and-usage-edges
@@ -889,6 +1461,7 @@ function walkTSJS(rootNode, relPath, entities, edges) {
               endLine: valueNode.endPosition.row + 1,
               exported: isExp,
             });
+            if (valueNode.type === 'arrow_function') returnedNames(valueNode.childForFieldName('body'), funcId);
             // Walk arrow/function body with this funcId
             for (let j = 0; j < valueNode.childCount; j++) {
               walk(valueNode.child(j), funcId, enclosingClass);
@@ -996,7 +1569,11 @@ function extractEdges(absPath, relPath) {
 
   const ext = path.extname(absPath).toLowerCase();
   const content = fs.readFileSync(absPath, 'utf8');
+  assignmentCache = new Map(); // node positions are per file
   const loc = content.split('\n').length;
+
+  // A .sql file has no functions or calls — only table declarations and uses.
+  if (ext === '.sql') return { file: relPath, ...extractSqlFile(content, relPath), loc };
 
   const grammar = getGrammar(ext);
   if (!grammar) {

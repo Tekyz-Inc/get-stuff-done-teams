@@ -364,7 +364,7 @@ function buildUnclearReason(found, cls) {
     "  A database table (who reads or writes it, its columns and foreign keys):",
     "    gsd-t graph who-uses <table>   /   gsd-t graph table <table>",
     "",
-    "  Text in files the graph does not index (.md, .json, .sql, config, prose):",
+    "  Text the graph does not index (.md, .json, config, prose, and .sql beyond its tables):",
     "    add --include='*.md' (or the right extensions) and run it again",
   ]).join("\n");
 }

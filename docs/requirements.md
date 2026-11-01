@@ -30,7 +30,7 @@ Requirements for the v6 package. Requirements for the cut pipeline (milestone â†
 | REQ-G1 | Index JS/TS/Python with tree-sitter into SQLite under `.gsd-t/graphDB/`, streaming writes | `m94-d3-*`, `m94-graph-end-to-end` |
 | REQ-G2 | Upgrade call edges with SCIP; record per-file accuracy tier; never silently downgrade a tier on re-index | `m95-scip-call-resolution`, `m97-scip-python-resolution`, `m94-d3-tier-preserved-on-reindex`, `m118-anonymous-callers-scip-missing` |
 | REQ-G3 | Re-index content-hash-dirty files before answering (add/delete/rename/uncommitted edits) | `m94-d4-*` |
-| REQ-G4 | Query verbs: who-calls, who-imports, blast-radius, body, who-uses, table, dead-code, dangling, cluster, test-impl, status, metrics | `m94-d5-*`, `m94-d9-*`, `m98-d2-body`, `graph-drizzle-tables`, `m119-who-calls-golden` |
+| REQ-G4 | Query verbs: who-calls, who-imports, blast-radius, body, who-uses, table, dead-code, dangling, cluster, test-impl, status, metrics | `m94-d5-*`, `m94-d9-*`, `m98-d2-body`, `graph-drizzle-tables`, `graph-raw-sql-tables`, `m119-who-calls-golden` |
 | REQ-G5 | No query path greps; a broken store or parser fails loud | `m94-d5-no-grep-fallback-structural`, `m94-d5-fault-injection-fail-loud`, `broken-graph-halts` |
 | REQ-G6 | One resolver owns every store path; telemetry is toggleable, size-capped and rotated | `m99-*` |
 | REQ-G7 | Exclude list `.gsd-t/graph-exclude.json`; malformed file halts | `m118-graph-exclude` |

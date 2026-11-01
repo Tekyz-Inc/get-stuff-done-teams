@@ -62,6 +62,7 @@ The guard hooks run from the installed package path. `update-check` and `auto-ro
 - Store: `.gsd-t/graphDB/` — `graph.db` (+ WAL/SHM), SCIP indexes, `logs/graph-events-NNN.jsonl` telemetry (`GSDT_GRAPH_TELEMETRY=0` disables).
 - Accuracy tiers per file: tree-sitter floor, compiler-accurate, compiler-partial, SCIP-missing.
 - Drizzle `pgTable` / `mysqlTable` / `sqliteTable` and enums are indexed with columns, foreign keys and READ/WRITE usage edges.
+- Plain SQL is indexed too (`bin/gsd-t-graph-sql-scan.cjs`): `CREATE`/`ALTER TABLE` in `.sql` files and SQL strings in JS/TS/Python become one table per name; reads and writes are credited to the code holding the SQL; a table name in a variable is traced to the list, caller argument or returned list that writes it out, and what cannot be traced is listed — so is any write whose table is not written as a name (a placeholder, a name added elsewhere). Supported dialects: PostgreSQL, MySQL and SQLite; SQL Server, Oracle and Snowflake shapes (for example `UPDATE u … FROM t u`, lower-case `update public.`) may be missed. `blast-radius` adds `dataLinked` — readers of the tables the target writes. `.sql` files sit on their own `sql-text` tier.
 - Invariant: **no query path greps.** A broken parser or store returns `{ok:false, reason:"graph-unavailable"}`.
 - Contracts: `.gsd-t/contracts/graph-*.md`.
 
