@@ -50,7 +50,7 @@ Pick a store iff it clears ALL FIVE sub-criteria below. `[RULE] K1: store-picked
 }
 ```
 
-Table / enum entities (Drizzle) are stored as `nodes` rows with `kind` `table` / `enum` and a JSON `meta` column (SQL name, columns, foreign keys, enum values; NULL for every other kind). `meta` is added by an idempotent migration run on every store open AND before every write (the freshness re-index opens the db without the schema step), so an older graph upgrades in place.
+Table / enum entities (Drizzle, and plain SQL with `meta.dialect:"sql"` — one row per declaration site, merged by the query layer) are stored as `nodes` rows with `kind` `table` / `enum` and a JSON `meta` column (SQL name, columns, foreign keys, enum values; NULL for every other kind). `meta` is added by an idempotent migration run on every store open AND before every write (the freshness re-index opens the db without the schema step), so an older graph upgrades in place.
 
 ### Edge shape
 

@@ -153,7 +153,10 @@ function expandAlias(spec, rules, projectDir) {
   return spec;
 }
 
-const PARSED_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py']);
+const PARSED_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.sql']);
+// A .sql file holds table declarations and uses, never calls — its own tier, so it
+// is not counted as a file whose call edges are unresolved. [RULE] raw-sql-tables-in-graph
+const SQL_TIER = 'sql-text';
 const SKIP_DIRS = new Set([
   'node_modules', '.next', 'dist', 'build', '.git',
   '.cache', '__pycache__', 'coverage', '.nyc_output',
@@ -423,11 +426,13 @@ function parse_and_put(absPath, relPath, options) {
   let finalEdges = edges;
   let tier = 'tree-sitter-floor';
 
-  // Optional SCIP upgrade
+  // Optional SCIP upgrade (never for a .sql file — it has no calls to resolve)
   // [RULE] reindex-tier-never-silently-downgraded: pass existingTier as prevTier so
   // the upgrader can produce 'tree-sitter-floor-STALE-SCIP' instead of plain floor
   // when a previously compiler-accurate file loses its SCIP indexer.
-  if (typeof tryScipUpgrade === 'function') {
+  if (path.extname(absPath).toLowerCase() === '.sql') {
+    tier = SQL_TIER;
+  } else if (typeof tryScipUpgrade === 'function') {
     const upgraded = tryScipUpgrade(absPath, relPath, entities, edges, {
       prevTier: existingTier,
       projectRoot: scip.projectRoot || require('path').dirname(absPath),
@@ -580,6 +585,8 @@ function build_index(repoRoot, options) {
   const scipMissing = []; // files SCIP ran for but produced no document for
   let tableCount = 0;
   let enumCount = 0;
+  let sqlFiles = 0;
+  const sqlTables = new Set(); // distinct plain-SQL table names (one table may be declared in many places)
   const tablesUnresolved = []; // [RULE] drizzle-table-shape-gap-named-never-skipped
 
   // Stream: parse + put each file one at a time (never accumulate the full set)
@@ -591,6 +598,7 @@ function build_index(repoRoot, options) {
       edgeCount += result.edges.length;
       if (result.tier === 'compiler-accurate') tierUpgraded++;
       else if (result.tier === 'compiler-partial') tierPartial++;
+      else if (result.tier === SQL_TIER) sqlFiles++;
       else tierFloor++;
       for (const e of result.edges) {
         if (e.kind !== 'call-site' && e.kind !== 'CALL') continue;
@@ -599,7 +607,8 @@ function build_index(repoRoot, options) {
       }
       if (result.tier === 'tree-sitter-floor-SCIP-MISSING') scipMissing.push(relPath);
       for (const ent of result.entities) {
-        if (ent.type === 'table') tableCount++;
+        if (ent.type === 'table' && ent.meta && ent.meta.dialect === 'sql') sqlTables.add(ent.meta.sqlName.toLowerCase());
+        else if (ent.type === 'table') tableCount++;
         if (ent.type === 'enum') enumCount++;
         if (ent.meta && ent.meta.unresolved) tablesUnresolved.push({ file: relPath, name: ent.name, problems: ent.meta.unresolved });
       }
@@ -702,10 +711,11 @@ function build_index(repoRoot, options) {
     fileCount,
     tableCount,
     enumCount,
+    sqlTableCount: sqlTables.size,
     tablesUnresolved,
     entityCount,
     edgeCount,
-    tier: { floor: tierFloor, upgraded: tierUpgraded, partial: tierPartial },
+    tier: { floor: tierFloor, upgraded: tierUpgraded, partial: tierPartial, sql: sqlFiles },
     callEdges,
     callEdgesUnresolved,
     scipMissing,
@@ -760,12 +770,12 @@ if (require.main === module) {
   });
 
   good(`Indexed ${result.fileCount} files, ${result.entityCount} entities, ${result.edgeCount} edges in ${result.durationMs}ms`);
-  good(`Tiers — floor: ${result.tier.floor}, compiler-accurate: ${result.tier.upgraded}, compiler-partial: ${result.tier.partial}`);
+  good(`Tiers — floor: ${result.tier.floor}, compiler-accurate: ${result.tier.upgraded}, compiler-partial: ${result.tier.partial}, sql files: ${result.tier.sql}`);
   if (result.callEdges) {
     info(`Call edges unresolved: ${result.callEdgesUnresolved} of ${result.callEdges} ` +
       `(${(100 * result.callEdgesUnresolved / result.callEdges).toFixed(1)}% — library calls such as console.log never resolve)`);
   }
-  good(`Database tables: ${result.tableCount}, enums: ${result.enumCount}`);
+  good(`Database tables: ${result.tableCount} (Drizzle), ${result.sqlTableCount} (plain SQL), enums: ${result.enumCount}`);
   if (result.errors > 0) warn(`${result.errors} files had parse errors (skipped)`);
 
   const envelope = {
@@ -779,6 +789,7 @@ if (require.main === module) {
     tier: result.tier,
     scipMissingCount: result.scipMissing.length,
     tableCount: result.tableCount,
+    sqlTableCount: result.sqlTableCount,
     enumCount: result.enumCount,
     tablesUnresolved: result.tablesUnresolved,
     errors: result.errors,

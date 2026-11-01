@@ -1458,7 +1458,7 @@ async function architectPass(findings) {
     ).join("\n");
 
     const prompt = [
-      `⛔ Work ONLY inside \`${projectDir}\`. Read real code with Read/Grep to settle any question; the code graph answers structural questions (\`gsd-t graph who-imports <file>\`, \`who-calls\`, \`blast-radius\`) and must be preferred over grep for those.`,
+      `⛔ Work ONLY inside \`${projectDir}\`. Read real code with Read/Grep to settle any question; the code graph answers structural questions (\`gsd-t graph who-imports <file>\`, \`who-calls\`, \`blast-radius\`) and database-table questions (\`gsd-t graph who-uses <table> [--writes|--reads]\` — every function and route that reads or writes it, \`gsd-t graph table <table>\` — columns and foreign keys) and must be preferred over grep for those. For any table this slice writes, run \`who-uses <table>\` and check the writers and readers elsewhere agree (the same values, the same case, the same columns); a blast-radius answer's \`dataLinked\` lists code that reads what the target writes.`,
       ``,
       `You are the ARCHITECT for a completed tech-debt scan. ${chunk.length} findings, already verified against the code by an earlier pass. DO NOT re-verify them all. Your job is judgment about TIER, ROOT CAUSE and ORDER.`,
       ``,
@@ -1813,7 +1813,7 @@ try {
       `Findings with no strong shared root MUST be left OUT (they stay standalone — do not force weak groupings).`,
       ``,
       `GRAPH-ASSIST (optional, strengthens confidence): to confirm two TDs truly share code, you MAY run the code graph via Bash on their files — try a project-local binary first then the global one:`,
-      `  \`${projectDir}/bin/gsd-t-graph-query-cli.cjs who-imports <file>\`  OR  \`gsd-t graph who-imports <file>\` (also who-calls / blast-radius). If the graph is unavailable, fall back to the location/area text — do NOT fail.`,
+      `  \`${projectDir}/bin/gsd-t-graph-query-cli.cjs who-imports <file>\`  OR  \`gsd-t graph who-imports <file>\` (also who-calls / blast-radius, and \`who-uses <table>\` to confirm two TDs touch the same database table). If the graph is unavailable, fall back to the location/area text — do NOT fail.`,
       ``,
       `Return "groups": each = { title, members: ["TD-N",...] (>=2), sharedRoot, recommendedAction (which to keep/delete/extract), effort (GSD-T-native units: domain/wave/spawn count — NEVER human-hours) }. If nothing clusters with high confidence, return groups: [].`,
       ``,

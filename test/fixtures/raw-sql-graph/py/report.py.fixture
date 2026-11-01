@@ -1,0 +1,7 @@
+def totals(cur):
+    cur.execute("SELECT sum(o.id) FROM orders o JOIN users u ON u.id = o.user_id")
+    return cur.fetchone()
+
+
+def any_table(cur, name):
+    cur.execute(f"SELECT * FROM {name}")

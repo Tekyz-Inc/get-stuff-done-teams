@@ -1,0 +1,10 @@
+import { pgTable, text } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+export const invoices = pgTable('invoices', {
+  id: text('id').primaryKey(),
+});
+
+export function rawInvoiceCount(db: any) {
+  return db.execute(sql`SELECT count(*) FROM invoices`);
+}

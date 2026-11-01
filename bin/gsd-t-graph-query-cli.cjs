@@ -215,6 +215,8 @@ const SCIP_MISSING_TIER = "tree-sitter-floor-SCIP-MISSING";
 // A file SCIP indexed but where too few repo-resolvable calls resolved to call it
 // compiler-accurate. [RULE] scip-tier-proportional
 const COMPILER_PARTIAL_TIER = "compiler-partial";
+// A .sql file: table declarations and uses only, no calls to resolve. [RULE] raw-sql-tables-in-graph
+const SQL_TIER = "sql-text";
 // Tiers whose call edges SCIP actually looked at. An UNRESOLVED call in one of
 // these files is SCIP saying "not a repo function" (a local, a mock, a library),
 // so it is never name-matched. [RULE] name-match-only-where-scip-never-looked
@@ -356,7 +358,7 @@ function countUnresolvedFiles(index) {
   if (!index || !index.fileTier) return 0;
   let n = 0;
   for (const tier of index.fileTier.values()) {
-    if (tier && tier !== 'compiler-accurate') n++;
+    if (tier && tier !== 'compiler-accurate' && tier !== SQL_TIER) n++;
   }
   return n;
 }
@@ -393,8 +395,14 @@ function buildIndex(records, skippedFiles) {
    * Drizzle tables + enums, kept OUT of funcEntities so dead-code / test-impl /
    * who-calls never mistake a table for a function. [RULE] drizzle-table-entity-and-usage-edges */
   const tableEntities = new Map();
-  /** @type {Map<string,Array<{src:string,access:string,op:string,line:number}>>} table code name → uses */
+  /** @type {Map<string,Array<{src:string,access:string,op:string,line:number,via?:string}>>}
+   * table code name (Drizzle) or `sql:<name>` (plain SQL) → uses */
   const tableUses = new Map();
+  // Plain SQL whose table name is a variable, and what tracing it needs:
+  // callers' arguments (by callee name) and lists functions return.
+  const tableVarSites = [];
+  const argSites = new Map();
+  const returnedNames = new Map();
 
   let dominantTier = "compiler-accurate";
   let hasFloor = false;
@@ -440,12 +448,29 @@ function buildIndex(records, skippedFiles) {
           // Forward: collect ALL call edges for dangling + test-impl verbs
           forwardCallEdges.push({ src: edge.src, dst: edge.dst, kind: "CALL" });
         } else if (edge.kind === "TABLE-READ" || edge.kind === "TABLE-WRITE") {
-          // dst = TABLE#<name>#<operation>@<line>
-          const m = /^TABLE#([^#]+)#([^@]+)@(\d+)$/.exec(edge.dst);
+          // dst = TABLE#<name>#<operation>@<line>[~list] — a plain-SQL name is `sql:<name>`
+          const m = /^TABLE#([^#]+)#([^@]+)@(\d+)(?:~(.+))?$/.exec(edge.dst);
           if (m) {
             if (!tableUses.has(m[1])) tableUses.set(m[1], []);
-            tableUses.get(m[1]).push({ src: edge.src, access: edge.kind.slice(6), op: m[2], line: Number(m[3]) });
+            const u = { src: edge.src, access: edge.kind.slice(6), op: m[2], line: Number(m[3]) };
+            if (m[4]) u.via = m[4];
+            tableUses.get(m[1]).push(u);
           }
+        } else if (edge.kind === "TABLE-VAR") {
+          // dst = TABLEVAR#<access>#<op>@<line>#<source> — resolved below. [RULE] variable-table-name-traced-never-guessed
+          const m = /^TABLEVAR#(READ|WRITE)#([^@]+)@(\d+)#(.+)$/.exec(edge.dst);
+          if (m) tableVarSites.push({ src: edge.src, access: m[1], op: m[2], line: Number(m[3]), source: m[4] });
+        } else if (edge.kind === "ARG") {
+          // dst = ARG#<callee>#<argIndex>@<line>=<part|part> — a part is a name, param:<i>:<owner>,
+          // paramd:<i>:<owner> (has a default), call:<name>, or ? (chosen while running)
+          const m = /^ARG#(.+)#(\d+)@(\d+)=(.+)$/.exec(edge.dst);
+          if (m) {
+            const short = m[1].split(".").pop();
+            if (!argSites.has(short)) argSites.set(short, []);
+            argSites.get(short).push({ src: edge.src, index: Number(m[2]), line: Number(m[3]), value: m[4] });
+          }
+        } else if (edge.kind === "RETURNS") {
+          returnedNames.set(edge.src, edge.dst.slice("RETURNS#".length).split("|"));
         }
       }
     }
@@ -454,14 +479,21 @@ function buildIndex(records, skippedFiles) {
   if (hasStaleScip) dominantTier = "tree-sitter-floor-STALE-SCIP";
   else if (hasFloor) dominantTier = "tree-sitter-floor";
 
+  mergeSqlTables(tableEntities);
+  const nameMatchedCallGraph = buildNameMatchedCallGraph(forwardCallEdges, funcEntities, fileTier);
+  const runtimeTableSites = resolveTableVarSites({
+    tableVarSites, argSites, returnedNames, tableEntities, tableUses, funcEntities, callGraph, nameMatchedCallGraph,
+  });
+
   return {
     importGraph,
     callGraph,
-    nameMatchedCallGraph: buildNameMatchedCallGraph(forwardCallEdges, funcEntities, fileTier),
+    nameMatchedCallGraph,
     forwardCallEdges,
     funcEntities,
     tableEntities,
     tableUses,
+    runtimeTableSites,
     allFiles,
     fileTier,
     tier: dominantTier,
@@ -480,6 +512,180 @@ function buildIndex(records, skippedFiles) {
  *
  * @returns {Map<string,Set<string>>} dstFuncId (both `file#name@line` and `file#name`) → callers
  */
+// ─── Plain SQL tables: one per name, traced variable names ───────────────────
+// [RULE] raw-sql-table-one-per-name  [RULE] variable-table-name-traced-never-guessed
+
+const getOr = (map, key, empty) => (map.has(key) ? map.get(key) : empty);
+
+/**
+ * Plain-SQL declarations arrive one per CREATE / ALTER site. Fold them into one
+ * table per SQL name (case ignored). A Drizzle table with that SQL name owns it:
+ * the raw sites are only listed on it (`alsoDeclaredAt`), its columns stay the truth.
+ */
+function mergeSqlTables(tableEntities) {
+  const raw = [];
+  for (const [id, t] of tableEntities) if (t.meta && t.meta.dialect === "sql") raw.push({ id, ...t });
+  if (!raw.length) return;
+  for (const r of raw) tableEntities.delete(r.id);
+  const drizzleBySql = new Map();
+  for (const [id, t] of tableEntities) {
+    if (t.kind === "table" && typeof t.meta.sqlName === "string") drizzleBySql.set(t.meta.sqlName.toLowerCase(), id);
+  }
+  const groups = new Map();
+  for (const r of raw) {
+    const key = r.meta.sqlName.toLowerCase();
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  const lineOf = (id) => Number(/@(\d+)/.exec(id)[1]);
+  for (const [name, decls] of groups) {
+    // CREATEs first, then ALTERs, each in file/line order — so a drop or rename lands on the column it changes.
+    decls.sort((a, b) => (a.meta.declKind === b.meta.declKind ? (a.id < b.id ? -1 : 1) : (a.meta.declKind === "create" ? -1 : 1)));
+    const sites = decls.map((d) => ({ id: d.id, file: d.file, line: lineOf(d.id), kind: d.meta.declKind }));
+    if (drizzleBySql.has(name)) {
+      const owner = tableEntities.get(drizzleBySql.get(name));
+      owner.meta = { ...owner.meta, alsoDeclaredAt: sites };
+      continue;
+    }
+    const columns = new Map();
+    const foreignKeys = [];
+    const problems = [];
+    for (const d of decls) {
+      const at = `${d.file}:${lineOf(d.id)}`;
+      for (const c of d.meta.columns) {
+        if (!columns.has(c.name)) { columns.set(c.name, { ...c, declaredAt: at }); continue; }
+        const have = columns.get(c.name);
+        if (have.type !== null && c.type !== null && have.type !== c.type) {
+          problems.push(`column ${c.name}: ${have.type} at ${have.declaredAt}, ${c.type} at ${at}`);
+        }
+        if (c.notNull) have.notNull = true;
+        if (c.primaryKey) have.primaryKey = true;
+        if (c.references && !have.references) have.references = c.references;
+        if (have.dropped) { delete have.dropped; have.readdedAt = at; }
+      }
+      for (const dropped of d.meta.dropped ? d.meta.dropped : []) {
+        if (columns.has(dropped)) columns.get(dropped).dropped = at;
+        else problems.push(`column ${dropped} dropped at ${at} but never declared`);
+      }
+      for (const fk of d.meta.foreignKeys) {
+        if (!foreignKeys.some((f) => JSON.stringify(f) === JSON.stringify(fk))) foreignKeys.push(fk);
+      }
+      for (const p of d.meta.unresolved ? d.meta.unresolved : []) problems.push(`${at}: ${p}`);
+    }
+    if (!decls.some((d) => d.meta.declKind === "create")) problems.push("no CREATE TABLE found — only changes to it");
+    const first = decls[0];
+    const meta = { kind: "table", dialect: "sql", sqlName: first.meta.sqlName, columns: Array.from(columns.values()), foreignKeys, declaredAt: sites };
+    if (first.meta.schema) meta.schema = first.meta.schema;
+    if (problems.length) meta.unresolved = problems;
+    tableEntities.set(first.id, { name, file: first.file, tier: first.tier, endLine: first.endLine, kind: "table", meta });
+  }
+}
+
+/**
+ * SQL whose table name is a variable: follow the name to where it is written out.
+ * A parameter → each caller's argument (callers from the call graph, compiler or
+ * name-matched); a returned list → that function's list. Each traced name that
+ * is a known table becomes a use, labelled with the code that supplied it
+ * (`via`). What cannot be traced is returned, never guessed.
+ */
+function resolveTableVarSites(ctx) {
+  const { tableVarSites, argSites, returnedNames, tableEntities, tableUses, funcEntities, callGraph, nameMatchedCallGraph } = ctx;
+  const known = new Set();
+  for (const t of tableEntities.values()) if (t.kind === "table" && typeof t.meta.sqlName === "string") known.add(t.meta.sqlName.toLowerCase());
+  const namesByFunc = new Map();
+  for (const [id, f] of funcEntities) {
+    if (!namesByFunc.has(f.name)) namesByFunc.set(f.name, []);
+    namesByFunc.get(f.name).push(id);
+  }
+  const callersOf = (id) => {
+    const out = new Set();
+    for (const graph of [callGraph, nameMatchedCallGraph]) {
+      for (const key of [id, id.replace(/@\d+$/, "")]) for (const c of getOr(graph, key, [])) out.add(c);
+    }
+    return out;
+  };
+  // A value is 'part|part|…': a name, param:<i>:<owner> (paramd: it has a default),
+  // call:<name>, or ? (a part the caller fills while running).
+  const fromValue = (value, via, visited, found, gaps) => {
+    for (const part of value.split("|")) {
+      const param = /^param(d?):(\d+):(.+)$/.exec(part);
+      if (param) fromParam(param[3], Number(param[2]), param[1] === "d", visited, found, gaps);
+      else if (part.startsWith("call:")) fromCall(part.slice(5), visited, found, gaps);
+      else if (part === "?") gaps.push(`${via} passes a table name chosen while running`);
+      else found.push({ name: part.split(".").pop().toLowerCase(), via });
+    }
+  };
+  function fromParam(ownerId, index, hasDefault, visited, found, gaps) {
+    const key = `${ownerId}#${index}`;
+    if (visited.has(key)) return;
+    visited.add(key);
+    const owner = funcEntities.get(ownerId);
+    if (!owner) { gaps.push(`${ownerId} is not in the graph`); return; }
+    const callers = callersOf(ownerId);
+    if (!callers.size) {
+      const twins = getOr(namesByFunc, owner.name, []).length;
+      gaps.push(twins > 1 ? `${twins} functions are named ${owner.name} — their callers cannot be told apart` : `nothing calls ${owner.name}`);
+      return;
+    }
+    const sites = getOr(argSites, owner.name, []).filter((s) => s.index === index && callers.has(s.src));
+    for (const s of sites) fromValue(s.value, s.src, visited, found, gaps);
+    // Every caller is accounted for: one that passes nothing readable is listed.
+    // With a default, a caller that leaves the argument out gets the default,
+    // which was traced where the function is written.
+    if (hasDefault) return;
+    const passing = new Set(sites.map((s) => s.src));
+    const silent = Array.from(callers).filter((c) => !passing.has(c)).sort();
+    if (silent.length) gaps.push(`${silent.length} caller(s) of ${owner.name} pass no readable value for parameter ${index + 1}: ${silent.slice(0, 3).join(", ")}`);
+  }
+  function fromCall(name, visited, found, gaps) {
+    const defs = getOr(namesByFunc, name, []);
+    if (defs.length !== 1) { gaps.push(defs.length ? `${defs.length} functions are named ${name}` : `${name} is not in the graph`); return; }
+    if (!returnedNames.has(defs[0])) { gaps.push(`${name} returns no list of names`); return; }
+    fromValue(returnedNames.get(defs[0]).join("|"), defs[0], visited, found, gaps);
+  }
+
+  const runtime = [];
+  for (const site of tableVarSites) {
+    const found = [];
+    const gaps = [];
+    if (site.source.startsWith("runtime:")) gaps.push(site.source.slice(8));
+    else fromValue(site.source, null, new Set(), found, gaps);
+    const tables = found.filter((f) => known.has(f.name));
+    const seen = new Set();
+    for (const f of tables) {
+      const k = `${f.name}\u0000${f.via}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const key = `sql:${f.name}`;
+      if (!tableUses.has(key)) tableUses.set(key, []);
+      const u = { src: site.src, access: site.access, op: site.op, line: site.line };
+      if (f.via !== null) u.via = f.via;
+      tableUses.get(key).push(u);
+    }
+    if (!tables.length && found.length) gaps.push(`traced to ${found.slice(0, 5).map((f) => f.name).join(", ")} — none is a known table`);
+    if (gaps.length) runtime.push({ src: site.src, file: site.src.split("#")[0], line: site.line, op: site.op, access: site.access, tracedTables: seen.size, why: gaps });
+  }
+  return runtime.sort((a, b) => (a.file === b.file ? a.line - b.line : (a.file < b.file ? -1 : 1)));
+}
+
+/** Every use of table `t`: by its Drizzle code name and by its SQL name in plain SQL. */
+function usesOf(index, t) {
+  const uses = t.meta.dialect === "sql" ? [] : getOr(index.tableUses, t.name, []).slice();
+  if (typeof t.meta.sqlName === "string") uses.push(...getOr(index.tableUses, `sql:${t.meta.sqlName.toLowerCase()}`, []));
+  return uses;
+}
+
+/** who-uses / status note for SQL lines whose table could not be fully traced. */
+function runtimeChosenSummary(index) {
+  const sites = index.runtimeTableSites ? index.runtimeTableSites : [];
+  if (!sites.length) return null;
+  return {
+    count: sites.length,
+    note: `${sites.length} SQL line(s) pick their table while running and were not fully traced — not counted for any table they could not be traced to`,
+    sites: sites.slice(0, 50).map((s) => ({ at: `${s.file}:${s.line}`, user: s.src, op: s.op, access: s.access, tracedTables: s.tracedTables, why: s.why })),
+  };
+}
+
 function buildNameMatchedCallGraph(forwardCallEdges, funcEntities, fileTier) {
   const byName = new Map(); // name → [funcId, ...]
   for (const [funcId, meta] of funcEntities) {
@@ -1258,11 +1464,41 @@ function queryBlastRadius(index, target) {
   const coverage = withUnresolvedSites(
     computeCoverage(index.skippedFiles, { callEdgesUnresolved: true, unresolvedFiles: countUnresolvedFiles(index) }),
     index, target, matched);
-  if (!matched.length) return { results, tier: index.tier, coverage };
-  return {
-    results, tier: index.tier, coverage,
-    nameMatched: { resolution: "name-matched", count: matched.length, callers: matched.slice(0, 100) },
+  const out = { results, tier: index.tier, coverage };
+  if (matched.length) out.nameMatched = { resolution: "name-matched", count: matched.length, callers: matched.slice(0, 100) };
+  const dataLinked = dataLinkedReaders(index, initialFrontier, isFilePath ? target : null);
+  if (dataLinked.length) out.dataLinked = dataLinked;
+  return out;
+}
+
+/**
+ * Code linked to the target through data, not calls: every table the target
+ * itself writes, and the code elsewhere that reads that table. A change to how
+ * rows are written reaches those readers even though nothing calls across.
+ * Reading a table changes nothing for anyone else, so reads add no links.
+ * [RULE] blast-radius-follows-table-writes
+ */
+function dataLinkedReaders(index, frontier, file) {
+  const inTarget = (src) => {
+    if (frontier.has(src)) return true;
+    if (frontier.has(src.replace(/@\d+$/, ""))) return true;
+    return file !== null && src.split("#")[0] === file;
   };
+  const linked = [];
+  for (const t of index.tableEntities.values()) {
+    if (t.kind !== "table") continue;
+    const uses = usesOf(index, t);
+    const writes = uses.filter((u) => u.access === "WRITE" && inTarget(u.src));
+    if (!writes.length) continue;
+    const readers = Array.from(new Set(uses.filter((u) => u.access === "READ" && !inTarget(u.src)).map((u) => u.src))).sort();
+    linked.push({
+      table: t.name,
+      sqlName: t.meta.sqlName,
+      writes: writes.map((u) => ({ by: u.src, op: u.op, line: u.line })),
+      readers,
+    });
+  }
+  return linked.sort((a, b) => b.readers.length - a.readers.length);
 }
 
 // ─── Database tables (Drizzle) ────────────────────────────────────────────────
@@ -1354,6 +1590,8 @@ function tableDetail(index, t) {
     detail.references = foreignKeysOut(index, t);
     detail.referencedBy = foreignKeysIn(index, t);
   }
+  if (t.meta.declaredAt) detail.declaredAt = t.meta.declaredAt;
+  if (t.meta.alsoDeclaredAt) detail.alsoDeclaredAt = t.meta.alsoDeclaredAt;
   if (t.meta.unresolved) detail.unresolved = t.meta.unresolved;
   return detail;
 }
@@ -1371,7 +1609,7 @@ function queryWhoUses(index, target, options) {
   const r = resolveTable(index, target);
   if (!r.table) return r.ambiguous ? r : { notFound: true, detail: notIndexedDetail(index, target) };
   const t = r.table;
-  const all = index.tableUses.has(t.name) ? index.tableUses.get(t.name) : [];
+  const all = usesOf(index, t);
   const uses = all.filter((u) => mode === "all" || (mode === "writes" ? u.access === "WRITE" : u.access === "READ"));
   const byUser = new Map();
   const byOperation = {};
@@ -1381,6 +1619,8 @@ function queryWhoUses(index, target, options) {
     if (!row.access.includes(u.access)) row.access.push(u.access);
     if (!row.operations[u.op]) row.operations[u.op] = [];
     row.operations[u.op].push(u.line);
+    // A use found by tracing a variable table name: the code that supplied the name.
+    if (u.via) { if (!row.via) row.via = []; if (!row.via.includes(u.via)) row.via.push(u.via); }
     byOperation[u.op] = (byOperation[u.op] ? byOperation[u.op] : 0) + 1;
   }
   const results = Array.from(byUser.values()).sort((a, b) => (a.user < b.user ? -1 : 1));
@@ -1390,10 +1630,14 @@ function queryWhoUses(index, target, options) {
     mode,
     results,
     summary: { users: results.length, files: new Set(results.map((x) => x.file)).size, byOperation },
-    resolution: "syntactic — uses matched by the table's imported name; a table passed through a function parameter or alias() is not followed",
+    resolution: t.meta.dialect === "sql"
+      ? "syntactic — plain SQL read from .sql files and strings in code; a table name in a variable is traced to the list, caller argument or returned list that writes it out (via)"
+      : "syntactic — uses matched by the table's imported name (Drizzle) and its SQL name in plain SQL strings; a Drizzle table passed through a function parameter or alias() is not followed",
     coverage: computeCoverage(index.skippedFiles),
     tier: index.tier,
   };
+  const runtimeChosen = runtimeChosenSummary(index);
+  if (runtimeChosen) out.runtimeChosen = runtimeChosen;
   const sharing = tableIdsNamed(index, t.name);
   if (sharing.length > 1) out.sharedName = { note: `${sharing.length} tables share the code name '${t.name}' — uses cannot be split between them`, tables: sharing };
   if (results.length === 0) {
@@ -1418,7 +1662,7 @@ function queryTableBlastRadius(index, t) {
       queue.push({ table: { id: ref.tableId, ...index.tableEntities.get(ref.tableId) }, depth: depth + 1 });
     }
   }
-  const users = (index.tableUses.has(t.name) ? index.tableUses.get(t.name) : []).map((u) => u.src);
+  const users = usesOf(index, t).map((u) => u.src);
   const code = Array.from(new Set(users)).sort();
   return {
     results: tables.map((x) => x.id).concat(code),
@@ -1460,6 +1704,7 @@ function queryStatus(index, storePath) {
     tiers: tierCounts(index),
     tableCount: countKind(index, "table"),
     enumCount: countKind(index, "enum"),
+    runtimeTableSites: index.runtimeTableSites ? index.runtimeTableSites.length : 0,
     excludeSuggestions: suggestExcludes(index),
   };
 }
@@ -2135,12 +2380,13 @@ if (require.main === module) {
       process.exit(0);
     }
     if (!target.includes("#") && !index.allFiles.has(target) && !index.funcEntities.has(target)) fail(notInGraph(index, verb, target));
-    const { results, tier, coverage, nameMatched } = br;
+    const { results, tier, coverage, nameMatched, dataLinked } = br;
     if (results.length === 0 && coverage && coverage.complete === false) {
       writeIncompleteAnswerMarker(_resolver.deriveProjectRoot(storePath), verb, target, coverage);
     }
     const env = { ok: true, verb, target, results, tier, coverage };
     if (nameMatched) env.nameMatched = nameMatched; // [RULE] unique-name-unresolved-call-name-matched
+    if (dataLinked) env.dataLinked = dataLinked; // [RULE] blast-radius-follows-table-writes
     emit(env);
 
   } else if (verb === "status") {

@@ -50,7 +50,7 @@ function warn(msg) { return `${C.yellow}⚠${C.reset}  ${msg}`; }
 function fail(msg) { return `${C.red}✘${C.reset} ${msg}`; }
 
 // ─── Source-file extensions the indexer tracks ────────────────────────────────
-const TRACKED_EXTS = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py']);
+const TRACKED_EXTS = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py', '.sql']);
 
 // ─── Content-hash — MUST match the indexer's contentHash EXACTLY ─────────────
 // The indexer (gsd-t-graph-index.cjs::contentHash) stores sha256(content) sliced

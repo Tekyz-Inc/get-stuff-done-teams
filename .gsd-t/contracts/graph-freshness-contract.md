@@ -39,3 +39,5 @@ The dirty-set source therefore NEVER limits itself to re-hashing the query targe
 ## Consumed (frozen)
 - `graph-store-schema-contract.md` (D1) — the stored content-hash column
 - `graph-indexer-build-contract.md` (D3) — `parse_and_put(file)` re-index function (called, not edited)
+
+- `[RULE] raw-sql-tables-in-graph` — the tracked file set includes `.sql` (as the indexer's does), so an edited, added or deleted `.sql` file is re-indexed before the next answer like code. Its tier is `sql-text`.

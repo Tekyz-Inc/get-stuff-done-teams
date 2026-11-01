@@ -34,8 +34,9 @@ const { tryScipUpgrade, detectScip } =
   fileCount: number,
   entityCount: number,
   edgeCount: number,
-  tier: { floor: number, upgraded: number },
+  tier: { floor: number, upgraded: number, partial: number, sql: number }, // sql = .sql files (tier sql-text)
   tableCount: number,    // Drizzle tables indexed
+  sqlTableCount: number, // distinct plain-SQL table names declared (.sql files + SQL strings in code)
   enumCount: number,     // Drizzle enums indexed
   tablesUnresolved: Array<{ file, name, problems: string[] }>, // declarations only partly read — warned every build
   errors: number,

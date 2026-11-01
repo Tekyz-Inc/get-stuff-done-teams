@@ -1,0 +1,9 @@
+// A migration kept as a string, the way an app runs it at startup.
+export const MIGRATION = `
+CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY,
+    note TEXT
+);
+ALTER TABLE users ADD COLUMN phone TEXT;
+ALTER TABLE orders DROP COLUMN total;
+`;

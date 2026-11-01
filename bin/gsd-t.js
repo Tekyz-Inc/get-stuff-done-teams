@@ -2403,6 +2403,8 @@ const PROJECT_BIN_TOOLS = [
   // [[project_code_graph_universal_consumer]] [[feedback_graph_is_architectural_anchor]]
   "gsd-t-graph-query-cli.cjs", "gsd-t-graph-index.cjs", "gsd-t-graph-freshness.cjs",
   "gsd-t-graph-edge-extract.cjs", "gsd-t-graph-scip-upgrade.cjs", "gsd-t-scip-reader.cjs",
+  // The edge extractor requires the plain-SQL table scanner. [RULE] raw-sql-tables-in-graph
+  "gsd-t-graph-sql-scan.cjs",
   // M99 — the query CLI `require`s the store resolver at load time; omitting it
   // left the CLI throwing on require (Binvoice architect run 2026-07-12).
   "gsd-t-graph-store-resolver.cjs",
@@ -3089,6 +3091,8 @@ function doGraphStatus() {
   if (tiers.length) info(`Tiers: ${tiers.map(([t, n]) => `${t} ${n}`).join(" · ")}`);
   if (envelope.tier) info(`Lowest tier present: ${envelope.tier}`);
   if (envelope.tableCount || envelope.enumCount) info(`Database tables: ${envelope.tableCount}, enums: ${envelope.enumCount} (gsd-t graph table <name> · who-uses <name>)`);
+  // SQL whose table name is a variable the graph could not trace back. [RULE] variable-table-name-traced-never-guessed
+  if (envelope.runtimeTableSites) info(`${envelope.runtimeTableSites} SQL line(s) pick their table while running and could not be traced — listed by gsd-t graph who-uses <table>`);
   // [RULE] scip-missing-file-detected-never-silent — files the SCIP indexer never
   // produced a document for: their call edges stay unresolved, so who-calls is blind there.
   const miss = envelope.scipMissing;
