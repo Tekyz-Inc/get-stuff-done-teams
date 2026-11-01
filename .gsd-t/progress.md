@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v6.0.10 (2026-10-11): **M120 GSD-T v6 slim-down COMPLETE** — execution pipeline removed (59 → 18 commands, ~129K lines cut); kept graph, no-fallback, date guard, architect, new opt-in red team, debug halt, worktrees, env registry, Playwright rules, demo videos, estimates. Retired files are moved to dated backups, never deleted. Next: v6.1 — `gsd-t link-config-dir` (per-account Claude config dirs), faster scan, estimate-rescale rethink, solo story flow (pilot project to be chosen — not FlyLingo, which the dev team is building).
-## Date: 2026-10-27 16:39 PDT
-## Version: 6.2.27
+## Date: 2026-11-01 12:29 PST
+## Version: 6.3.10
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-11-01 12:29: [release] Raw-SQL tables + streamed SCIP reader (v6.3.10) — merged branches raw-sql-tables and scip-stream-reader; suite 1259/1262, 0 fail.
 - 2026-10-31 18:02: [fix] SCIP output path made absolute before scip-typescript / scip-python start: with a relative repo root (`--repo .`) each nested project wrote to a folder under itself that does not exist (ENOENT), silently leaving 2,230 Hilo files without compiler-resolved calls.
 - 2026-10-31 17:39: [fix] SCIP index read by walking the protobuf wire format instead of decoding it whole (`Index.deserialize(buf).toObject()`), which ran Node out of memory at its 4 GB default on Hilo (292 MB index → 4.8 GB). Same maps, verified by digest on both Hilo indexes; 0.6–0.9 GB and ~4× faster. User chose this over a Rust reader after measurement (Rust 0.6 s / 1.5 GB; streamed JS 1.5 s / 0.64 GB; nothing new to ship). [RULE] scip-read-streamed-never-whole
 - 2026-10-31 14:50: [research] Catch-all fix (writes counted anywhere; text ending at a write verb listed; field reassignments followed) closed round-2 HIGHs; red team round 3 FAIL — 11 shapes where a write verb is followed by something other than a name/hole (quoted or backtick hole, ??, schema prefix, UPDATE IGNORE, INSERT without INTO, COPY, EXECUTE string, Python format held in a const) still miss silently. Halted; awaiting David. Rust measured: SCIP reader Rust 0.6–0.7s / 1.0–1.5 GB vs Node 4–6s / 3.2–4.8 GB (Node OOMs at default heap on Hilo leftover.scip — the Hilo crash); Hilo build 343s = 221s scip-typescript (Node, stays) + 122s our indexer peaking 11.2 GB; hooks: npm root -g costs 65 ms of every 88 ms GSD-T hook, Node floor 22 ms vs Rust 3 ms.

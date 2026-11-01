@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.3.10] - 2026-11-01
+
+### Added — plain-SQL tables in the code graph; Fixed — large SCIP indexes no longer crash
+
+`gsd-t graph who-uses <table>` and `table <table>` now work for projects that write SQL by hand, not just Drizzle. Tables come from `.sql` files and from SQL strings in JS/TS/Python; reads and writes are credited to the function that runs them, and a table name held in a variable is traced back or listed as untraceable — never guessed. PostgreSQL, MySQL and SQLite are supported; SQL Server, Oracle and Snowflake shapes may be missed.
+
+The compiler index (SCIP) is now read piece by piece instead of all at once: a 292 MB index peaks at 0.8 GB instead of crashing Node at its default 4 GB limit. Indexers also get an absolute output path, so `gsd-t graph index --repo .` no longer silently drops nested projects.
+
+- `bin/gsd-t-graph-sql-scan.cjs` (new), edge-extract, index, freshness, query-cli: raw-SQL tables.
+- `bin/gsd-t-scip-reader.cjs`: streamed read; cut-short file fails loud.
+- `bin/gsd-t-graph-scip-upgrade.cjs`: absolute `--output`.
+- `test/graph-raw-sql-tables.test.js`, `test/m95-scip-call-resolution.test.js` (M95-4b).
+
 ## [6.2.27] - 2026-10-27
 
 ### Added — your own line in the status bar
