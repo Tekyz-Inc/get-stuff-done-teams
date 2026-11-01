@@ -146,6 +146,9 @@ function runScipTypescript(projectRoot, outPath) {
   // M95: emit to a REAL file (outPath) so the index can be READ and call edges
   // resolved — not /dev/null. The old /dev/null path only proved invocability.
   const out = outPath || resolveScipPath('index.scip', projectRoot);
+  // scip-typescript runs in projectRoot: a relative path (`--repo .`) would land under
+  // each nested project instead, and its open() fails with ENOENT.
+  const outAbs = path.resolve(out);
   // Ensure the output dir (now .gsd-t/graphDB/) exists — scip-typescript's
   // --output open() fails if the parent dir is absent (the old .gsd-t/ always
   // existed; graphDB/ may not on a fresh build). [RULE] scip-index-under-graphdb
@@ -164,13 +167,13 @@ function runScipTypescript(projectRoot, outPath) {
     ? process.env
     : { ...process.env, NODE_OPTIONS: `${nodeOpts} --max-old-space-size=${SCIP_HEAP_MB}`.trim() };
   const scip = spawnSync('scip-typescript',
-    ['index', '--infer-tsconfig', '--max-file-byte-size', SCIP_MAX_FILE_BYTES, '--output', out, '.'], {
+    ['index', '--infer-tsconfig', '--max-file-byte-size', SCIP_MAX_FILE_BYTES, '--output', outAbs, '.'], {
     cwd: projectRoot,
     encoding: 'utf8',
     timeout: 180_000,
     env,
   });
-  if (scip.status === 0) return { ok: true, scipPath: out };
+  if (scip.status === 0) return { ok: true, scipPath: outAbs };
   return { ok: false, error: scip.stderr || `exit code ${scip.status}` };
 }
 
@@ -179,16 +182,17 @@ function runScipPython(projectRoot, outPath) {
   // --project-name is required-ish for stable symbols; derive from the dir name.
   const out = outPath || resolveScipPath('index-python.scip', projectRoot);
   try { fs.mkdirSync(path.dirname(out), { recursive: true }); } catch {} // graphDB/ may not exist yet
+  const outAbs = path.resolve(out); // scip-python runs in projectRoot; see runScipTypescript
   const projName = path.basename(projectRoot).replace(/[^A-Za-z0-9_-]/g, '-') || 'project';
   // scip-python REQUIRES a project version — it crashes (makeModuleInit) when the
   // version is undefined (no pyproject.toml). Pass an explicit fallback version.
   const scip = spawnSync('scip-python',
-    ['index', '--project-name', projName, '--project-version', '0.0.0', '--output', out, '.'], {
+    ['index', '--project-name', projName, '--project-version', '0.0.0', '--output', outAbs, '.'], {
     cwd: projectRoot,
     encoding: 'utf8',
     timeout: 180_000,
   });
-  if (scip.status === 0) return { ok: true, scipPath: out };
+  if (scip.status === 0) return { ok: true, scipPath: outAbs };
   return { ok: false, error: scip.stderr || `exit code ${scip.status}` };
 }
 

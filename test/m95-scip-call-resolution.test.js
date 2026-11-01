@@ -144,6 +144,32 @@ test('M95-4: readScipIndex fails loud (not throw) on a missing/garbage .scip', (
   }
 });
 
+test('M95-4b: a .scip cut short fails loud — the streamed read never returns a partial map', () => {
+  const { loadScipProto } = require('../bin/gsd-t-scip-reader.cjs');
+  const p = loadScipProto();
+  if (!p) assert.fail('SCIP decoder unavailable — scip-typescript is a GSD-T install requirement');
+  const SYM = 'scip-typescript npm x 1 src/`a.ts`/f().';
+  const bytes = new p.Index({ documents: [new p.Document({ relative_path: 'src/a.ts', occurrences: [
+    new p.Occurrence({ symbol: SYM, symbol_roles: 1, range: [0, 9, 10] }),
+    new p.Occurrence({ symbol: SYM, symbol_roles: 0, range: [4, 2, 3] }),
+  ] })] }).serializeBinary();
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'm95-cut-'));
+  try {
+    const whole = path.join(tmp, 'whole.scip');
+    fs.writeFileSync(whole, Buffer.from(bytes));
+    const ok = readScipIndex(whole);
+    assert.equal(ok.ok, true);
+    assert.deepEqual(ok.fileRefs.get('src/a.ts'), [{ symbol: SYM, funcId: 'src/a.ts#f', line: 4 }]);
+    const cut = path.join(tmp, 'cut.scip');
+    fs.writeFileSync(cut, Buffer.from(bytes).subarray(0, bytes.length - 5));
+    const r = readScipIndex(cut);
+    assert.equal(r.ok, false);
+    assert.match(r.reason, /scip-decode-failed/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('M95-5: buildScipResolver returns a no-op passthrough when SCIP absent (never throws)', () => {
   // Force "absent" by resetting detection to all-false.
   upg._resetScipCache({ typescript: false, python: false, rust: false });
