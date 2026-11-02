@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.4.10] - 2026-11-01
+
+### Added — worktree lifecycle: nothing a worktree holds gets orphaned
+
+Every worktree is now recorded (purpose, owner session, target branch) in `.gsd-t/worktrees.json`. `gsd-t worktrees audit` reports, per worktree and branch, whether it is merged into its target, pushed, and has uncommitted changes, and prunes registrations whose folder is gone (saving any commits only they held). A finished worktree — branch merged, every file matching its last commit or the main checkout, no session open in it — is removed by `git worktree remove` at the next session start, or when asked with `gsd-t worktrees finish <branch> --remove`; never with `rm -rf`, never while it holds unique work. Releases (`/cpua`, `/checkin`) push every branch with commits not on GitHub and halt on an integration branch ahead of main with no recorded reason.
+
+- `bin/gsd-t-worktree-lifecycle.cjs`: registry, audit, warnings, finish, release-check; `gsd-t worktrees` command
+- `scripts/gsd-t-worktree-check.js`: new SessionStart hook — removes finished worktrees, warns (never blocks) on unpushed, unmerged > 3 days, merged-but-kept, integration ahead of main
+- `bin/gsd-t-pick-worktree.cjs`: records the worktree; `--purpose`, `--target`
+- `bin/gsd-t-worktree-detect.cjs`: sessions with their process id; the asking session
+- `commands/cpua.md`, `commands/checkin.md`: release-check step
+- `templates/CLAUDE-global.md` Worktrees section, README, docs
+- `test/worktree-lifecycle.test.js`: 32 tests
+
 ## [6.3.10] - 2026-11-01
 
 ### Added — plain-SQL tables in the code graph; Fixed — large SCIP indexes no longer crash

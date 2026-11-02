@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v6.0.10 (2026-10-11): **M120 GSD-T v6 slim-down COMPLETE** — execution pipeline removed (59 → 18 commands, ~129K lines cut); kept graph, no-fallback, date guard, architect, new opt-in red team, debug halt, worktrees, env registry, Playwright rules, demo videos, estimates. Retired files are moved to dated backups, never deleted. Next: v6.1 — `gsd-t link-config-dir` (per-account Claude config dirs), faster scan, estimate-rescale rethink, solo story flow (pilot project to be chosen — not FlyLingo, which the dev team is building).
-## Date: 2026-11-01 12:29 PST
-## Version: 6.3.10
+## Date: 2026-11-01 16:52 PST
+## Version: 6.4.10
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-11-01 16:52: [release] Worktree lifecycle (v6.4.10) — merged branch worktree-lifecycle; registry, audit, session-start removal of finished worktrees, release-check in /cpua and /checkin. Suite 1291 pass, 0 fail, 3 skipped.
 - 2026-11-01 15:37: [fix] Worktree removal — redesign red team round 2 FAIL (1 HIGH, 1 MED, 1 LOW); David approved fixing past the two-round limit and committing without a third round. NEW-1 (HIGH, data loss): a main symlink naming the worktree by a case-different path or the /System/Volumes/Data alias passed the "points back into the worktree" check — now compared by disk identity (device + file number) up the resolved path. NEW-2 (MED): kept-ref for a pruned detached worktree named by folder broke every later run on a folder git rejects as a ref name ("my fix") — now refs/gsd-t/kept/<commit id>. NEW-3 (LOW): git stopping part-way through a removal was reported as "refused" — now "partly removed, finish deleting <path> by hand" and recorded in the registry. Reverted the unused SKIP_FILES export. 3 regression tests; red team proof scripts re-run and closed. Worktree tests 32/32; suite 1291 pass, 0 fail, 3 skipped.
 - 2026-11-01 13:11: [feature] Worktree removal redesigned after red team round 2 FAIL (3 data-loss paths from reusing the provisioner skip list) — David: never remove mid-session on its own; remove at the next session start (any folder of the project) or when asked, once merged and identical to main. Rule: every file on disk is REBUILDABLE output (closed list David chose: packages, GSD-T graph index + session logs, test reports) or byte-identical to its last commit or the main checkout; pushed no longer required (commits live in main, branch kept). Also fixed round-2 N3–N7 (showUntrackedFiles, locked+missing folder, orphan commits kept under refs/gsd-t/kept on prune, dead-writer lock cleared, quoted names). GSD-T dry run: removes demo-videos, raw-sql-tables, scip-stream-reader; keeps fervent-newton (uncommitted docs edits). worktree-lifecycle 25/25.
 - 2026-11-01 12:38: [feature] Worktree lifecycle (branch worktree-lifecycle, uncommitted) — David: ATOS-V2 had 14 worktrees merged into an integration branch that never reached main, 7 local-only branches, 2 stale registrations that broke pick-worktree and 2 forgotten stashes. New bin/gsd-t-worktree-lifecycle.cjs (registry .gsd-t/worktrees.json; `gsd-t worktrees audit|finish|set|release-check`), SessionStart hook scripts/gsd-t-worktree-check.js (warn only), pick-worktree --purpose/--target, cpua + checkin run release-check. A fresh never-committed worktree reads as unstarted, not finished. Plan: PseudoCode-WorktreeLifecycle.md. Suite 1270/1273, 0 fail; worktree-lifecycle 11/11; install/status/doctor/init/uninstall smoke in a temp HOME.
