@@ -475,6 +475,28 @@ const CHANGELOG_CHECK_COMMAND =
 const WORKTREE_CHECK_MARKER = "gsd-t-worktree-check";
 const WORKTREE_CHECK_COMMAND =
   'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-worktree-check.js"';
+// ─── Never wait on David (PermissionRequest, PreToolUse AskUserQuestion, SubagentStart, Elicitation, Stop) ───
+// While questions are off (the default; `gsd-t questions on` inside a session),
+// a permission prompt is answered NO for him, a question is denied with "decide
+// and list it", every helper starts with that rule, an MCP server's input
+// dialog is declined, and a reply ending on a question is turned back once.
+// One script per event.
+// [RULE] prompts-answered-no
+const NEVER_WAIT_MARKER = "gsd-t-never-wait";
+const NEVER_WAIT_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-never-wait.js"';
+const NO_QUESTIONS_MARKER = "gsd-t-no-questions";
+const NO_QUESTIONS_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-no-questions.js"';
+const HELPER_BRIEF_MARKER = "gsd-t-helper-brief";
+const HELPER_BRIEF_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-helper-brief.js"';
+const MCP_INPUT_DECLINE_MARKER = "gsd-t-mcp-input-decline";
+const MCP_INPUT_DECLINE_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-mcp-input-decline.js"';
+const QUESTION_STOP_MARKER = "gsd-t-question-stop";
+const QUESTION_STOP_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-question-stop.js"';
 const CHANGELOG_POST_EDIT_MARKER = "gsd-t-changelog-post-edit";
 const CHANGELOG_POST_EDIT_COMMAND =
   'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-changelog-post-edit.js"';
@@ -501,6 +523,7 @@ const GSDT_HOOK_MARKERS = [
   GRAPH_SEARCH_HOOK_MARKER, GRAPH_USE_REPORT_MARKER, INSTALL_HEAL_MARKER,
   DATE_GUARD_MARKER, CHANGELOG_CHECK_MARKER, CHANGELOG_POST_EDIT_MARKER, WORKTREE_CHECK_MARKER,
   BUILD_SPEED_GUARD_MARKER, E2E_RECORD_MARKER, E2E_RECORD_FAILED_MARKER,
+  NEVER_WAIT_MARKER, NO_QUESTIONS_MARKER, HELPER_BRIEF_MARKER, MCP_INPUT_DECLINE_MARKER, QUESTION_STOP_MARKER,
   "gsd-t-update-check", "gsd-t-auto-route", "gsd-t-talk-start",
 ];
 
@@ -681,6 +704,16 @@ function configureBuildSpeedGuardHooks(settingsPath) {
     configurePreToolUseHook(settingsPath, BUILD_SPEED_GUARD_MARKER, BUILD_SPEED_GUARD_COMMAND, "build-speed guard", "Bash"),
     configureToolHook(settingsPath, "PostToolUse", E2E_RECORD_MARKER, E2E_RECORD_COMMAND, "e2e outcome recorder", "Bash"),
     configureToolHook(settingsPath, "PostToolUseFailure", E2E_RECORD_FAILED_MARKER, E2E_RECORD_FAILED_COMMAND, "e2e failure recorder", "Bash"),
+  ];
+}
+
+function configureNeverWaitHooks(settingsPath) {
+  return [
+    configureToolHook(settingsPath, "PermissionRequest", NEVER_WAIT_MARKER, NEVER_WAIT_COMMAND, "prompt auto-answer", ""),
+    configurePreToolUseHook(settingsPath, NO_QUESTIONS_MARKER, NO_QUESTIONS_COMMAND, "no-questions guard", "AskUserQuestion"),
+    configureToolHook(settingsPath, "SubagentStart", HELPER_BRIEF_MARKER, HELPER_BRIEF_COMMAND, "helper brief", ""),
+    configureToolHook(settingsPath, "Elicitation", MCP_INPUT_DECLINE_MARKER, MCP_INPUT_DECLINE_COMMAND, "MCP input decline", ""),
+    configureEventHook(settingsPath, "Stop", QUESTION_STOP_MARKER, QUESTION_STOP_COMMAND, "question stop"),
   ];
 }
 
@@ -1379,6 +1412,12 @@ async function doInstall(opts = {}) {
   reportHook(speedGuard, "Build-speed guard (blocks unchanged re-runs of failed Playwright tests and long foreground waits)");
   reportHook(e2eRecord, "E2E outcome recorder (reads Playwright's summary after a run)");
   reportHook(e2eRecordFailed, "E2E failure recorder (reads Playwright's summary after a failed run)");
+  const [neverWait, noQuestions, helperBrief, mcpDecline, questionStop] = configureNeverWaitHooks(SETTINGS_JSON);
+  reportHook(neverWait, "Prompt auto-answer (answers permission prompts NO so nothing waits on you; off after `gsd-t questions on`)");
+  reportHook(noQuestions, "No-questions guard (Claude decides and lists the choice instead of asking)");
+  reportHook(helperBrief, "Helper brief (every helper starts with the never-wait rule)");
+  reportHook(mcpDecline, "MCP input decline (an MCP server's input dialog is declined instead of waiting)");
+  reportHook(questionStop, "Question stop (a reply ending on a question is sent back once: decide and continue)");
   reportHook(configureGraphUseReportHook(SETTINGS_JSON), "Graph use report (flags a turn that did structural work without asking the graph — M117)");
   reportHook(configureChangelogPostEditHook(SETTINGS_JSON), "CLAUDE.md changelog post-edit hook (M110)");
   // SessionStart entries are put FIRST, so register install-heal last: it then
@@ -1826,6 +1865,11 @@ function doUninstall() {
   // Every hook GSD-T registers, plus any retired one still lingering.
   const hooks = removeHooksByMarkers(SETTINGS_JSON, GSDT_HOOK_MARKERS.concat(RETIRED_V6.hookMarkers));
   if (hooks.removed > 0) success(`Removed ${hooks.removed} GSD-T hook(s) from settings.json`);
+  const questionsDir = require(path.join(PKG_ROOT, "scripts", "gsd-t-never-wait.js")).switchDir();
+  if (fs.existsSync(questionsDir)) {
+    fs.rmSync(questionsDir, { recursive: true });
+    success("Removed the questions switches (~/.claude/gsd-t-questions-on/)");
+  }
 
   warn("~/.claude/CLAUDE.md was NOT removed (may contain your customizations)");
   info("Remove manually if desired: delete the GSD-T section from ~/.claude/CLAUDE.md");
@@ -3224,6 +3268,7 @@ function showHelp() {
   log(`  ${CYAN}graph${RESET}               Code graph (index, status, who-calls, who-imports, blast-radius, body, …)`);
   log(`  ${CYAN}pick-worktree${RESET}       Print the worktree a session should start in`);
   log(`  ${CYAN}worktrees${RESET}           Audit, finish and release-check worktrees and branches`);
+  log(`  ${CYAN}questions${RESET}           on | off | status — let Claude ask and show prompts in this session (default off)`);
   log(`  ${CYAN}link-config-dir${RESET}     Share this setup with another Claude config dir (second account)`);
   log(`  ${CYAN}directives-scan${RESET}     List directive files that still name retired GSD-T commands`);
   log(`  ${CYAN}setup-playwright${RESET}    Install Playwright into a project`);
@@ -3321,6 +3366,7 @@ module.exports = {
   configureChangelogCheckHook,
   configureChangelogPostEditHook,
   configureWorktreeCheckHook,
+  configureNeverWaitHooks,
   // M97/M98: intercept hook installers
   configureGraphInterceptHook,
   configureReadInterceptHook,
@@ -3374,6 +3420,32 @@ if (require.main === module) {
       const tool = path.join(PKG_ROOT, "bin", "gsd-t-worktree-lifecycle.cjs");
       const res = require("child_process").spawnSync(process.execPath, [tool, ...args.slice(1)], { stdio: "inherit" });
       process.exit(res.status === null ? 1 : res.status);
+    }
+    // Questions and permission prompts for this Claude session: off by default
+    // (nothing waits on David); on for 12 hours after `questions on`. Run from
+    // the session's Bash tool, which carries CLAUDE_CODE_SESSION_ID.
+    // [RULE] questions-off-unless-turned-on
+    case "questions": {
+      const nw = require(path.join(PKG_ROOT, "scripts", "gsd-t-never-wait.js"));
+      const sub = args[1];
+      const session = process.env.CLAUDE_CODE_SESSION_ID;
+      if (sub !== "on" && sub !== "off" && sub !== "status" && sub !== undefined) {
+        error(`Unknown: gsd-t questions ${sub} — use on, off or status`);
+        process.exit(1);
+      }
+      if (!session) {
+        error("gsd-t questions runs inside a Claude Code session (CLAUDE_CODE_SESSION_ID is not set).");
+        process.exit(1);
+      }
+      if (sub === "on" || sub === "off") {
+        nw.setQuestions(session, sub === "on");
+        log(sub === "on"
+          ? `Questions and permission prompts are ON for this session for ${nw.QUESTIONS_ON_HOURS} hours (gsd-t questions off to end).`
+          : "Questions and permission prompts are OFF for this session: Claude decides and lists its decisions.");
+      } else {
+        log(`Questions are ${nw.questionsOn(session) ? "ON" : "OFF"} for this session`);
+      }
+      break;
     }
     // A spoken conversation with this app's Claude; the dictation app is the
     // microphone (see bin/gsd-t-talk.cjs). Runs until Ctrl+C.

@@ -83,6 +83,11 @@ Planning, building and testing have no command — Claude does them directly, un
 | **Date guard** | before Write / Edit | Blocks timestamps more than ±5 minutes off the live clock. |
 | **CLAUDE.md changelog** | session start + after Write / Edit | Logs outside edits to `CLAUDE.md` and reminds Claude to log its own, in `CLAUDE.md updates.md`. |
 | **Worktree check** | session start | Removes finished worktrees no session has open (merged, nothing unique in them — see Worktrees). Warns (never blocks) about worktree branches not pushed, unmerged for more than 3 days, or merged but kept (with the blocking file), and integration branches ahead of `main`. Stamps the first session in a recorded worktree as its owner. |
+| **Prompt auto-answer** | permission prompt | Answers NO for you to any permission prompt Claude Code still shows in bypass mode (a removal it can't rule out as dangerous, for one), so nothing waits on you overnight. The command does not run; Claude leaves it undone and lists the exact command for you. Never answers YES. Plan-mode approval still waits for you. Off for a session after `gsd-t questions on`. |
+| **No-questions guard** | before AskUserQuestion | Denies a question: Claude decides, lists the choice under "Decisions made", and keeps going. Off after `gsd-t questions on`. |
+| **Helper brief** | helper start | Gives every helper (subagent) the never-wait rule: decide and list decisions, keep deletes simple, leave a refused command for you. |
+| **MCP input decline** | MCP input request | Declines an MCP server's request for your input, so its dialog never waits. Off after `gsd-t questions on`. |
+| **Question stop** | end of turn | A reply that ends on a question is sent back once: decide, list it, continue. Off after `gsd-t questions on`. |
 | **Install self-heal** | session start | Restores missing project `bin/` tools before work starts; halts loudly if it can't. |
 | **Update check** | session start | Prints the version banner; auto-installs a newer release. |
 | **Talk start** | session start | Starts the shared talk program if it is not running (idle until Ctrl+Option+Space). |
@@ -183,6 +188,7 @@ gsd-t changelog          Open changelog in the browser
 gsd-t graph              Code graph (index, status, who-calls, who-imports, blast-radius, body, …)
 gsd-t pick-worktree      Print the worktree a session should start in
 gsd-t worktrees          Audit, finish and release-check worktrees and branches
+gsd-t questions          on | off | status — let Claude ask and show prompts in this session (default off)
 gsd-t link-config-dir    Share this setup with another Claude config dir (second account)
 gsd-t directives-scan    List directive files that still name retired GSD-T commands
 gsd-t setup-playwright   Install Playwright into a project

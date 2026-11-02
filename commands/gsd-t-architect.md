@@ -31,6 +31,10 @@ Empty → ask what to assess.
 
 ## Step 2: Interview — show your read, ask only what code can't answer
 
+**Questions off** (the default — `gsd-t questions status` says which): don't ask. Write each question
+you would have asked, with the answer you assumed, under "What I confirmed with you" as
+`Assumed — say if wrong:`, and in Step 6 build without asking.
+
 1. **Show how it works today** as a short plain-English flow (format in Step 5), then what you
    believe *should* happen. Ask the user to correct it. This catches a wrong premise in one line.
 2. **Ask 2–5 questions, always including:**
