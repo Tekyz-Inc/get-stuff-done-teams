@@ -54,6 +54,7 @@ Requirements for the v6 package. Requirements for the cut pipeline (milestone â†
 |---|---|---|
 | REQ-W1 | `pick-worktree` enters a free existing worktree, creates and provisions a new one, refuses occupied or unknown folders; `--list` prints `free\|busy` | `m111-pick-worktree` |
 | REQ-W2 | Provisioning carries config/secrets with permissions, skips session state, installs from the lockfile, reports what it couldn't copy, halts on install failure | `m112-worktree-provision` |
+| REQ-W3 | Worktree lifecycle: registry records purpose/target/owner; audit reports merged / unpushed / dirty and prunes stale registrations; the session hook warns, never blocks; finish removes a merged worktree whose every file is rebuildable output or identical to its last commit / the main checkout, via `git worktree remove` â€” at the next session start (none open in it) or when asked by name; release-check pushes every branch and halts on an integration branch ahead of main with no reason | `worktree-lifecycle` |
 | REQ-E1 | Env registry upserts rows by `(scope, kind)`, rejects literal secrets, reads back for lookup | `m102-env-registry` |
 | REQ-S1 | Estimate writer computes, writes and audits by read-back; violations exit 4 | `estimate-sheet-writer` |
 | REQ-P1 | PseudoCode flow-style gate (exit 0 / 4 / 64) | `pseudocode-style-gate`, `m112-architect-stage` |

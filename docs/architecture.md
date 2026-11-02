@@ -19,7 +19,7 @@ v6 removed the phase pipeline (milestone → partition → plan → execute → 
 ### CLI (`bin/gsd-t.js`)
 
 - Node built-ins only in the CLI itself; the graph needs `better-sqlite3` and `tree-sitter` (+ TypeScript / Python grammars), declared as package dependencies. `install` also installs the SCIP indexers.
-- Subcommands: `install`, `update` (`update-all` is an old alias), `init`, `register`, `status`, `uninstall`, `doctor`, `changelog`, `graph`, `pick-worktree`, `setup-playwright`, `workflow-path`, `estimate-sheet`, `talk`, plus the tool routes `install-check`, `slice-budget`, `pseudocode-style`, `graph-availability`.
+- Subcommands: `install`, `update` (`update-all` is an old alias), `init`, `register`, `status`, `uninstall`, `doctor`, `changelog`, `graph`, `pick-worktree`, `worktrees`, `setup-playwright`, `workflow-path`, `estimate-sheet`, `talk`, plus the tool routes `install-check`, `slice-budget`, `pseudocode-style`, `graph-availability`.
 - `PROJECT_BIN_TOOLS` lists what is copied into every project's `bin/`. `bin/gsd-t-install-check.cjs` parses that array from the source text, so it must keep the `const PROJECT_BIN_TOOLS = [ … ];` shape.
 
 ### Commands (`commands/`)
@@ -80,6 +80,8 @@ Only `gsd-t-scan.workflow.js` and `gsd-t-debug.workflow.js` remain. Command file
 - `bin/gsd-t-pick-worktree.cjs` — picks, enters or creates the worktree for a session (`--name`, `--list`, `--suggest`). Enters an existing free worktree; refuses a folder git doesn't know as that branch's worktree, or one a live session occupies. `main` / the remote default branch means the main checkout.
 - `bin/gsd-t-worktree-provision.cjs` — CARRY local config and secrets (`.env*`, `.npmrc`, credentials; permissions kept), SKIP per-session `.gsd-t` state, build output and OS junk, INSTALL dependencies from the worktree's own lockfile. Unreadable files are reported; a failed install halts.
 - `bin/gsd-t-worktree-detect.cjs` — tells a worktree from the main checkout.
+- `bin/gsd-t-worktree-lifecycle.cjs` — the registry (`.gsd-t/worktrees.json` in the main checkout: purpose, target, owner, session per branch; reasons for integration branches), `audit`, `finish` (removes via `git worktree remove` only when the branch is merged into its target and every file on disk — tracked, new or ignored — is `REBUILDABLE` output or byte-identical to its last commit or the main checkout; refused for unmerged / unstarted / locked / missing / another session in it; named = the asking session may be inside it; unnamed = skips the caller's folder), `set`, `release-check`. "Merged" = ancestor of the target or every commit already applied (rebase merge); a squash merge reads as unmerged. An integration branch is one the registry names as a target or gives a reason — never guessed from a name. Plan: `.gsd-t/pseudocode/PseudoCode-WorktreeLifecycle.md`.
+- `scripts/gsd-t-worktree-check.js` — SessionStart hook; runs the unnamed `finish --remove` sweep, then warns from the audit; never blocks.
 
 ### Environments registry
 

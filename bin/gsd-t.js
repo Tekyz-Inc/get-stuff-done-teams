@@ -470,6 +470,11 @@ const DATE_GUARD_COMMAND =
 const CHANGELOG_CHECK_MARKER = "gsd-t-changelog-check";
 const CHANGELOG_CHECK_COMMAND =
   'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-changelog-check.js"';
+// SessionStart: warns about unpushed / stale / finished worktrees and integration
+// branches ahead of main. Warn only. [RULE] warnings-never-block
+const WORKTREE_CHECK_MARKER = "gsd-t-worktree-check";
+const WORKTREE_CHECK_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-worktree-check.js"';
 const CHANGELOG_POST_EDIT_MARKER = "gsd-t-changelog-post-edit";
 const CHANGELOG_POST_EDIT_COMMAND =
   'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-changelog-post-edit.js"';
@@ -494,7 +499,7 @@ const E2E_RECORD_FAILED_COMMAND =
 const GSDT_HOOK_MARKERS = [
   GRAPH_INTERCEPT_HOOK_MARKER, READ_INTERCEPT_HOOK_MARKER, FALLBACK_HOOK_MARKER,
   GRAPH_SEARCH_HOOK_MARKER, GRAPH_USE_REPORT_MARKER, INSTALL_HEAL_MARKER,
-  DATE_GUARD_MARKER, CHANGELOG_CHECK_MARKER, CHANGELOG_POST_EDIT_MARKER,
+  DATE_GUARD_MARKER, CHANGELOG_CHECK_MARKER, CHANGELOG_POST_EDIT_MARKER, WORKTREE_CHECK_MARKER,
   BUILD_SPEED_GUARD_MARKER, E2E_RECORD_MARKER, E2E_RECORD_FAILED_MARKER,
   "gsd-t-update-check", "gsd-t-auto-route", "gsd-t-talk-start",
 ];
@@ -656,6 +661,9 @@ function configureDateGuardHook(settingsPath) {
 }
 function configureChangelogCheckHook(settingsPath) {
   return configureEventHook(settingsPath, "SessionStart", CHANGELOG_CHECK_MARKER, CHANGELOG_CHECK_COMMAND, "CLAUDE.md changelog check");
+}
+function configureWorktreeCheckHook(settingsPath) {
+  return configureEventHook(settingsPath, "SessionStart", WORKTREE_CHECK_MARKER, WORKTREE_CHECK_COMMAND, "worktree check");
 }
 function configureChangelogPostEditHook(settingsPath) {
   return configureToolHook(settingsPath, "PostToolUse", CHANGELOG_POST_EDIT_MARKER, CHANGELOG_POST_EDIT_COMMAND, "CLAUDE.md changelog post-edit", "Write|Edit");
@@ -1113,6 +1121,9 @@ const GLOBAL_BIN_TOOLS = [
   // on load, so a tool that ships alone is a tool that does not run.
   "gsd-t-worktree-detect.cjs",
   "gsd-t-worktree-provision.cjs",
+  // Worktree registry + audit/finish/release-check. gsd-t-pick-worktree requires
+  // it to record each new worktree's purpose and target branch.
+  "gsd-t-worktree-lifecycle.cjs",
   // M112 — measures a slice plan in LINES and splits what is too big. Called by
   // the scan workflow before any reviewing starts.
   "gsd-t-slice-budget.cjs",
@@ -1373,6 +1384,7 @@ async function doInstall(opts = {}) {
   // SessionStart entries are put FIRST, so register install-heal last: it then
   // runs before anything else tries to use the tools it repairs.
   reportHook(configureChangelogCheckHook(SETTINGS_JSON), "CLAUDE.md changelog check (M110)");
+  reportHook(configureWorktreeCheckHook(SETTINGS_JSON), "Worktree check (warns about unpushed, stale or finished worktrees)");
   reportHook(configureInstallHealHook(SETTINGS_JSON), "Install self-heal (restores missing tools before work starts — M108)");
 
   retireV6Everything();
@@ -3211,6 +3223,7 @@ function showHelp() {
   log(`  ${CYAN}changelog${RESET}           Open changelog in the browser`);
   log(`  ${CYAN}graph${RESET}               Code graph (index, status, who-calls, who-imports, blast-radius, body, …)`);
   log(`  ${CYAN}pick-worktree${RESET}       Print the worktree a session should start in`);
+  log(`  ${CYAN}worktrees${RESET}           Audit, finish and release-check worktrees and branches`);
   log(`  ${CYAN}link-config-dir${RESET}     Share this setup with another Claude config dir (second account)`);
   log(`  ${CYAN}directives-scan${RESET}     List directive files that still name retired GSD-T commands`);
   log(`  ${CYAN}setup-playwright${RESET}    Install Playwright into a project`);
@@ -3307,6 +3320,7 @@ module.exports = {
   configureBuildSpeedGuardHooks,
   configureChangelogCheckHook,
   configureChangelogPostEditHook,
+  configureWorktreeCheckHook,
   // M97/M98: intercept hook installers
   configureGraphInterceptHook,
   configureReadInterceptHook,
@@ -3353,6 +3367,13 @@ if (require.main === module) {
         process.exit(typeof e.status === "number" ? e.status : 1);
       }
       break;
+    }
+    // Worktree lifecycle: audit, finish, set, release-check.
+    // [RULE] unfinished-work-never-removed
+    case "worktrees": {
+      const tool = path.join(PKG_ROOT, "bin", "gsd-t-worktree-lifecycle.cjs");
+      const res = require("child_process").spawnSync(process.execPath, [tool, ...args.slice(1)], { stdio: "inherit" });
+      process.exit(res.status === null ? 1 : res.status);
     }
     // A spoken conversation with this app's Claude; the dictation app is the
     // microphone (see bin/gsd-t-talk.cjs). Runs until Ctrl+C.

@@ -64,6 +64,11 @@ function isLinkedWorktree(dir) {
  * read — "nobody is there" must never be a guess.
  */
 function interactiveClaudeDirs() {
+  return new Set(interactiveClaudeSessions().map((s) => s.dir));
+}
+
+/** Each interactive Claude session as { pid, dir }. Same rules as interactiveClaudeDirs. */
+function interactiveClaudeSessions() {
   const ps = spawnSync('ps', ['-eo', 'pid=,tty=,comm='], { encoding: 'utf8' });
   if (ps.status !== 0) {
     throw new Error(
@@ -71,7 +76,7 @@ function interactiveClaudeDirs() {
       `so a worktree already in use can't be ruled out.`
     );
   }
-  const dirs = new Set();
+  const sessions = [];
   for (const line of String(ps.stdout).split('\n')) {
     const m = line.trim().match(/^(\d+)\s+(\S+)\s+(.*)$/);
     if (!m) continue;
@@ -79,9 +84,9 @@ function interactiveClaudeDirs() {
     if (tty === '??' || tty === '?') continue;   // no terminal — not a session
     if (!/claude/i.test(comm)) continue;
     const d = cwdOfPid(pid);
-    if (d) dirs.add(d);
+    if (d) sessions.push({ pid: Number(pid), dir: d });
   }
-  return dirs;
+  return sessions;
 }
 
 // A process that exited between listing and inspection occupies nothing, so a
@@ -91,6 +96,26 @@ function cwdOfPid(pid) {
   if (r.status !== 0) return null;
   for (const line of String(r.stdout).split('\n')) {
     if (line.startsWith('n/')) return line.slice(1);
+  }
+  return null;
+}
+
+/**
+ * The Claude session running THIS process: the nearest ancestor process named
+ * claude, as { pid, dir }. null when no ancestor is a claude (a plain terminal).
+ * Lets "remove the worktree I'm in" be told apart from "another session is
+ * working there" — matched by pid, so a second session in the same folder
+ * still counts.
+ */
+function ownSession() {
+  let pid = String(process.ppid);
+  for (let depth = 0; depth < 30 && pid !== '0' && pid !== '1'; depth++) {
+    const r = spawnSync('ps', ['-o', 'ppid=,comm=', '-p', pid], { encoding: 'utf8' });
+    if (r.status !== 0) return null;
+    const m = String(r.stdout).trim().match(/^(\d+)\s+(.*)$/);
+    if (!m) return null;
+    if (/claude/i.test(m[2])) return { pid: Number(pid), dir: cwdOfPid(pid) };
+    pid = m[1];
   }
   return null;
 }
@@ -126,6 +151,8 @@ function isOccupied(dir, sessionDirs) {
 module.exports = {
   isLinkedWorktree,
   interactiveClaudeDirs,
+  interactiveClaudeSessions,
+  ownSession,
   linkedWorktrees,
   isOccupied,
   // Test-only

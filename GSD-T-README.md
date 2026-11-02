@@ -77,7 +77,11 @@ Real work goes on its own branch in its own worktree, outside the project folder
 ```bash
 gsd-t pick-worktree --name my-feature     # enter it, or create + provision it
 gsd-t pick-worktree --list                # free|busy per worktree
+gsd-t worktrees audit                     # merged / pushed / uncommitted for every worktree, branch, stash
+gsd-t worktrees finish <branch> --remove  # remove a merged worktree now (refuses one holding unique files)
 ```
+
+Each new worktree is recorded with its purpose and the branch it must merge into. Finished worktrees (merged, nothing unique in them) are removed at the next session start once no session has them open, or when you ask. A session-start hook warns about unpushed or stale worktrees, and releases push every branch and halt on an integration branch ahead of `main` with no recorded reason.
 
 Provisioning copies `.env*` and local config, skips session state and build output, and installs dependencies from the worktree's own lockfile. A worktree made by hand with `git worktree add` is missing all of that.
 
