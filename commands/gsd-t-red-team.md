@@ -1,7 +1,7 @@
 # GSD-T: Red Team — Independent Adversarial Review of a Change
 
 **Opt-in.** Use it when a change is high-complexity or touches security, money, permissions or
-data integrity. Skip it for routine work.
+data integrity. Skip it for routine work. **Also run it after an autonomous run** (work done without the user watching), with the Inventions category.
 
 The red team is a **fresh-context agent whose only job is to break the change**. It was not part of
 writing it, so it doesn't share the builder's blind spots.
@@ -56,6 +56,10 @@ rules, the suite result, the chosen categories with their reasons, the run comma
 > 6. **Error paths** — missing env vars, dead dependencies, malformed input. Does it HALT loudly,
 >    or continue silently? **A fallback that hides a failure is a bug.**
 > 7. **Test depth** — do the tests prove behavior, or just that elements exist? Shallow tests are findings.
+> 8. **Inventions** — behavior in the finished work that no source calls for. For each behavior added,
+>    find where the user's request, docs, old app, prototype or the law asks for it, and whether each
+>    "Source:" quote really supports the decision. Claude's own plans, logs and memory are not sources.
+>    A behavior with no source is a HIGH bug; proof is the places you searched.
 >
 > **Report** (under 400 words)
 > - **Verdict:** `FAIL` (any CRITICAL or HIGH) or `GRUDGING-PASS` (nothing found).

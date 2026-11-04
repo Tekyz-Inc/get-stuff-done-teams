@@ -4,7 +4,7 @@
  *
  * A reply that ends on a question ("…which one?") leaves the session waiting
  * for David. While questions are off, the first such stop is turned back once
- * with "decide, list it, continue"; a stop that is already a continuation
+ * with "use a source or park it, never invent, continue"; a stop that is already a continuation
  * (stop_hook_active) is let through, so it never loops.
  * Logic lives in gsd-t-never-wait.js. [RULE] questions-off-unless-turned-on
  */

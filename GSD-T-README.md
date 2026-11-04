@@ -48,7 +48,7 @@ Reach for a command when the work calls for it:
 
 ## 4. The red team
 
-`/gsd-t-red-team [branch | range | PR | description]` launches one fresh-context agent whose only job is to break the change: requirements gaps, boundary inputs, state and concurrency, permissions, money and data integrity, error paths (a fallback that hides a failure counts as a bug), regressions, and shallow tests. It reports only what it reproduced. CRITICAL/HIGH findings get fixed and re-attacked, two rounds at most, then it halts and reports to you. Skip it for routine work.
+`/gsd-t-red-team [branch | range | PR | description]` launches one fresh-context agent whose only job is to break the change: requirements gaps, boundary inputs, state and concurrency, permissions, money and data integrity, error paths (a fallback that hides a failure counts as a bug), regressions, shallow tests, and inventions (behavior no source asks for; run this one after any autonomous run). It reports only what it reproduced. CRITICAL/HIGH findings get fixed and re-attacked, two rounds at most, then it halts and reports to you. Skip it for routine work.
 
 ## 5. Debugging
 

@@ -497,6 +497,15 @@ const MCP_INPUT_DECLINE_COMMAND =
 const QUESTION_STOP_MARKER = "gsd-t-question-stop";
 const QUESTION_STOP_COMMAND =
   'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-question-stop.js"';
+const DECISION_CHECK_MARKER = "gsd-t-decision-check";
+const DECISION_CHECK_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-decision-check.js"';
+const HELPER_DECISION_CHECK_MARKER = "gsd-t-helper-decision-check";
+const HELPER_DECISION_CHECK_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-helper-decision-check.js"';
+const INVENTION_GUARD_MARKER = "gsd-t-invention-guard";
+const INVENTION_GUARD_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-invention-guard.js"';
 const CHANGELOG_POST_EDIT_MARKER = "gsd-t-changelog-post-edit";
 const CHANGELOG_POST_EDIT_COMMAND =
   'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-changelog-post-edit.js"';
@@ -523,7 +532,7 @@ const GSDT_HOOK_MARKERS = [
   GRAPH_SEARCH_HOOK_MARKER, GRAPH_USE_REPORT_MARKER, INSTALL_HEAL_MARKER,
   DATE_GUARD_MARKER, CHANGELOG_CHECK_MARKER, CHANGELOG_POST_EDIT_MARKER, WORKTREE_CHECK_MARKER,
   BUILD_SPEED_GUARD_MARKER, E2E_RECORD_MARKER, E2E_RECORD_FAILED_MARKER,
-  NEVER_WAIT_MARKER, NO_QUESTIONS_MARKER, HELPER_BRIEF_MARKER, MCP_INPUT_DECLINE_MARKER, QUESTION_STOP_MARKER,
+  NEVER_WAIT_MARKER, NO_QUESTIONS_MARKER, HELPER_BRIEF_MARKER, MCP_INPUT_DECLINE_MARKER, QUESTION_STOP_MARKER, DECISION_CHECK_MARKER, HELPER_DECISION_CHECK_MARKER, INVENTION_GUARD_MARKER,
   "gsd-t-update-check", "gsd-t-auto-route", "gsd-t-talk-start",
 ];
 
@@ -714,6 +723,9 @@ function configureNeverWaitHooks(settingsPath) {
     configureToolHook(settingsPath, "SubagentStart", HELPER_BRIEF_MARKER, HELPER_BRIEF_COMMAND, "helper brief", ""),
     configureToolHook(settingsPath, "Elicitation", MCP_INPUT_DECLINE_MARKER, MCP_INPUT_DECLINE_COMMAND, "MCP input decline", ""),
     configureEventHook(settingsPath, "Stop", QUESTION_STOP_MARKER, QUESTION_STOP_COMMAND, "question stop"),
+    configureEventHook(settingsPath, "Stop", DECISION_CHECK_MARKER, DECISION_CHECK_COMMAND, "decision check"),
+    configureEventHook(settingsPath, "SubagentStop", HELPER_DECISION_CHECK_MARKER, HELPER_DECISION_CHECK_COMMAND, "helper decision check"),
+    configureWriteEditHook(settingsPath, INVENTION_GUARD_MARKER, INVENTION_GUARD_COMMAND, "invention guard"),
   ];
 }
 
@@ -1412,12 +1424,15 @@ async function doInstall(opts = {}) {
   reportHook(speedGuard, "Build-speed guard (blocks unchanged re-runs of failed Playwright tests and long foreground waits)");
   reportHook(e2eRecord, "E2E outcome recorder (reads Playwright's summary after a run)");
   reportHook(e2eRecordFailed, "E2E failure recorder (reads Playwright's summary after a failed run)");
-  const [neverWait, noQuestions, helperBrief, mcpDecline, questionStop] = configureNeverWaitHooks(SETTINGS_JSON);
+  const [neverWait, noQuestions, helperBrief, mcpDecline, questionStop, decisionCheck, helperDecisionCheck, inventionGuard] = configureNeverWaitHooks(SETTINGS_JSON);
   reportHook(neverWait, "Prompt auto-answer (answers permission prompts NO so nothing waits on you; off after `gsd-t questions on`)");
-  reportHook(noQuestions, "No-questions guard (Claude decides and lists the choice instead of asking)");
+  reportHook(noQuestions, "No-questions guard (Claude uses a cited source or parks the question, never invents)");
   reportHook(helperBrief, "Helper brief (every helper starts with the never-wait rule)");
   reportHook(mcpDecline, "MCP input decline (an MCP server's input dialog is declined instead of waiting)");
-  reportHook(questionStop, "Question stop (a reply ending on a question is sent back once: decide and continue)");
+  reportHook(questionStop, "Question stop (a reply ending on a question is sent back once)");
+  reportHook(decisionCheck, "Decision check (a listed decision must quote a real source; sent back once, then you are warned)");
+  reportHook(helperDecisionCheck, "Helper decision check (the same check on a helper's report)");
+  reportHook(inventionGuard, "Invention guard (denies a write that marks a Claude recommendation without a source)");
   reportHook(configureGraphUseReportHook(SETTINGS_JSON), "Graph use report (flags a turn that did structural work without asking the graph — M117)");
   reportHook(configureChangelogPostEditHook(SETTINGS_JSON), "CLAUDE.md changelog post-edit hook (M110)");
   // SessionStart entries are put FIRST, so register install-heal last: it then

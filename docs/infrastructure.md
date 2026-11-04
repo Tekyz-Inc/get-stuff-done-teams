@@ -86,10 +86,12 @@ Real work happens in a worktree: `~/Worktrees/GSD-T/<branch>/` (v6 was built in 
 | SessionStart | `gsd-t-worktree-check.js` | Remove finished worktrees no session has open; warn about unpushed / stale / merged-but-kept worktrees and integration branches ahead of main; stamp the owner session |
 | PreToolUse Bash\|Grep | `gsd-t-graph-search-guard.js` | Block structural code searches |
 | PermissionRequest | `gsd-t-never-wait.js` | Answer every permission prompt NO (with a reason) while questions are off, so nothing waits on the user; plan-mode approval excepted; switch markers per session in `~/.claude/gsd-t-questions-on/` (12 h) |
-| PreToolUse AskUserQuestion | `gsd-t-no-questions.js` | Deny questions while off: decide and list under Decisions made |
+| PreToolUse AskUserQuestion | `gsd-t-no-questions.js` | Deny questions while off: use a cited source or park it under Left for you |
 | SubagentStart | `gsd-t-helper-brief.js` | Give every helper the never-wait rule |
 | Elicitation | `gsd-t-mcp-input-decline.js` | Decline an MCP server's input request while questions are off |
 | Stop | `gsd-t-question-stop.js` | Send a reply that ends on a question back once while questions are off |
+| Stop, SubagentStop | `gsd-t-decision-check.js`, `gsd-t-helper-decision-check.js` | Check each "Decisions made" quote against its source file or what the user typed; send back once, then warn the user (`systemMessage`) |
+| PreToolUse Write\|Edit | `gsd-t-invention-guard.js` | Deny a new line marked `recommended by Claude` with no checkable source on it; exceptions by name in `.gsd-t/inventions.json`; denies on error |
 | PreToolUse Bash | `gsd-t-build-speed-guard.js` | Block unchanged re-runs of failed Playwright runs, whole-config re-runs before a narrower pass, long foreground waits |
 | PostToolUse Bash | `gsd-t-e2e-record.js` | Record a Playwright run's outcome (`~/.claude/gsd-t-e2e/`) |
 | PostToolUseFailure Bash | `gsd-t-e2e-failure-record.js` | Record a failed (non-zero exit) Playwright run |

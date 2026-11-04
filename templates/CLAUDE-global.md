@@ -28,17 +28,25 @@ Structural questions about code (who calls, who imports, what breaks, where defi
 
 A fallback is anything that continues after a failure: a `catch` that keeps going, `|| default`, a silent degrade, "try X else Y". **Banned** unless the user approves it first, or you can cite a confirmed, reproducible case only the fallback catches. The allowed alternative is a **HALT**: stop loudly, exit non-zero, surface the failure. Releases too — verify the change actually landed; never trust a tool that merely reports success.
 
+**An invention is a fallback too:** filling a missing answer with made-up behaviour instead of stopping. "Best recommendation, move forward" means choosing among options the sources give, never adding behaviour. Before deciding anything nobody specified:
+
+- Does a source (the user's documents or own words, the existing system, a design the user supplied, the law) call for this at all? **No → there is no hole:** leave it out and ask nothing.
+- Yes, and a source answers it or gives the options → pick one and cite it: `Source: path/to/file "exact words"` or `Source: you "exact words"`.
+- Yes, but no source answers it → build nothing behind it and park one question, alone, marked "New — not in your sources". Never bundle one into a batch approval. A yes given in a batch is weak: it is not approval of an invention inside it, and it is raised again as its own question if a later fact contradicts it.
+
+Your own plans, logs and memory are not sources. A line marked `recommended by Claude` must quote its source on that line; the invention guard denies the write otherwise, unless the user approved that item by itself and it is listed in `.gsd-t/inventions.json`. After an autonomous run, `/gsd-t-red-team` with the Inventions category compares the finished work against the sources.
+
 # Never Wait on the User (hook-enforced)
 
 Questions and permission prompts are **off** by default; run `gsd-t questions on` (from the session's Bash) to turn them on for this session — 12 hours, or until `gsd-t questions off` — only when the user explicitly says to stop or ask about something. While off:
 
-- **Decide, don't ask.** Wherever a rule or command says "ask" or "stop and ask", make the safest reasonable call, list it under **Decisions made** at the end of the reply, and keep going. A destructive or irreversible step nobody explicitly asked for → skip it and list it. A required input you can't infer → finish everything else, then say what's needed.
-- Hooks enforce it: a permission prompt is answered NO for the user (the command doesn't run — never retry or reword it past the check; list the exact command under Decisions made for the user to run), `AskUserQuestion` is denied, an MCP server's input dialog is declined, a reply ending on a question is sent back once, and every helper starts with this rule.
+- **Don't ask, and don't invent.** Wherever a rule or command says "ask" or "stop and ask", apply the invention test above: a sourced choice goes under **Decisions made** with its citation; a real hole goes under **Left for you** as one question, with nothing built behind it. Those two sections close the reply, in that order, with exactly those headings, because everything between them is checked. Keep going with everything else. A destructive or irreversible step nobody explicitly asked for → skip it and put it under Left for you.
+- Hooks enforce it: a permission prompt is answered NO for the user (the command doesn't run — never retry or reword it past the check; list the exact command under Left for you), `AskUserQuestion` is denied, an MCP server's input dialog is declined, a reply ending on a question is sent back once, a listed decision whose quote isn't in its source is sent back once and then flagged to the user, and every helper starts with this rule.
 - **Keep deletes simple:** `rm` on literal file paths, in a command of its own — never mixed with a loop, a `$VAR` or a glob, never the working folder or a parent. Mixed forms trip Claude Code's removal check even in bypass mode.
 
 # Destructive Action Guard
 
-**Stop and ask before (questions off: skip and list under Decisions made):** dropping/renaming tables or columns, data-losing migrations, deleting working files or modules, replacing an architecture pattern or dependency, removing endpoints or changing response shapes clients use, or any change forcing rewrites elsewhere. Adapt new code to what exists; if restructuring is truly needed, present what exists, what breaks, what is lost, and a migration path — then wait.
+**Stop and ask before (questions off: skip and put under Left for you):** dropping/renaming tables or columns, data-losing migrations, deleting working files or modules, replacing an architecture pattern or dependency, removing endpoints or changing response shapes clients use, or any change forcing rewrites elsewhere. Adapt new code to what exists; if restructuring is truly needed, present what exists, what breaks, what is lost, and a migration path — then wait (questions off: put it under Left for you and carry on with the rest).
 
 # Unproven Assumptions
 
@@ -46,7 +54,7 @@ Never act on a guess. Internal facts (this repo) → verify with the graph or Re
 
 # Architect Before Building
 
-For any non-trivial design, run `/gsd-t-architect` before writing code: ground in the code and the project's standing rules, ask the user only what the code can't answer (questions off: list them as assumptions in the plan and build), check reuse via the graph, and write the plan as a plain-English decision tree (PseudoCode doc) for approval. Direction before code.
+For any non-trivial design, run `/gsd-t-architect` before writing code: ground in the code and the project's standing rules, ask the user only what the code can't answer (questions off: apply the invention test; real holes go in the plan as open questions with nothing built behind them), check reuse via the graph, and write the plan as a plain-English decision tree (PseudoCode doc) for approval. Direction before code.
 
 # Adversarial Review — complex or risky work only
 
