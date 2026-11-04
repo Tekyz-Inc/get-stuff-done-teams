@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v6.0.10 (2026-10-11): **M120 GSD-T v6 slim-down COMPLETE** — execution pipeline removed (59 → 18 commands, ~129K lines cut); kept graph, no-fallback, date guard, architect, new opt-in red team, debug halt, worktrees, env registry, Playwright rules, demo videos, estimates. Retired files are moved to dated backups, never deleted. Next: v6.1 — `gsd-t link-config-dir` (per-account Claude config dirs), faster scan, estimate-rescale rethink, solo story flow (pilot project to be chosen — not FlyLingo, which the dev team is building).
-## Date: 2026-11-01 16:52 PST
-## Version: 6.4.10
+## Date: 2026-11-04 13:43 PST
+## Version: 6.5.10
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-11-04 13:43: [release] Never-wait and the invention rule (v6.5.10) — hooks answer prompts NO, refuse questions, check decision citations and marked file lines. Released on David's cpua after three red-team rounds; round 3's fixes have tests and replays but no independent re-attack.
 - 2026-11-04 13:42: [feature] An invention is a fallback. Rule in the global instructions (nothing no source calls for is built; a real hole is parked as one question; a batch yes is weak). Decision check on Stop and SubagentStop quotes each listed decision against its source; invention guard on Write|Edit denies a new `recommended by Claude` line without a source or a named exception; red team gains an Inventions category. Never-wait messages no longer license a guess. Red team: FAIL, FAIL (design reset to one fixed format), FAIL (2 HIGH in the new guard, fixed with tests; no independent re-attack of those fixes yet).
 - 2026-11-02 09:50: [feature] Never wait on David (branch never-wait, not released — David: hold the push) — overnight 2026-11-01/02 an ATOS-V2 helper ran `for … done && rm -f dir/*`; Claude Code's removal check prompted even in bypass mode and the run waited 314 minutes; his "don't stop" rule lived only in main-session memory. David chose "questions always off unless I state otherwise". Five hooks sharing scripts/gsd-t-never-wait.js: PermissionRequest answers every prompt NO with a reason (never YES; plan-mode approval excepted), PreToolUse AskUserQuestion denied, SubagentStart briefs every helper, Elicitation declines MCP input, Stop sends a reply ending on a question back once. Switch per session (`gsd-t questions on`, CLAUDE_CODE_SESSION_ID, 12 h). Proved live in bypass tmux sessions (Claude Code 2.1.316). Red team round 1 FAIL (MCP dialog waited; switch followed cd; deny message promised a rewrite passes; question endings; crash on empty input; uninstall leftovers) — all fixed; round 2 GRUDGING-PASS (two LOW question-ending heuristic misses; cheap cases fixed, a requested list of questions can still be sent back once). Suite 1303 pass, 0 fail.
 - 2026-11-01 16:52: [release] Worktree lifecycle (v6.4.10) — merged branch worktree-lifecycle; registry, audit, session-start removal of finished worktrees, release-check in /cpua and /checkin. Suite 1291 pass, 0 fail, 3 skipped.

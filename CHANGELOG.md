@@ -2,6 +2,22 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.5.10] - 2026-11-04
+
+### Added — nothing waits on the user, and nothing is invented to keep moving
+
+A helper sat on a permission prompt for 5 hours overnight; another run built behaviour no source asked for. Questions and prompts are now off unless `gsd-t questions on` is run for that session (12 hours). While off, a permission prompt is answered NO, a question tool call is refused, and an MCP input dialog is declined. An invention is now a fallback: nothing is built that no source calls for, and a real hole is parked as one question.
+
+- `scripts/gsd-t-never-wait.js`: permission-prompt answer, shared switch, messages, citation check, write guard
+- `scripts/gsd-t-no-questions.js`, `gsd-t-helper-brief.js`, `gsd-t-mcp-input-decline.js`, `gsd-t-question-stop.js`: the other never-wait hooks
+- `scripts/gsd-t-decision-check.js`, `gsd-t-helper-decision-check.js`: each bullet under the exact heading `Decisions made` must quote a real source; sent back once, then the user is warned
+- `scripts/gsd-t-invention-guard.js`: denies a new line marked `recommended by Claude` with no source, unless named in `.gsd-t/inventions.json`
+- `bin/gsd-t.js`: `gsd-t questions on|off|status`, hook registration, uninstall removes the switches
+- `templates/CLAUDE-global.md`, `commands/gsd-t-architect.md`, `commands/gsd-t-red-team.md`: invention rule, weak batch approval, Inventions category
+- `test/never-wait.test.js`: 25 tests
+
+Known limits: the check proves the quoted words exist, not that they support the decision; it reads only listed decisions and marked lines. Projects whose rules tell Claude to mark and build its own recommendations must reword those rules, or the guard will refuse the writes.
+
 ## [6.4.10] - 2026-11-01
 
 ### Added — worktree lifecycle: nothing a worktree holds gets orphaned
