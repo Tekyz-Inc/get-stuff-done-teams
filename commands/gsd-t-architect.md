@@ -31,6 +31,11 @@ Empty → ask what to assess.
 
 ## Step 2: Interview — show your read, ask only what code can't answer
 
+**Questions off** (the default — `gsd-t questions status` says which): don't ask, and don't assume.
+For each question you would have asked: nothing calls for it → drop it. A source answers it → record the
+answer under "What I confirmed with you" as `Source: path/to/file "exact words"`. No source answers it →
+list it as an open question, plan nothing behind it, and in Step 6 build only the rest.
+
 1. **Show how it works today** as a short plain-English flow (format in Step 5), then what you
    believe *should* happen. Ask the user to correct it. This catches a wrong premise in one line.
 2. **Ask 2–5 questions, always including:**

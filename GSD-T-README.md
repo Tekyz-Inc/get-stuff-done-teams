@@ -48,7 +48,7 @@ Reach for a command when the work calls for it:
 
 ## 4. The red team
 
-`/gsd-t-red-team [branch | range | PR | description]` launches one fresh-context agent whose only job is to break the change: requirements gaps, boundary inputs, state and concurrency, permissions, money and data integrity, error paths (a fallback that hides a failure counts as a bug), regressions, and shallow tests. It reports only what it reproduced. CRITICAL/HIGH findings get fixed and re-attacked, two rounds at most, then it halts and reports to you. Skip it for routine work.
+`/gsd-t-red-team [branch | range | PR | description]` launches one fresh-context agent whose only job is to break the change: requirements gaps, boundary inputs, state and concurrency, permissions, money and data integrity, error paths (a fallback that hides a failure counts as a bug), regressions, shallow tests, and inventions (behavior no source asks for; run this one after any autonomous run). It reports only what it reproduced. CRITICAL/HIGH findings get fixed and re-attacked, two rounds at most, then it halts and reports to you. Skip it for routine work.
 
 ## 5. Debugging
 
@@ -79,6 +79,7 @@ gsd-t pick-worktree --name my-feature     # enter it, or create + provision it
 gsd-t pick-worktree --list                # free|busy per worktree
 gsd-t worktrees audit                     # merged / pushed / uncommitted for every worktree, branch, stash
 gsd-t worktrees finish <branch> --remove  # remove a merged worktree now (refuses one holding unique files)
+gsd-t questions on | off | status         # let Claude ask and show prompts in this session (default off: nothing waits on you)
 ```
 
 Each new worktree is recorded with its purpose and the branch it must merge into. Finished worktrees (merged, nothing unique in them) are removed at the next session start once no session has them open, or when you ask. A session-start hook warns about unpushed or stale worktrees, and releases push every branch and halt on an integration branch ahead of `main` with no recorded reason.
